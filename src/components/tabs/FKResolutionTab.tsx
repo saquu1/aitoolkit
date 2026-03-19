@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useSchema } from '@/hooks/useSchema'
+import { useSchema, ActiveProject } from '@/hooks/useSchema'
 import { 
   AlertTriangle,
   CheckCircle2,
@@ -27,7 +28,8 @@ import {
   ArrowRight,
   Zap,
   FileCode,
-  Sparkles
+  Sparkles,
+  FolderKanban
 } from 'lucide-react'
 
 interface MissingTableItem {
@@ -65,16 +67,20 @@ interface FKResolutionTabProps {
 }
 
 export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionComplete }: FKResolutionTabProps) {
+  const router = useRouter()
+  
   // Connect to shared schema state
   const { 
     parseResult, 
     missingTables: sharedMissingTables, 
     fkResolvedPercent: sharedFkPercent,
     totalTables: sharedTotalTables,
-    fkRelationships: sharedFkCount
+    fkRelationships: sharedFkCount,
+    activeProject,
+    setActiveProject
   } = useSchema()
   
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [queue, setQueue] = useState<ResolutionQueue | null>(null)
   const [statistics, setStatistics] = useState<any>(null)
   const [expandedTable, setExpandedTable] = useState<string | null>(null)
@@ -84,6 +90,27 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
   const [manualDesign, setManualDesign] = useState<any>(null)
   const [isResolving, setIsResolving] = useState(false)
   const [resolutionResult, setResolutionResult] = useState<any>(null)
+  const [availableProjects, setAvailableProjects] = useState<ActiveProject[]>([])
+  
+  // Get the effective project ID (from props, context, or first available)
+  const effectiveProjectId = projectId || activeProject?.id
+
+  // Load available projects on mount
+  useEffect(() => {
+    loadAvailableProjects()
+  }, [])
+  
+  // Load FK data when project changes
+  useEffect(() => {
+    if (effectiveProjectId) {
+      loadFKAnalysis(effectiveProjectId)
+    } else if (availableProjects.length > 0 && !activeProject) {
+      // Auto-select first project
+      const firstProject = availableProjects[0]
+      setActiveProject(firstProject)
+      loadFKAnalysis(firstProject.id)
+    }
+  }, [effectiveProjectId, availableProjects])
 
   // Analyze on mount if SQL content provided
   useEffect(() => {
@@ -91,6 +118,76 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
       analyzeSchema()
     }
   }, [sqlContent, projectId])
+  
+  const loadAvailableProjects = async () => {
+    try {
+      const response = await fetch('/api/projects')
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableProjects(data.projects || [])
+        // If no active project and we have projects, set the first one
+        if (!activeProject && data.projects?.length > 0) {
+          setActiveProject(data.projects[0])
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  const loadFKAnalysis = async (projId: string) => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/project-status?projectId=${projId}`)
+      if (response.ok) {
+        const data = await response.json()
+        const fkAnalysis = data.fkAnalysis || {}
+        
+        // Convert FK analysis to queue format
+        const missingTableItems: MissingTableItem[] = (fkAnalysis.missingTables || []).map((tableName: string, idx: number) => {
+          // Count references from CSHTML views
+          const cshtmlRefs = (data.cshtmlViews || []).flatMap((v: any) => 
+            (v.fields || []).filter((f: any) => f.isFK && f.fkTable === tableName)
+              .map((f: any) => ({ tableName: v.viewName, columnName: f.name }))
+          )
+          
+          return {
+            tableName,
+            status: 'missing',
+            priority: cshtmlRefs.length > 2 ? 'critical' : cshtmlRefs.length > 0 ? 'high' : 'medium',
+            blocksCount: cshtmlRefs.length,
+            referencedBy: cshtmlRefs,
+            resolutionStatus: 'pending'
+          }
+        })
+        
+        setQueue({
+          items: missingTableItems,
+          totalMissing: fkAnalysis.missingTables?.length || 0,
+          totalResolved: fkAnalysis.resolvedFKs || 0,
+          totalBlocked: missingTableItems.reduce((sum, item) => sum + item.blocksCount, 0),
+          circularDependencies: [],
+          buildOrder: []
+        })
+        
+        setStatistics({
+          totalTables: fkAnalysis.summary?.knownTables || 0,
+          complete: fkAnalysis.resolvedFKs || 0,
+          partial: 0,
+          missing: fkAnalysis.missingTables?.length || 0,
+          fkCompletion: fkAnalysis.totalFKs > 0 
+            ? Math.round((fkAnalysis.resolvedFKs / fkAnalysis.totalFKs) * 100) 
+            : 0
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load FK analysis:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const analyzeSchema = async () => {
     if (!projectId || !sqlContent) return
@@ -120,7 +217,7 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
   }
 
   const resolveViaUpload = async (tableName: string) => {
-    if (!projectId || !uploadContent.trim()) return
+    if (!effectiveProjectId || !uploadContent.trim()) return
     
     setIsResolving(true)
     try {
@@ -129,7 +226,7 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'resolve-upload',
-          projectId,
+          projectId: effectiveProjectId,
           tableName,
           sqlContent: uploadContent
         })
@@ -139,8 +236,8 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
       setResolutionResult(data)
       
       if (data.success) {
-        // Refresh queue
-        await loadQueue()
+        // Refresh analysis
+        await loadFKAnalysis(effectiveProjectId)
         onResolutionComplete?.()
       }
     } catch (error) {
@@ -151,7 +248,7 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
   }
 
   const resolveViaAI = async (tableName: string) => {
-    if (!projectId) return
+    if (!effectiveProjectId) return
     
     setIsResolving(true)
     try {
@@ -160,7 +257,7 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'resolve-ai',
-          projectId,
+          projectId: effectiveProjectId,
           tableName
         })
       })
@@ -169,7 +266,7 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
       setResolutionResult(data)
       
       if (data.success) {
-        await loadQueue()
+        await loadFKAnalysis(effectiveProjectId)
         onResolutionComplete?.()
       }
     } catch (error) {
@@ -180,10 +277,10 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
   }
 
   const loadQueue = async () => {
-    if (!projectId) return
+    if (!effectiveProjectId) return
     
     try {
-      const response = await fetch(`/api/fk-resolution?action=get-queue&projectId=${projectId}`)
+      const response = await fetch(`/api/fk-resolution?action=get-queue&projectId=${effectiveProjectId}`)
       const data = await response.json()
       if (data.success) {
         setQueue(data.queue)
@@ -211,6 +308,28 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
     }
   }
 
+  // No projects state
+  if (!isLoading && availableProjects.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <FolderKanban className="w-16 h-16 text-slate-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">No Projects Found</h2>
+          <p className="text-slate-400 mb-6">
+            Create a project first to analyze FK dependencies
+          </p>
+          <Button 
+            onClick={() => router.push('/?tab=projects')}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            <FolderKanban className="w-4 h-4 mr-2" />
+            Go to Projects
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -222,7 +341,7 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Project Selector */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">FK Dependency Resolution</h2>
@@ -230,19 +349,57 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
             Resolve missing table dependencies before generating schemas
           </p>
         </div>
-        {queue && (
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
-              <AlertTriangle className="w-3 h-3 mr-1" />
-              {queue.totalMissing} Missing
-            </Badge>
-            <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">
-              <GitBranch className="w-3 h-3 mr-1" />
-              {queue.totalBlocked} Blocked
-            </Badge>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Project Selector */}
+          {availableProjects.length > 0 && (
+            <select
+              value={activeProject?.id || ''}
+              onChange={(e) => {
+                const selected = availableProjects.find(p => p.id === e.target.value)
+                if (selected) {
+                  setActiveProject(selected)
+                  loadFKAnalysis(selected.id)
+                }
+              }}
+              className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white text-sm"
+            >
+              {availableProjects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
+          {queue && (
+            <>
+              <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
+                <AlertTriangle className="w-3 h-3 mr-1" />
+                {queue.totalMissing} Missing
+              </Badge>
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/30">
+                <GitBranch className="w-3 h-3 mr-1" />
+                {queue.totalBlocked} Blocked
+              </Badge>
+            </>
+          )}
+        </div>
       </div>
+      
+      {/* Active Project Info */}
+      {activeProject && (
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div 
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: activeProject.color || '#3b82f6' }}
+            >
+              <Database className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="font-medium text-white">{activeProject.name}</div>
+              <div className="text-sm text-slate-400">{activeProject.softwareType} • {activeProject.status}</div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Statistics Cards */}
       {statistics && (

@@ -18,7 +18,8 @@ import {
   Upload,
   Brain,
   GitBranch,
-  BarChart3
+  BarChart3,
+  BookOpen
 } from 'lucide-react'
 
 interface ProjectInfo {
@@ -49,6 +50,7 @@ const NAV_ITEMS = [
   { key: 'intelligence', label: 'Intelligence', icon: Brain, path: '/intelligence' },
   { key: 'modules', label: 'Modules', icon: GitBranch, path: '/modules' },
   { key: 'prisma', label: 'Prisma Schema', icon: Layers, path: '/prisma' },
+  { key: 'learning', label: 'Learning', icon: BookOpen, path: '/learning' },
   { key: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
 ]
 
