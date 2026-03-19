@@ -51,6 +51,9 @@ const publicApiRoutes = [
   "/api/phase3",
   "/api/session-status",
   "/api/session-actions",
+  "/api/organization-building",
+  "/api/schema-apply",
+  "/api/prompts",
 ]
 
 // Static file patterns to skip
