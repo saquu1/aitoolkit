@@ -8,6 +8,7 @@ import { SchemaProvider, useSchema } from '@/hooks/useSchema'
 import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
 import { Clock } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
+import { MemoryToggleButton } from '@/components/MemoryBreakdown'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -212,6 +213,8 @@ function AppContent() {
             {/* Session Status Badge (shows uptime + warnings) */}
             <SessionStatusBadge />
             <ColorSchemeSelector />
+            {/* Memory Breakdown Toggle */}
+            <MemoryToggleButton />
             <div 
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
               style={{ backgroundColor: `color-mix(in srgb, ${colors.primary} 10%, transparent)` }}
