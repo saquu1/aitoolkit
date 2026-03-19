@@ -2461,3 +2461,201 @@ Stage Summary:
 5. **Web Form Mapping**: SQL type → HTML input type → UI component suggestions
 6. **Healthcare Patterns**: PHI detection, HIS table classification, audit columns
 
+
+---
+## Organization Building Management UI - COMPLETED
+
+---
+Task ID: 31
+Agent: Main Agent
+Task: Create Organization Building Management UI
+
+Work Log:
+- Created `/src/components/tabs/OrganizationBuildingTab.tsx` with:
+  - 3-column layout for Buildings, Floors, and Rooms management
+  - Statistics cards showing total and active counts
+  - Search and filter functionality for each entity type
+  - CRUD operations with modal forms for all three entities
+  - Status indicators (isActive) with visual icons
+  - Delete confirmation dialogs with cascade warning
+  - Room type dropdown with 13 predefined types
+  - Full theme integration using useTheme hook
+  - Responsive design with shadcn/ui components
+- Created `/src/app/project/[id]/organization/page.tsx` with:
+  - Simple page that wraps the OrganizationBuildingTab component
+  - Consistent with other project pages structure
+- Updated `/src/app/project/[id]/layout.tsx` with:
+  - Added Building2 icon import from lucide-react
+  - Added "Organization" navigation link in sidebar
+  - Positioned after "Modules" and before "Prisma Schema"
+
+Stage Summary:
+- OrganizationBuildingTab.tsx: 900+ lines
+- organization/page.tsx: 12 lines
+- layout.tsx: Updated with new navigation
+- Complete 3-level hierarchy management UI
+- Integrates with existing API at `/api/organization-building`
+
+### Files Created/Modified:
+1. `/src/components/tabs/OrganizationBuildingTab.tsx` - Main tab component (NEW)
+2. `/src/app/project/[id]/organization/page.tsx` - Page route (NEW)
+3. `/src/app/project/[id]/layout.tsx` - Navigation update (MODIFIED)
+
+### Features Implemented:
+- **Building Management:**
+  - List view with floor count and location info
+  - Create/Edit modal with full address fields
+  - Status toggle (active/inactive)
+  - Delete with cascade warning
+  
+- **Floor Management:**
+  - Filtered by selected building
+  - Create/Edit modal with floor number
+  - Room count display
+  - Status toggle
+  
+- **Room Management:**
+  - Filtered by selected floor
+  - Create/Edit modal with room type and capacity
+  - Room type dropdown (Office, Meeting Room, etc.)
+  - Status toggle
+
+---
+## Task ID: schema-apply-feature - Main Agent
+### Work Task
+Create Schema Apply feature for the Schema Architect project with API route, component, and page.
+
+### Work Summary
+
+**Files Created:**
+
+1. **Prisma Model** - Added `SchemaApply` model to `prisma/schema.prisma`:
+   - Fields: id, projectId, name, schemaType (sql/prisma), schemaContent, status, appliedAt, rolledBackAt, error, timestamps
+   - Indexes on projectId and status
+
+2. **API Route** - Created `/src/app/api/schema-apply/route.ts`:
+   - **GET Handler**:
+     - `list` - List all schema applies for a project
+     - `get` - Get a specific schema apply record
+     - `stats` - Get statistics (count by status)
+   
+   - **POST Handler**:
+     - `preview` - Parse and preview schema (dry run)
+     - `validate` - Validate schema syntax and structure
+     - `apply` - Apply schema to project (creates ToolkitTable records)
+     - `rollback` - Rollback applied schema
+     - `delete` - Delete pending schema
+
+3. **SchemaApplyTab Component** - Created `/src/components/tabs/SchemaApplyTab.tsx`:
+   - Editor tab with schema input (SQL DDL / Prisma)
+   - Schema type selector (SQL / Prisma)
+   - Sample schema loader
+   - Preview tab showing:
+     - Validation status with errors/warnings
+     - Stats cards (tables, columns, foreign keys, warnings)
+     - Parsed tables with expandable column details
+     - Foreign key relationships
+   - History tab showing applied schemas
+   - Rollback and delete functionality
+   - Confirmation dialog for apply action
+
+4. **Page** - Created `/src/app/project/[id]/schema-apply/page.tsx`:
+   - Header with back button
+   - SchemaApplyTab component integration
+
+**Navigation Updated:**
+- Updated `/src/app/project/[id]/layout.tsx`:
+  - Added `Play` icon import
+  - Added 'Schema Apply' menu item between FK Resolution and Intelligence
+
+**Features Implemented:**
+- Parse SQL DDL schemas using existing `parseSqlServer()` function
+- Parse Prisma schemas with basic regex parsing
+- Preview changes before applying
+- Validate schema syntax
+- Track applied schemas in database
+- Rollback capability
+- History view with status badges
+
+**Technical Stack Used:**
+- Next.js 15 API Routes
+- Prisma ORM for database operations
+- shadcn/ui components (Card, Button, Badge, Tabs, Textarea, Input, Select, AlertDialog, Progress)
+- Lucide icons
+- useTheme hook for theming
+- useSchema hook for project context
+
+---
+## Prompts Management System - COMPLETED
+
+---
+Task ID: prompts-management
+Agent: Main Agent
+Task: Create Prompts Management System for Schema Architect
+
+Work Log:
+1. **Database Model** - Added PromptTemplate model to prisma/schema.prisma:
+   - id, name, key (unique), category, description
+   - template (the prompt content), variables (JSON array)
+   - isDefault, isActive, version
+   - createdAt, updatedAt timestamps
+   - Indexes on category, key, and isActive
+
+2. **API Route** - Created `/src/app/api/prompts/route.ts`:
+   - GET actions: list, get, get-by-key, categories, stats, seed
+   - POST actions: create, update, delete, duplicate, set-default, render, toggle-active, seed
+   - Auto-extraction of variables from template using regex
+   - Render preview with test variables
+   - Default prompts seeding functionality
+
+3. **Default Prompts** - 7 default prompts defined:
+   - schema_analysis (analysis): Analyze table structure
+   - fk_resolution (resolution): Resolve FK relationships
+   - column_intelligence (analysis): Extract column metadata
+   - prisma_generation (generation): Generate Prisma schemas
+   - react_component_generation (generation): Generate React components
+   - api_route_generation (generation): Generate API routes
+   - chat_assistant (chat): AI chat assistance
+
+4. **UI Component** - Created `/src/components/tabs/PromptsTab.tsx`:
+   - Stats cards showing total, active, defaults, categories
+   - Category filter tabs (All, Analysis, Generation, Resolution, Chat)
+   - Search functionality
+   - Prompt cards with variables display
+   - Create/Edit dialog with template editor
+   - Preview dialog with test variables and rendered output
+   - Duplicate, Set as Default, Toggle Active, Delete actions
+   - Version tracking display
+
+5. **Page** - Created `/src/app/project/[id]/prompts/page.tsx`:
+   - Integrates PromptsTab component
+
+6. **Navigation** - Updated `/src/app/project/[id]/layout.tsx`:
+   - Added MessageSquare icon import
+   - Added 'Prompts' navigation item with MessageSquare icon
+
+Stage Summary:
+- Complete CRUD for prompt templates
+- Auto-extraction of template variables
+- Preview with test variables
+- 7 default prompts for schema analysis and generation
+- Category-based organization
+- Search and filter capabilities
+- Version tracking for changes
+
+Files Created:
+- `/prisma/schema.prisma` - Added PromptTemplate model
+- `/src/app/api/prompts/route.ts` - API route (500+ lines)
+- `/src/components/tabs/PromptsTab.tsx` - UI component (750+ lines)
+- `/src/app/project/[id]/prompts/page.tsx` - Page
+
+Features:
+- Template management with CRUD operations
+- Variable auto-extraction using `{variable_name}` syntax
+- Category organization (analysis, generation, resolution, chat)
+- Default prompts seeding
+- Preview with test variables
+- Duplicate functionality
+- Set as default per category
+- Version tracking
+- Active/inactive toggle

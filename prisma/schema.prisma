@@ -1689,6 +1689,30 @@ model AjaxCallCache {
   @@index([method])
 }
 
+// ============================================================================
+// PROMPTS MANAGEMENT MODELS
+// ============================================================================
+
+/// Prompt Template for AI operations
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  key         String   @unique  // e.g., "schema_analysis", "fk_resolution"
+  category    String   // e.g., "analysis", "generation", "resolution", "chat"
+  description String?
+  template    String   // The prompt template content
+  variables   String?  // JSON array of variable names
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([key])
+  @@index([isActive])
+}
+
 /// Event Handler Cache
 model EventHandlerCache {
   id                String   @id @default(cuid())
@@ -4332,3 +4356,26 @@ model Room {
   @@index([isActive])
   @@index([roomType])
 }
+
+// ============================================================================
+// SCHEMA APPLY MODELS
+// ============================================================================
+
+/// Schema Apply - Track applied schema changes
+model SchemaApply {
+  id            String    @id @default(cuid())
+  projectId     String
+  name          String
+  schemaType    String    // "sql" or "prisma"
+  schemaContent String    // Schema content
+  status        String    @default("pending") // pending, applied, failed, rolled_back
+  appliedAt     DateTime?
+  rolledBackAt  DateTime?
+  error         String?   // Error message if failed
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
+

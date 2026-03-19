@@ -19,7 +19,10 @@ import {
   Brain,
   GitBranch,
   BarChart3,
-  BookOpen
+  BookOpen,
+  Building2,
+  Play,
+  MessageSquare
 } from 'lucide-react'
 
 interface ProjectInfo {
@@ -47,10 +50,13 @@ const NAV_ITEMS = [
   { key: 'procedures', label: 'Procedures', icon: Code, path: '/procedures' },
   { key: 'views', label: 'CSHTML Views', icon: FileText, path: '/views' },
   { key: 'fk-resolution', label: 'FK Resolution', icon: Key, path: '/fk-resolution' },
+  { key: 'schema-apply', label: 'Schema Apply', icon: Play, path: '/schema-apply' },
   { key: 'intelligence', label: 'Intelligence', icon: Brain, path: '/intelligence' },
   { key: 'modules', label: 'Modules', icon: GitBranch, path: '/modules' },
+  { key: 'organization', label: 'Organization', icon: Building2, path: '/organization' },
   { key: 'prisma', label: 'Prisma Schema', icon: Layers, path: '/prisma' },
   { key: 'learning', label: 'Learning', icon: BookOpen, path: '/learning' },
+  { key: 'prompts', label: 'Prompts', icon: MessageSquare, path: '/prompts' },
   { key: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
 ]
 
