@@ -4256,3 +4256,79 @@ model ProjectModule {
   @@index([moduleKey])
   @@index([status])
 }
+
+// =============================================================================
+// ORGANIZATION BUILDING MODULE (Building → Floor → Room)
+// =============================================================================
+
+/// Building - Top level organizational structure
+model Building {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  code          String?   @unique
+  address       String?
+  city          String?
+  state         String?
+  country       String?
+  postalCode    String?
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  floors         Floor[]
+
+  @@index([name])
+  @@index([isActive])
+  @@index([code])
+}
+
+/// Floor - Second level in building hierarchy
+model Floor {
+  id            String   @id @default(cuid())
+  buildingId    String
+  name          String
+  description   String?
+  code          String?
+  floorNumber   Int?
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  building       Building  @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms          Room[]
+
+  @@unique([buildingId, name])
+  @@index([buildingId])
+  @@index([floorNumber])
+  @@index([isActive])
+}
+
+/// Room - Third level in building hierarchy
+model Room {
+  id            String   @id @default(cuid())
+  floorId       String
+  name          String
+  description   String?
+  code          String?
+  roomNumber    String?
+  capacity      Int?
+  roomType      String?   // Office, Meeting, Storage, etc.
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  floor          Floor     @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+  @@unique([floorId, name])
+  @@index([floorId])
+  @@index([roomNumber])
+  @@index([isActive])
+  @@index([roomType])
+}
