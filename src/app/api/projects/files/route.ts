@@ -3,6 +3,49 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Detect and convert UTF-16 encoding (common with SSMS exports)
+function normalizeEncoding(content: string): string {
+  if (!content) return content
+  
+  // Check for UTF-16 LE BOM (FF FE) or UTF-16 BE BOM (FE FF)
+  // In string form, this appears as extra null characters
+  
+  // Detect UTF-16 LE pattern: characters separated by null bytes
+  // Example: "U\0S\0E\0" instead of "USE"
+  if (content.includes('\u0000')) {
+    // Has null bytes - likely UTF-16
+    try {
+      // Remove null bytes and decode
+      const cleaned = content.replace(/\u0000/g, '')
+      // Check if result looks valid
+      if (cleaned.length > 0 && /[a-zA-Z]/.test(cleaned)) {
+        return cleaned
+      }
+    } catch (e) {
+      console.warn('UTF-16 decode attempt failed:', e)
+    }
+  }
+  
+  // Check for spaced character pattern (each char separated by space)
+  // This happens when UTF-16 is incorrectly converted
+  const spacedPattern = content.match(/^(?:[A-Za-z]\s)+[A-Za-z]?$/)
+  if (spacedPattern && content.length > 20) {
+    // Remove the spaces between characters
+    const compacted = content.replace(/\s+/g, '')
+    if (compacted.length > 0) {
+      return compacted
+    }
+  }
+  
+  // Check for pattern where every character is followed by a space
+  // "U S E " -> "USE"
+  if (/^(\S\s)+$/.test(content) && content.length > 10) {
+    return content.replace(/\s/g, '')
+  }
+  
+  return content
+}
+
 // GET - List files in a project or get a single file
 export async function GET(request: NextRequest) {
   try {
@@ -91,7 +134,11 @@ export async function POST(request: NextRequest) {
       for (const entry of fileEntries) {
         if (entry instanceof File) {
           const file = entry as File
-          const content = await file.text()
+          let content = await file.text()
+          
+          // Handle UTF-16 encoding (common with SSMS exports)
+          content = normalizeEncoding(content)
+          
           const lineCount = content.split('\n').length
           
           // Determine file type from extension
