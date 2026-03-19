@@ -1121,34 +1121,67 @@ async function reparseProject(projectId: string) {
     return NextResponse.json({ success: true, message: 'No pending files to parse' })
   }
 
+  // Process each file individually to get accurate counts
+  let totalTables = 0
+  let totalProcedures = 0
+  const processedFiles: string[] = []
+
+  for (const file of files) {
+    const ext = file.fileName.split('.').pop()?.toLowerCase() || ''
+    
+    // Mark as parsing
+    await db.toolkitFile.update({
+      where: { id: file.id },
+      data: { parseStatus: 'parsing' }
+    })
+
+    let tablesFound = 0
+    let proceduresFound = 0
+
+    // Parse based on file type
+    if (ext === 'sql') {
+      const parsed = parseSQLContent(file.content || '')
+      tablesFound = parsed.tables.length
+      proceduresFound = parsed.procedures.length
+    } else if (ext === 'cshtml' || ext === 'vbhtml') {
+      const parsed = parseCSHTMLContent(file.content || '', file.fileName)
+      tablesFound = parsed.discoveredTables?.length || (parsed.modelName ? 1 : 0)
+    }
+
+    // Update file with correct counts
+    await db.toolkitFile.update({
+      where: { id: file.id },
+      data: { 
+        parseStatus: 'parsed',
+        parsedAt: new Date(),
+        tablesFound,
+        proceduresFound
+      }
+    })
+
+    totalTables += tablesFound
+    totalProcedures += proceduresFound
+    processedFiles.push(file.fileName)
+  }
+
+  // Now parse and store the actual tables to ToolkitTable
   const filesToParse = files.map(f => ({
     name: f.fileName,
     content: f.content || '',
     path: f.filePath || f.fileName
   }))
 
-  // Mark files as parsing
-  await db.toolkitFile.updateMany({
-    where: { projectId, parseStatus: 'pending' },
-    data: { parseStatus: 'parsing' }
-  })
-
   const result: any = await parseAllFiles(filesToParse, projectId)
-
-  // Update file statuses
-  await db.toolkitFile.updateMany({
-    where: { projectId, parseStatus: 'parsing' },
-    data: { 
-      parseStatus: 'parsed',
-      parsedAt: new Date(),
-      tablesFound: result.summary?.totalTables || 0,
-      proceduresFound: result.summary?.totalProcedures || 0
-    }
-  })
 
   return NextResponse.json({ 
     success: true, 
     filesProcessed: files.length,
+    processedFiles,
+    summary: {
+      totalTables,
+      totalProcedures,
+      ...result.summary
+    },
     ...result
   })
 }
