@@ -47,5 +47,18 @@ test
 prompt
 
 server.log
+
 # Skills directory
 /skills/
+
+# Database files (use backup/restore instead)
+db/*.db
+db/*.db-journal
+*.db-shm
+*.db-wal
+
+# Backup folder (auto-generated)
+backup/
+
+# Upload folder (user files, not for git)
+upload/
