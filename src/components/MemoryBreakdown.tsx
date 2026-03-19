@@ -133,7 +133,17 @@ export function MemoryBreakdown({ isOpen, onClose }: MemoryBreakdownProps) {
               </span>}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Close button - more prominent */}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-all border border-slate-600 hover:border-red-500 flex items-center gap-2 font-medium"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+              <span className="text-sm">Close</span>
+            </button>
+            {/* Refresh button */}
             <button
               onClick={fetchStats}
               disabled={loading}
@@ -141,12 +151,6 @@ export function MemoryBreakdown({ isOpen, onClose }: MemoryBreakdownProps) {
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
             </button>
           </div>
         </div>

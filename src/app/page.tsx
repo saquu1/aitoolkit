@@ -210,11 +210,11 @@ function AppContent() {
                 System Ready
               </span>
             </div>
+            {/* Memory Breakdown Toggle - first */}
+            <MemoryToggleButton />
             {/* Session Status Badge (shows uptime + warnings) */}
             <SessionStatusBadge />
             <ColorSchemeSelector />
-            {/* Memory Breakdown Toggle */}
-            <MemoryToggleButton />
             <div 
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
               style={{ backgroundColor: `color-mix(in srgb, ${colors.primary} 10%, transparent)` }}
