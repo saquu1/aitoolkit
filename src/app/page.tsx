@@ -9,6 +9,8 @@ import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
 import { Clock } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
 import { MemoryToggleButton } from '@/components/MemoryBreakdown'
+import { ThreadStatusBadge } from '@/components/ThreadStatusBadge'
+import { ThreadBreakdown } from '@/components/ThreadBreakdown'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -97,6 +99,7 @@ function AppContent() {
 
   // Session uptime tracking
   const [uptime, setUptime] = useState(0)
+  const [showThreadBreakdown, setShowThreadBreakdown] = useState(false)
 
   useEffect(() => {
     // Update uptime every second
@@ -210,7 +213,9 @@ function AppContent() {
                 System Ready
               </span>
             </div>
-            {/* Memory Breakdown Toggle - first */}
+            {/* Thread Status Badge */}
+            <ThreadStatusBadge onClick={() => setShowThreadBreakdown(true)} />
+            {/* Memory Breakdown Toggle */}
             <MemoryToggleButton />
             {/* Session Status Badge (shows uptime + warnings) */}
             <SessionStatusBadge />
@@ -361,6 +366,12 @@ function AppContent() {
 
         {/* Workspace Panel removed */}
       </div>
+
+      {/* Thread Breakdown Modal */}
+      <ThreadBreakdown 
+        isOpen={showThreadBreakdown} 
+        onClose={() => setShowThreadBreakdown(false)} 
+      />
     </div>
   )
 }
