@@ -44,6 +44,21 @@ export async function POST(req: NextRequest) {
       case 'export-rules':
         return await exportRules(body);
       
+      case 'analyze-columns':
+        return await analyzeColumns(body);
+      
+      case 'discover-relationships':
+        return await discoverRelationships(body);
+      
+      case 'infer-rules':
+        return await inferBusinessRules(body);
+      
+      case 'score-health':
+        return await scoreSchemaHealth(body);
+      
+      case 'link-modules':
+        return await linkModules(body);
+      
       default:
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
@@ -462,4 +477,343 @@ function singularize(tableName: string): string {
   if (lower.endsWith('s')) return lower.slice(0, -1);
   
   return tableName;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLUMN INTELLIGENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function analyzeColumns(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]')
+    }));
+  }
+  
+  let totalColumns = 0;
+  let pkColumns = 0;
+  let fkColumns = 0;
+  let nullableColumns = 0;
+  const columnTypes: Record<string, number> = {};
+  
+  for (const table of projectTables) {
+    for (const col of (table.columns || [])) {
+      totalColumns++;
+      if (col.isPrimaryKey) pkColumns++;
+      if (col.isFK || col.name.endsWith('Id')) fkColumns++;
+      if (col.nullable) nullableColumns++;
+      
+      const type = (col.dataType || col.type || 'unknown').toUpperCase();
+      columnTypes[type] = (columnTypes[type] || 0) + 1;
+    }
+  }
+  
+  return NextResponse.json({
+    success: true,
+    statistics: {
+      totalTables: projectTables.length,
+      totalColumns,
+      pkColumns,
+      fkColumns,
+      nullableColumns,
+      columnTypes
+    },
+    itemsProcessed: totalColumns
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RELATIONSHIP DISCOVERY
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function discoverRelationships(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]'),
+      foreignKeys: JSON.parse(t.foreignKeys || '[]')
+    }));
+  }
+  
+  const relationships: any[] = [];
+  const tableNames = new Set(projectTables.map((t: any) => t.tableName.toLowerCase()));
+  
+  for (const table of projectTables) {
+    // From explicit FKs
+    for (const fk of (table.foreignKeys || [])) {
+      relationships.push({
+        from: table.tableName,
+        to: fk.referencesTable || fk.referencedTable,
+        column: fk.column || fk.columnName,
+        type: 'explicit'
+      });
+    }
+    
+    // From naming convention (Id suffix)
+    for (const col of (table.columns || [])) {
+      if (col.name.endsWith('Id') && col.name !== 'Id') {
+        const refTable = col.name.replace(/Id$/, '');
+        if (tableNames.has(refTable.toLowerCase())) {
+          relationships.push({
+            from: table.tableName,
+            to: refTable,
+            column: col.name,
+            type: 'inferred'
+          });
+        }
+      }
+    }
+  }
+  
+  return NextResponse.json({
+    success: true,
+    relationships,
+    statistics: {
+      totalRelationships: relationships.length,
+      explicit: relationships.filter(r => r.type === 'explicit').length,
+      inferred: relationships.filter(r => r.type === 'inferred').length
+    },
+    itemsProcessed: relationships.length
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUSINESS RULES INFERENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function inferBusinessRules(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]')
+    }));
+  }
+  
+  const rules: any[] = [];
+  
+  for (const table of projectTables) {
+    // Infer rules from column names
+    for (const col of (table.columns || [])) {
+      const colLower = col.name.toLowerCase();
+      
+      if (colLower.includes('email')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Valid email format required',
+          type: 'validation'
+        });
+      }
+      
+      if (colLower.includes('phone') || colLower.includes('mobile')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Valid phone format required',
+          type: 'validation'
+        });
+      }
+      
+      if (colLower.startsWith('is') || colLower.startsWith('has')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Boolean flag - default false',
+          type: 'default'
+        });
+      }
+      
+      if (colLower.includes('created') || colLower.includes('modified')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Audit field - auto-managed',
+          type: 'audit'
+        });
+      }
+    }
+  }
+  
+  return NextResponse.json({
+    success: true,
+    rules,
+    statistics: {
+      totalRules: rules.length,
+      validation: rules.filter(r => r.type === 'validation').length,
+      default: rules.filter(r => r.type === 'default').length,
+      audit: rules.filter(r => r.type === 'audit').length
+    },
+    itemsProcessed: rules.length
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEMA HEALTH SCORE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function scoreSchemaHealth(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]'),
+      foreignKeys: JSON.parse(t.foreignKeys || '[]')
+    }));
+  }
+  
+  let totalScore = 0;
+  const maxScore = 100;
+  const details: string[] = [];
+  
+  // Check for PKs (25 points)
+  const tablesWithPK = projectTables.filter((t: any) => 
+    (t.columns || []).some((c: any) => c.isPrimaryKey)
+  ).length;
+  const pkScore = projectTables.length > 0 ? (tablesWithPK / projectTables.length) * 25 : 0;
+  totalScore += pkScore;
+  if (pkScore < 25) details.push('Some tables missing primary keys');
+  
+  // Check for FKs (25 points)
+  const tablesWithFK = projectTables.filter((t: any) => 
+    (t.foreignKeys || []).length > 0
+  ).length;
+  const fkScore = projectTables.length > 0 ? Math.min((tablesWithFK / projectTables.length) * 25, 25) : 0;
+  totalScore += fkScore;
+  
+  // Check for naming conventions (25 points)
+  const wellNamed = projectTables.filter((t: any) => 
+    /^[A-Z][a-zA-Z0-9_]*$/.test(t.tableName)
+  ).length;
+  const namingScore = projectTables.length > 0 ? (wellNamed / projectTables.length) * 25 : 0;
+  totalScore += namingScore;
+  
+  // Check for audit columns (25 points)
+  const tablesWithAudit = projectTables.filter((t: any) => 
+    (t.columns || []).some((c: any) => 
+      c.name.toLowerCase().includes('created') || 
+      c.name.toLowerCase().includes('modified')
+    )
+  ).length;
+  const auditScore = projectTables.length > 0 ? (tablesWithAudit / projectTables.length) * 25 : 0;
+  totalScore += auditScore;
+  if (auditScore < 25) details.push('Some tables missing audit columns');
+  
+  const healthScore = Math.round(totalScore);
+  
+  return NextResponse.json({
+    success: true,
+    healthScore,
+    maxScore,
+    breakdown: {
+      primaryKeys: Math.round(pkScore),
+      foreignKeys: Math.round(fkScore),
+      naming: Math.round(namingScore),
+      audit: Math.round(auditScore)
+    },
+    recommendations: details,
+    statistics: {
+      totalTables: projectTables.length,
+      tablesWithPK,
+      tablesWithFK,
+      tablesWithAudit
+    },
+    itemsProcessed: projectTables.length
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODULE LINKING
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function linkModules(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]')
+    }));
+  }
+  
+  // Module detection patterns
+  const modulePatterns: Record<string, string[]> = {
+    'Patient': ['patient', 'appointment', 'diagnosis', 'treatment', 'medicalrecord'],
+    'Billing': ['invoice', 'payment', 'claim', 'charge', 'transaction'],
+    'Pharmacy': ['prescription', 'medication', 'drug', 'dispense', 'stock'],
+    'Laboratory': ['test', 'result', 'sample', 'specimen', 'lab'],
+    'User': ['user', 'role', 'permission', 'staff', 'employee'],
+    'Inventory': ['item', 'stock', 'purchase', 'supplier', 'warehouse'],
+    'Schedule': ['schedule', 'shift', 'calendar', 'booking', 'slot'],
+    'Report': ['report', 'analytics', 'dashboard', 'summary']
+  };
+  
+  const linkedModules: Record<string, string[]> = {};
+  
+  for (const table of projectTables) {
+    const tableName = table.tableName.toLowerCase();
+    
+    for (const [module, patterns] of Object.entries(modulePatterns)) {
+      if (patterns.some(p => tableName.includes(p))) {
+        if (!linkedModules[module]) linkedModules[module] = [];
+        linkedModules[module].push(table.tableName);
+        break;
+      }
+    }
+  }
+  
+  const totalLinked = Object.values(linkedModules).flat().length;
+  
+  return NextResponse.json({
+    success: true,
+    modules: linkedModules,
+    statistics: {
+      totalTables: projectTables.length,
+      linkedTables: totalLinked,
+      modulesFound: Object.keys(linkedModules).length
+    },
+    itemsProcessed: totalLinked
+  });
 }
