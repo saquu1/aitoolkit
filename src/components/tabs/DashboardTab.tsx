@@ -39,7 +39,10 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     modulesLinked,
     linkedModules,
     moduleSummary,
-    missingTables 
+    missingTables,
+    dbStats,
+    dbStatsLoading,
+    refreshDbStats
   } = useSchema()
 
   // Helper function to create semi-transparent colors
@@ -54,6 +57,23 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     fkResolved: fkResolvedPercent,
     modulesLinked: modulesLinked,
     healthScore: totalTables > 0 ? Math.round((fkResolvedPercent + (modulesLinked / 35 * 100)) / 2) : 0,
+  }
+  
+  // Format last sync time
+  const formatLastSync = (dateStr: string | null) => {
+    if (!dateStr) return 'Never'
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+    
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString()
   }
 
   const agentLayers = [
@@ -133,9 +153,12 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
             }}
           >
             <Clock className="w-3 h-3 mr-1" />
-            Last sync: Never
+            Last sync: {formatLastSync(dbStats?.lastSync || null)}
           </Badge>
-          <Button style={{ backgroundColor: colors.primary }}>
+          <Button 
+            style={{ backgroundColor: colors.primary }}
+            onClick={() => onNavigate?.('pipeline')}
+          >
             <Activity className="w-4 h-4 mr-2" />
             Run Full Analysis
           </Button>
@@ -333,8 +356,8 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         ))}
       </div>
 
-      {/* Getting Started */}
-      {stats.tablesParsed === 0 && (
+      {/* Getting Started - only show if no tables in DB */}
+      {totalTables === 0 && !dbStatsLoading && (
         <div 
           className="rounded-xl border p-6"
           style={{ 

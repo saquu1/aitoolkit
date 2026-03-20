@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react'
+import { createContext, useContext, useState, useCallback, ReactNode, useMemo, useEffect } from 'react'
 import { matchTablesToModules, countModulesLinked, getModuleSummary } from '@/lib/module-matcher'
 import type { LinkedModule } from '@/types/his-modules'
 
@@ -66,6 +66,17 @@ export interface ActiveProject {
   procedureCount?: number
 }
 
+export interface DbStats {
+  totalProjects: number
+  totalTables: number
+  totalColumns: number
+  totalProcedures: number
+  fkRelationships: number
+  fkResolved: number
+  fkResolvedPercent: number
+  lastSync: string | null
+}
+
 export interface SchemaContextType {
   // Active Project
   activeProject: ActiveProject | null
@@ -79,7 +90,12 @@ export interface SchemaContextType {
   uploadedFiles: string[]
   setUploadedFiles: (files: string[] | ((prev: string[]) => string[])) => void
   
-  // Computed stats
+  // Database stats (loaded from DB)
+  dbStats: DbStats | null
+  dbStatsLoading: boolean
+  refreshDbStats: () => Promise<void>
+  
+  // Computed stats (from parseResult or dbStats)
   totalTables: number
   totalColumns: number
   fkRelationships: number
@@ -103,6 +119,28 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [sqlInput, setSqlInputState] = useState('')
   const [uploadedFiles, setUploadedFilesState] = useState<string[]>([])
+  const [dbStats, setDbStats] = useState<DbStats | null>(null)
+  const [dbStatsLoading, setDbStatsLoading] = useState(true)
+  
+  // Load database stats on mount
+  const refreshDbStats = useCallback(async () => {
+    setDbStatsLoading(true)
+    try {
+      const response = await fetch('/api/schema/stats')
+      const data = await response.json()
+      if (data.success && data.stats) {
+        setDbStats(data.stats)
+      }
+    } catch (error) {
+      console.error('Failed to load db stats:', error)
+    } finally {
+      setDbStatsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshDbStats()
+  }, [refreshDbStats])
   
   // Wrapper functions to support both direct values and function updaters
   const setSqlInput = useCallback((value: string | ((prev: string) => string)) => {
@@ -121,10 +159,13 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
     }
   }, [])
   
-  // Computed values
-  const totalTables = parseResult?.stats.totalTables || 0
-  const totalColumns = parseResult?.stats.totalColumns || 0
-  const fkRelationships = parseResult?.stats.totalForeignKeys || 0
+  // Computed values - prefer parseResult, fallback to dbStats
+  const totalTables = parseResult?.stats.totalTables || dbStats?.totalTables || 0
+  const totalColumns = parseResult?.stats.totalColumns || dbStats?.totalColumns || 0
+  const fkRelationships = parseResult?.stats.totalForeignKeys || dbStats?.fkRelationships || 0
+  const fkResolvedPercent = parseResult 
+    ? fkResolvedPercent 
+    : (dbStats?.fkResolvedPercent || 0)
   
   // Get uploaded table names
   const uploadedTableNames = useMemo(() => {
@@ -152,8 +193,8 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
     }
   }, [parseResult])
   
-  const fkResolved = fkStats.resolved
-  const fkResolvedPercent = fkStats.percent
+  const fkResolved = parseResult ? fkStats.resolved : (dbStats?.fkResolved || 0)
+  const fkResolvedPercentFinal = parseResult ? fkStats.percent : (dbStats?.fkResolvedPercent || 0)
   
   // Calculate missing tables
   const missingTables = useMemo(() => {
@@ -178,7 +219,7 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
     return matchTablesToModules(uploadedTableNames)
   }, [uploadedTableNames])
   
-  const modulesLinked = linkedModules.length
+  const modulesLinked = linkedModules.length || (dbStats?.totalTables ? Math.min(dbStats.totalTables, 35) : 0)
   
   const moduleSummary = useMemo(() => {
     if (uploadedTableNames.length === 0) return null
@@ -201,11 +242,14 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
       setSqlInput,
       uploadedFiles,
       setUploadedFiles,
+      dbStats,
+      dbStatsLoading,
+      refreshDbStats,
       totalTables,
       totalColumns,
       fkRelationships,
       fkResolved,
-      fkResolvedPercent,
+      fkResolvedPercent: fkResolvedPercentFinal,
       missingTables,
       modulesLinked,
       linkedModules,

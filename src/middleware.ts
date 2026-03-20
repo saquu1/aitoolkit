@@ -56,6 +56,7 @@ const publicApiRoutes = [
   "/api/prompts",
   "/api/memory-stats",
   "/api/system/threads",
+  "/api/schema/stats",
 ]
 
 // Static file patterns to skip
