@@ -1,0 +1,3852 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AIConversation {
+  id        String      @id
+  title     String
+  context   String      @default("general")
+  projectId String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime
+  AIMessage AIMessage[]
+
+  @@index([context])
+  @@index([projectId])
+}
+
+model AIMessage {
+  id             String         @id
+  conversationId String
+  role           String
+  content        String
+  metadata       String?
+  createdAt      DateTime       @default(now())
+  AIConversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([role])
+  @@index([conversationId])
+}
+
+model AIQuestionRecord {
+  id                String   @id
+  questionId        String   @unique
+  category          String
+  question          String
+  context           String?
+  options           String   @default("[]")
+  allowsMultiple    Boolean  @default(false)
+  allowsCustomInput Boolean  @default(false)
+  priority          String   @default("medium")
+  impact            String?
+  defaultValue      String?
+  answer            String?
+  relatedColumns    String   @default("[]")
+  relatedTables     String   @default("[]")
+  tableName         String?
+  moduleName        String?
+  sessionId         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+
+  @@index([sessionId])
+  @@index([tableName])
+  @@index([priority])
+  @@index([category])
+}
+
+model APIEndpoint {
+  id            String     @id
+  controllerId  String
+  endpointKey   String     @unique
+  methodName    String
+  httpMethod    String     @default("GET")
+  route         String
+  routePrefix   String?
+  parameters    String     @default("[]")
+  requestBody   String?
+  responseBody  String?
+  responseType  String?
+  sourceSP      String?
+  sourceTable   String?
+  requiresAuth  Boolean    @default(true)
+  requiredRoles String     @default("[]")
+  summary       String?
+  description   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime
+  Controller    Controller @relation(fields: [controllerId], references: [id], onDelete: Cascade)
+
+  @@index([sourceSP])
+  @@index([httpMethod])
+  @@index([controllerId])
+}
+
+model APIGenerationResult {
+  id                   String    @id
+  projectId            String
+  moduleName           String
+  entityName           String
+  sourceSPs            String    @default("[]")
+  sourceTables         String    @default("[]")
+  routeFilePath        String
+  routeFileContent     String
+  typeFilePath         String?
+  typeFileContent      String?
+  validationFilePath   String?
+  validationContent    String?
+  testFilePath         String?
+  testFileContent      String?
+  generationConfidence Float     @default(0.0)
+  compilable           Boolean   @default(false)
+  hasTypeErrors        Boolean   @default(false)
+  warningCount         Int       @default(0)
+  errorCount           Int       @default(0)
+  validationLog        String    @default("[]")
+  status               String    @default("generated")
+  reviewedBy           String?
+  reviewedAt           DateTime?
+  approvedBy           String?
+  approvedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime
+
+  @@unique([projectId, moduleName, entityName])
+  @@index([status])
+  @@index([entityName])
+  @@index([moduleName])
+  @@index([projectId])
+}
+
+model APIKey {
+  id          String    @id
+  companyId   String
+  name        String
+  keyHash     String    @unique
+  prefix      String
+  permissions String    @default("[]")
+  rateLimit   Int       @default(1000)
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  Company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([prefix])
+  @@index([companyId])
+}
+
+model APIRouteGeneration {
+  id                    String    @id
+  projectId             String
+  spName                String
+  httpMethod            String
+  routePath             String
+  routeName             String
+  moduleName            String?
+  entityName            String?
+  generatedTypeScript   String?
+  generatedZodSchema    String?
+  generatedTypes        String?
+  importsSection        String    @default("")
+  schemaSection         String    @default("")
+  handlerSection        String    @default("")
+  middlewareSection     String    @default("")
+  errorHandlingSection  String    @default("")
+  parameterMappings     String    @default("[]")
+  responseMapping       String    @default("{}")
+  errorMappings         String    @default("[]")
+  requiredMiddleware    String    @default("[]")
+  requiredPermissions   String    @default("[]")
+  generationConfidence  Float     @default(0.0)
+  generationSource      String    @default("sp")
+  generationVersion     Int       @default(1)
+  status                String    @default("generated")
+  reviewedBy            String?
+  reviewedAt            DateTime?
+  implementedAt         DateTime?
+  deployedAt            DateTime?
+  testCoverage          Float     @default(0.0)
+  documentationComplete Boolean   @default(false)
+  outputFilePath        String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+
+  @@unique([projectId, spName, httpMethod])
+  @@index([status])
+  @@index([moduleName])
+  @@index([httpMethod])
+  @@index([spName])
+  @@index([projectId])
+}
+
+model AgentDefinition {
+  id                String           @id
+  agentId           String           @unique
+  name              String
+  layer             String
+  description       String
+  version           String           @default("1.0.0")
+  tags              String
+  dependencies      String           @default("[]")
+  requiresAI        Boolean          @default(false)
+  estimatedDuration Int              @default(60)
+  enabled           Boolean          @default(true)
+  registeredAt      DateTime         @default(now())
+  lastModified      DateTime
+  AgentExecution    AgentExecution[]
+  AgentLog          AgentLog[]
+
+  @@index([enabled])
+  @@index([layer])
+}
+
+model AgentExecution {
+  id                  String            @id
+  executionId         String
+  pipelineExecutionId String
+  agentId             String
+  agentName           String
+  status              String
+  startTime           DateTime          @default(now())
+  endTime             DateTime?
+  duration            Int?
+  output              String?
+  error               String?
+  itemsProcessed      Int               @default(0)
+  retryCount          Int               @default(0)
+  AgentDefinition     AgentDefinition   @relation(fields: [agentId], references: [agentId], onDelete: Cascade)
+  PipelineExecution   PipelineExecution @relation(fields: [pipelineExecutionId], references: [id], onDelete: Cascade)
+  AgentLog            AgentLog[]
+
+  @@unique([executionId, agentId])
+  @@index([pipelineExecutionId])
+  @@index([agentId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model AgentLog {
+  id                String           @id
+  agentExecutionId  String?
+  agentDefinitionId String?
+  timestamp         DateTime         @default(now())
+  level             String
+  message           String
+  data              String?
+  AgentExecution    AgentExecution?  @relation(fields: [agentExecutionId], references: [id], onDelete: Cascade)
+  AgentDefinition   AgentDefinition? @relation(fields: [agentDefinitionId], references: [id], onDelete: Cascade)
+
+  @@index([agentDefinitionId])
+  @@index([agentExecutionId])
+  @@index([level])
+  @@index([timestamp])
+}
+
+model AgentMessage {
+  id          String   @id
+  runId       String
+  messageId   String   @unique
+  messageType String
+  message     String
+  payload     String   @default("{}")
+  timestamp   DateTime @default(now())
+  AgentRun    AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([timestamp])
+  @@index([messageType])
+  @@index([runId])
+}
+
+model AgentRun {
+  id             String         @id
+  projectId      String
+  runId          String         @unique
+  agentName      String
+  agentVersion   String         @default("1.0.0")
+  status         String         @default("pending")
+  startedAt      DateTime       @default(now())
+  completedAt    DateTime?
+  duration       Int?
+  inputConfig    String         @default("{}")
+  outputData     String         @default("{}")
+  itemsProcessed Int            @default(0)
+  itemsProduced  Int            @default(0)
+  error          String?
+  errorStack     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  AgentMessage   AgentMessage[]
+
+  @@index([startedAt])
+  @@index([status])
+  @@index([agentName])
+  @@index([projectId])
+}
+
+model AjaxCallCache {
+  id              String   @id
+  projectId       String
+  jsFileId        String?
+  callId          String
+  url             String
+  method          String   @default("GET")
+  dataType        String?
+  contentType     String?
+  isAsync         Boolean  @default(true)
+  parameters      String   @default("[]")
+  successCallback String?
+  errorCallback   String?
+  sourceFile      String
+  lineNumber      Int?
+  context         String?
+  linkedSP        String?
+  linkedEndpoint  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@index([method])
+  @@index([url])
+  @@index([projectId])
+}
+
+model AuditLog {
+  id         String   @id
+  companyId  String
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  oldValue   String?
+  newValue   String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  Company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([resource])
+  @@index([action])
+  @@index([userId])
+  @@index([companyId])
+}
+
+model RawImportData {
+  id           String        @id @default(cuid())
+  sourceType   String        @default("batch_import")
+  sourceUrl    String?
+  sourceChatId String?
+  rawJson      String
+  rawSizeBytes Int           @default(0)
+  messageCount Int           @default(0)
+  parseStatus  String        @default("pending")
+  parseError   String?
+  parsedAt     DateTime?
+  importedAt   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  chatLog      ChatLog?
+  dataLinks    RawDataLink[]
+
+  @@index([sourceType])
+  @@index([sourceChatId])
+  @@index([importedAt])
+  @@index([parseStatus])
+}
+
+model RawDataLink {
+  id                   String        @id @default(cuid())
+  rawDataId            String
+  chainLevel           Int           @default(0)
+  chainOrder           Int           @default(0)
+  entityType           String
+  entityId             String
+  entityName           String?
+  extractionPath       String?
+  extractionConfidence Float         @default(1.0)
+  extractionMethod     String?       @default("auto")
+  sourceRawDataId      String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  RawImportData        RawImportData @relation(fields: [rawDataId], references: [id], onDelete: Cascade)
+
+  @@unique([rawDataId, entityType, entityId])
+  @@index([rawDataId])
+  @@index([entityType, entityId])
+  @@index([chainLevel])
+}
+
+model ChatLog {
+  id            String         @id
+  sessionId     String         @unique
+  sessionDate   String
+  title         String
+  summary       String         @default("")
+  issuesSolved  String         @default("[]")
+  featuresAdded String         @default("[]")
+  filesModified String         @default("[]")
+  commits       String         @default("[]")
+  notes         String         @default("")
+  source        String         @default("manual")
+  importedAt    DateTime       @default(now())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  rawDataId     String?        @unique
+  RawImportData RawImportData? @relation(fields: [rawDataId], references: [id])
+
+  @@index([sessionDate])
+  @@index([source])
+  @@index([importedAt])
+  @@index([rawDataId])
+}
+
+model Building {
+  id          String   @id
+  name        String
+  description String?
+  code        String?  @unique
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  postalCode  String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Floor       Floor[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([name])
+}
+
+model BusinessRuleRecord {
+  id          String    @id
+  ruleId      String    @unique
+  code        String    @unique
+  name        String
+  description String?
+  category    String
+  priority    String    @default("medium")
+  status      String    @default("draft")
+  tableName   String?
+  moduleName  String?
+  trigger     String
+  condition   String
+  action      String
+  exception   String?
+  examples    String    @default("[]")
+  impact      String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  version     Int       @default(1)
+  tags        String    @default("[]")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+
+  @@index([moduleName])
+  @@index([tableName])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([name])
+}
+
+model CSHTMLAjaxEndpoint {
+  id                    String   @id
+  projectId             String
+  cshtmlViewName        String
+  endpointUrl           String
+  httpMethod            String   @default("GET")
+  dataType              String?
+  parameters            String   @default("[]")
+  successCallback       String?
+  errorCallback         String?
+  lineNumber            Int?
+  context               String?
+  linkedSP              String?
+  linkedController      String?
+  linkedAction          String?
+  correlationConfidence Float    @default(0.0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+
+  @@unique([projectId, cshtmlViewName, endpointUrl])
+  @@index([linkedSP])
+  @@index([cshtmlViewName])
+  @@index([projectId])
+}
+
+model CSHTMLAnalysisCache {
+  id              String         @id
+  projectId       String
+  viewName        String
+  filePath        String?
+  viewType        String         @default("unknown")
+  modelName       String?
+  linkedTable     String?
+  title           String?
+  layout          String?
+  fields          String         @default("[]")
+  listConfig      String         @default("{}")
+  sections        String         @default("[]")
+  permissions     String         @default("[]")
+  scripts         String         @default("[]")
+  styles          String         @default("[]")
+  reactBlueprint  String         @default("{}")
+  suggestedPath   String?
+  estimatedEffort Int            @default(0)
+  rawContent      String         @default("")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  ToolkitProject  ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, viewName])
+  @@index([linkedTable])
+  @@index([viewType])
+  @@index([projectId])
+}
+
+model CSHTMLFormIntelligence {
+  id                      String   @id
+  projectId               String
+  viewName                String
+  formId                  String?
+  formName                String?
+  actionUrl               String?
+  httpMethod              String   @default("POST")
+  enctype                 String   @default("application/x-www-form-urlencoded")
+  controllerName          String?
+  actionName              String?
+  fields                  String   @default("[]")
+  jqueryValidateRules     String   @default("{}")
+  bootstrapValidator      String   @default("{}")
+  customValidation        String   @default("[]")
+  dropdowns               String   @default("[]")
+  ajaxCalls               String   @default("[]")
+  correlatedSP            String?
+  correlationType         String?
+  correlationConfidence   Float    @default(0.0)
+  submitHandler           String?
+  successHandler          String?
+  errorHandler            String?
+  errorCodesHandled       String   @default("{}")
+  csrfEnabled             Boolean  @default(false)
+  antiForgeryToken        Boolean  @default(false)
+  suggestedReactComponent String?
+  suggestedZodSchema      String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime
+
+  @@unique([projectId, viewName, formName])
+  @@index([correlatedSP])
+  @@index([controllerName])
+  @@index([viewName])
+  @@index([projectId])
+}
+
+model CodeEmbedding {
+  id             String   @id
+  projectId      String
+  entityType     String
+  entityId       String
+  content        String
+  embedding      String?
+  embeddingModel String?
+  tokenCount     Int      @default(0)
+  contentHash    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+
+  @@unique([projectId, entityType, entityId])
+  @@index([entityId])
+  @@index([entityType])
+  @@index([projectId])
+}
+
+model ColumnIntelligenceCache {
+  id              String   @id
+  tableName       String
+  columnName      String
+  semanticType    String
+  uiType          String
+  sensitivity     String
+  confidence      Int
+  validationRules String   @default("[]")
+  suggestions     String   @default("[]")
+  isSearchable    Boolean  @default(false)
+  isFilterable    Boolean  @default(false)
+  displayInList   Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@unique([tableName, columnName])
+  @@index([semanticType])
+  @@index([tableName])
+}
+
+model Company {
+  id                   String        @id
+  name                 String
+  slug                 String        @unique
+  logo                 String?
+  primaryColor         String?
+  secondaryColor       String?
+  domain               String?
+  subscriptionTier     String        @default("free")
+  subscriptionStatus   String        @default("trialing")
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  trialEndsAt          DateTime?
+  billingEmail         String?
+  billingName          String?
+  billingAddress       String?
+  billingCity          String?
+  billingState         String?
+  billingPostalCode    String?
+  billingCountry       String?
+  settings             String        @default("{}")
+  limits               String        @default("{}")
+  usage                String        @default("{}")
+  isActive             Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime
+  APIKey               APIKey[]
+  AuditLog             AuditLog[]
+  Project              Project[]
+  UserCompany          UserCompany[]
+  Workspace            Workspace[]
+
+  @@index([isActive])
+  @@index([subscriptionStatus])
+  @@index([subscriptionTier])
+  @@index([slug])
+}
+
+model ConfidenceScore {
+  id         String    @id
+  projectId  String?
+  entityType String
+  entityId   String
+  score      Float
+  confidence String
+  factors    String    @default("[]")
+  source     String    @default("inference")
+  verifiedAt DateTime?
+  verifiedBy String?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime
+
+  @@unique([entityType, entityId])
+  @@index([entityType])
+  @@index([confidence])
+  @@index([score])
+  @@index([projectId])
+}
+
+model ConflictRule {
+  id              String   @id
+  name            String   @unique
+  conflictType    String
+  priority        Int      @default(10)
+  resolution      String
+  resolutionLogic String?
+  description     String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@index([priority])
+  @@index([active])
+  @@index([conflictType])
+}
+
+model ContextSnapshot {
+  id          String   @id
+  snapshotId  String   @unique
+  description String?
+  data        String
+  triggeredBy String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Controller {
+  id            String        @id
+  projectId     String
+  moduleId      String?
+  name          String
+  controllerKey String        @unique
+  filePath      String?
+  sourceType    String        @default("mvc")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime
+  APIEndpoint   APIEndpoint[]
+
+  @@index([name])
+  @@index([moduleId])
+  @@index([projectId])
+}
+
+model DBConversionCache {
+  id               String   @id
+  projectId        String
+  conversionId     String   @unique
+  sourceType       String   @default("sqlserver")
+  targetType       String   @default("postgresql")
+  tablesConverted  Int      @default(0)
+  columnsConverted Int      @default(0)
+  fksConverted     Int      @default(0)
+  spsConverted     Int      @default(0)
+  viewsConverted   Int      @default(0)
+  postgresDDL      String   @default("")
+  prismaSchema     String   @default("")
+  nodeJSOutlines   String   @default("[]")
+  typeConversions  String   @default("[]")
+  warnings         String   @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@index([projectId])
+}
+
+model DLLIntelligence {
+  id                 String   @id
+  projectId          String
+  dllName            String
+  dllVersion         String?
+  controllers        String   @default("[]")
+  controllerActions  String   @default("[]")
+  routeMappings      String   @default("[]")
+  authorizationRules String   @default("[]")
+  modelClasses       String   @default("[]")
+  dtoClasses         String   @default("[]")
+  viewModels         String   @default("[]")
+  enumerations       String   @default("[]")
+  serviceClasses     String   @default("[]")
+  repositoryClasses  String   @default("[]")
+  helperClasses      String   @default("[]")
+  nugetPackages      String   @default("[]")
+  projectReferences  String   @default("[]")
+  namespaces         String   @default("[]")
+  isDecompiled       Boolean  @default(false)
+  isAnalyzed         Boolean  @default(false)
+  analysisMethod     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
+
+  @@unique([projectId, dllName])
+  @@index([dllName])
+  @@index([projectId])
+}
+
+model DataLineage {
+  id                   String   @id
+  projectId            String?
+  entityType           String
+  entityId             String
+  entityName           String
+  sourceType           String
+  sourceAgent          String?
+  sourceFileId         String?
+  sourceFileName       String?
+  sourceLineStart      Int?
+  sourceLineEnd        Int?
+  sourceCharStart      Int?
+  sourceCharEnd        Int?
+  extractionMethod     String   @default("direct_parse")
+  extractionConfidence Float    @default(1.0)
+  extractionTime       Int      @default(0)
+  dependsOn            String   @default("[]")
+  dependedBy           String   @default("[]")
+  extractedAt          DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime
+
+  @@unique([entityType, entityId])
+  @@index([sourceAgent])
+  @@index([sourceType])
+  @@index([entityType])
+  @@index([projectId])
+}
+
+model DecisionRecord {
+  id               String    @id
+  projectId        String
+  decisionId       String    @unique
+  title            String
+  description      String?
+  category         String    @default("architecture")
+  context          String?
+  problemStatement String?
+  decision         String
+  rationale        String?
+  alternatives     String    @default("[]")
+  impact           String    @default("medium")
+  affectedAreas    String    @default("[]")
+  status           String    @default("proposed")
+  supersededBy     String?
+  proposedBy       String?
+  decidedBy        String?
+  approvedBy       String?
+  decidedAt        DateTime?
+  approvedAt       DateTime?
+  relatedDecisions String    @default("[]")
+  relatedTables    String    @default("[]")
+  relatedModules   String    @default("[]")
+  tags             String    @default("[]")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+
+  @@index([impact])
+  @@index([category])
+  @@index([status])
+  @@index([projectId])
+}
+
+model DiscoveredTableCache {
+  id               String         @id
+  projectId        String
+  tableName        String
+  discoveredInSP   String?
+  discoveredInView String?
+  accessType       String         @default("read")
+  columns          String         @default("[]")
+  suggestedModule  String?
+  priority         String         @default("medium")
+  isResolved       Boolean        @default(false)
+  resolvedTableId  String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  ToolkitProject   ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, tableName])
+  @@index([isResolved])
+  @@index([priority])
+  @@index([projectId])
+}
+
+model DropdownMapping {
+  id               String   @id
+  projectId        String
+  cshtmlViewName   String
+  dropdownId       String?
+  dropdownName     String?
+  ddlMethod        String?
+  linkedSP         String?
+  linkedTable      String?
+  valueColumn      String?
+  textColumn       String?
+  parentDropdownId String?
+  cascadeParameter String?
+  confidence       Float    @default(0.0)
+  isVerified       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+
+  @@unique([projectId, cshtmlViewName, dropdownName])
+  @@index([linkedTable])
+  @@index([linkedSP])
+  @@index([projectId])
+}
+
+model DropdownRegistry {
+  id                String    @id
+  projectId         String
+  spName            String
+  dropdownKey       String    @unique
+  dropdownName      String
+  description       String?
+  sourceSP          String
+  moduleName        String?
+  parameters        String    @default("[]")
+  supportsFiltering Boolean   @default(false)
+  filterParameters  String    @default("[]")
+  cascadeFrom       String?
+  cascadeParameter  String?
+  valueColumn       String    @default("Id")
+  labelColumn       String    @default("Name")
+  additionalColumns String    @default("[]")
+  isCacheable       Boolean   @default(true)
+  cacheTTL          Int       @default(3600)
+  cacheKeyTemplate  String?
+  defaultOption     String?
+  emptyOption       Boolean   @default(false)
+  searchEnabled     Boolean   @default(false)
+  multiSelect       Boolean   @default(false)
+  apiEndpoint       String?
+  generatedAt       DateTime?
+  usedInViews       String    @default("[]")
+  usedInForms       String    @default("[]")
+  totalOptions      Int?
+  lastRefreshedAt   DateTime?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@index([isActive])
+  @@index([cascadeFrom])
+  @@index([moduleName])
+  @@index([spName])
+  @@index([projectId])
+}
+
+model ErrorCodeMapping {
+  id                    String   @id
+  projectId             String
+  spName                String
+  errorCode             Int
+  spErrorMessage        String?
+  spCondition           String?
+  cshtmlViewName        String?
+  cshtmlErrorHandler    String?
+  cshtmlUserMessage     String?
+  messageAlignment      String   @default("unknown")
+  migratedErrorHandling String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+
+  @@unique([projectId, spName, errorCode])
+  @@index([spName])
+  @@index([projectId])
+}
+
+model EventHandlerCache {
+  id           String   @id
+  projectId    String
+  jsFileId     String?
+  handlerId    String
+  eventType    String
+  selector     String
+  handlerType  String
+  functionName String?
+  code         String   @default("")
+  sourceFile   String
+  lineNumber   Int?
+  linkedField  String?
+  linkedAction String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@index([handlerType])
+  @@index([eventType])
+  @@index([projectId])
+}
+
+model ExtractionConflict {
+  id                String    @id
+  projectId         String?
+  entityType        String
+  entityId          String
+  conflictType      String
+  severity          String    @default("medium")
+  source1Agent      String
+  source1Value      String    @default("{}")
+  source1Confidence Float     @default(0.5)
+  source1File       String?
+  source2Agent      String
+  source2Value      String    @default("{}")
+  source2Confidence Float     @default(0.5)
+  source2File       String?
+  status            String    @default("pending")
+  resolution        String?
+  resolvedValue     String?   @default("{}")
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@unique([entityType, entityId, conflictType])
+  @@index([entityType])
+  @@index([conflictType])
+  @@index([status, severity])
+  @@index([projectId])
+}
+
+model FKDependencyCache {
+  id            String   @id
+  projectId     String
+  tableName     String
+  totalFKs      Int      @default(0)
+  resolvedFKs   Int      @default(0)
+  missingTables String   @default("[]")
+  analysisData  String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@unique([projectId, tableName])
+  @@index([projectId])
+}
+
+model FKResolutionLog {
+  id        String   @id
+  sessionId String?
+  projectId String
+  tableName String
+  action    String
+  success   Boolean  @default(false)
+  error     String?
+  metadata  String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([tableName])
+  @@index([projectId])
+}
+
+model FKResolutionSession {
+  id            String   @id
+  projectId     String
+  totalMissing  Int      @default(0)
+  totalResolved Int      @default(0)
+  totalBlocked  Int      @default(0)
+  buildOrder    String   @default("[]")
+  circularDeps  String   @default("[]")
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@index([status])
+  @@index([projectId])
+}
+
+model FileClassificationCache {
+  id                  String    @id
+  projectId           String
+  fileName            String
+  filePath            String
+  fileType            String
+  language            String
+  framework           String
+  confidence          Int       @default(0)
+  indicators          String    @default("[]")
+  suggestedParser     String?
+  fileSize            Int       @default(0)
+  lineCount           Int       @default(0)
+  estimatedComplexity String    @default("low")
+  isProcessed         Boolean   @default(false)
+  processedAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime
+
+  @@unique([projectId, filePath])
+  @@index([language])
+  @@index([fileType])
+  @@index([projectId])
+}
+
+model Floor {
+  id          String   @id
+  buildingId  String
+  name        String
+  description String?
+  code        String?
+  floorNumber Int?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Building    Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  Room        Room[]
+
+  @@unique([buildingId, name])
+  @@index([isActive])
+  @@index([floorNumber])
+  @@index([buildingId])
+}
+
+model Form {
+  id                String      @id
+  pageId            String?
+  projectId         String
+  name              String
+  formKey           String      @unique
+  method            String      @default("POST")
+  actionUrl         String?
+  enctype           String      @default("application/x-www-form-urlencoded")
+  sourceTable       String?
+  sourceSP          String?
+  validationEnabled Boolean     @default(true)
+  customValidation  String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime
+  Page              Page?       @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  FormField         FormField[]
+
+  @@index([sourceTable])
+  @@index([projectId])
+}
+
+model FormField {
+  id              String   @id
+  formId          String
+  fieldName       String
+  fieldKey        String
+  fieldType       String   @default("text_input")
+  uiComponent     String?
+  label           String
+  placeholder     String?
+  helpText        String?
+  validationRules String   @default("[]")
+  isRequired      Boolean  @default(false)
+  isReadOnly      Boolean  @default(false)
+  defaultValue    String?
+  position        Int      @default(0)
+  section         String?
+  linkedColumn    String?
+  semanticType    String?
+  sensitivity     String   @default("public")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+  Form            Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, fieldName])
+  @@index([fieldType])
+  @@index([formId])
+}
+
+model FormValidationCache {
+  id            String   @id
+  projectId     String
+  jsFileId      String?
+  formId        String?
+  formSelector  String
+  rules         String   @default("[]")
+  messages      String   @default("{}")
+  submitHandler String?
+  sourceFile    String
+  linkedTable   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@index([formSelector])
+  @@index([projectId])
+}
+
+model GapAnalysisRecord {
+  id                String    @id
+  projectId         String
+  targetType        String
+  targetId          String
+  targetName        String
+  gapType           String
+  severity          String    @default("medium")
+  description       String?
+  expectedArtifacts String    @default("[]")
+  existingArtifacts String    @default("[]")
+  missingArtifacts  String    @default("[]")
+  coveragePercent   Int       @default(0)
+  recommendations   String    @default("[]")
+  resolutionStatus  String    @default("open")
+  resolvedAt        DateTime?
+  resolvedBy        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@unique([projectId, targetId, gapType])
+  @@index([severity])
+  @@index([resolutionStatus])
+  @@index([targetType])
+  @@index([projectId])
+}
+
+model GeneratedArtifact {
+  id           String   @id
+  artifactId   String   @unique
+  type         String
+  name         String
+  content      String
+  sourceModule String?
+  sourceTable  String?
+  metadata     String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@index([name])
+  @@index([type])
+}
+
+model HISModule {
+  id            String   @id
+  moduleKey     String   @unique
+  moduleName    String
+  description   String?
+  layer         Int
+  layerName     String
+  priority      String   @default("medium")
+  estimatedDays Int      @default(0)
+  tables        String   @default("[]")
+  dependsOn     String   @default("[]")
+  features      String   @default("[]")
+  userRoles     String   @default("[]")
+  revenue       Boolean  @default(false)
+  status        String   @default("planned")
+  progress      Int      @default(0)
+  assignedTo    String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@index([priority])
+  @@index([status])
+  @@index([layer])
+}
+
+model IncrementalChange {
+  id               String   @id
+  projectId        String
+  versionFrom      Int
+  versionTo        Int
+  changeType       String
+  entityType       String
+  entityId         String
+  entityName       String
+  oldValue         String?  @default("{}")
+  newValue         String?  @default("{}")
+  impactScore      Int      @default(0)
+  affectedEntities String   @default("[]")
+  createdAt        DateTime @default(now())
+
+  @@unique([projectId, versionFrom, versionTo, entityType, entityId])
+  @@index([entityType])
+  @@index([changeType])
+  @@index([versionTo])
+  @@index([versionFrom])
+  @@index([projectId])
+}
+
+model Invitation {
+  id        String   @id
+  companyId String
+  projectId String?
+  email     String
+  role      String
+  roleType  String
+  token     String   @unique
+  expiresAt DateTime
+  invitedBy String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([status])
+  @@index([token])
+  @@index([email])
+  @@index([companyId])
+}
+
+model JSIntelligenceCache {
+  id                  String   @id
+  projectId           String
+  fileName            String
+  filePath            String?
+  fileType            String   @default("javascript")
+  framework           String   @default("unknown")
+  complexity          Int      @default(0)
+  ajaxCalls           String   @default("[]")
+  eventHandlers       String   @default("[]")
+  dependencies        String   @default("[]")
+  formValidations     String   @default("[]")
+  discoveredEndpoints String   @default("[]")
+  jqueryPlugins       String   @default("[]")
+  bootstrapComponents String   @default("[]")
+  linkedCSHTML        String?
+  linkedTable         String?
+  rawContent          String   @default("")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime
+
+  @@unique([projectId, fileName])
+  @@index([framework])
+  @@index([fileType])
+  @@index([projectId])
+}
+
+model KGEdge {
+  id                                 String   @id
+  projectId                          String
+  sourceNodeId                       String
+  targetNodeId                       String
+  edgeType                           String
+  label                              String?
+  properties                         String   @default("{}")
+  confidence                         Float    @default(1.0)
+  weight                             Float    @default(1.0)
+  source                             String?
+  isActive                           Boolean  @default(true)
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime
+  KGNode_KGEdge_sourceNodeIdToKGNode KGNode   @relation("KGEdge_sourceNodeIdToKGNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  KGNode_KGEdge_targetNodeIdToKGNode KGNode   @relation("KGEdge_targetNodeIdToKGNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, sourceNodeId, targetNodeId, edgeType])
+  @@index([targetNodeId])
+  @@index([sourceNodeId])
+  @@index([edgeType])
+  @@index([projectId])
+}
+
+model KGNode {
+  id                                 String   @id
+  projectId                          String
+  nodeType                           String
+  nodeSubtype                        String?
+  name                               String
+  displayName                        String?
+  description                        String?
+  positionX                          Float?
+  positionY                          Float?
+  color                              String?
+  size                               Float    @default(1.0)
+  icon                               String?
+  properties                         String   @default("{}")
+  confidence                         Float    @default(1.0)
+  source                             String?
+  isActive                           Boolean  @default(true)
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime
+  KGEdge_KGEdge_sourceNodeIdToKGNode KGEdge[] @relation("KGEdge_sourceNodeIdToKGNode")
+  KGEdge_KGEdge_targetNodeIdToKGNode KGEdge[] @relation("KGEdge_targetNodeIdToKGNode")
+
+  @@unique([projectId, nodeType, name])
+  @@index([source])
+  @@index([name])
+  @@index([nodeType])
+  @@index([projectId])
+}
+
+model MigrationMapping {
+  id              String   @id
+  projectId       String
+  legacyType      String
+  legacyName      String
+  legacyPath      String?
+  legacySignature String?
+  modernType      String
+  modernName      String
+  modernPath      String?
+  modernSignature String?
+  mappingMethod   String   @default("auto")
+  confidence      Float    @default(0.0)
+  isComplete      Boolean  @default(false)
+  isVerified      Boolean  @default(false)
+  status          String   @default("mapped")
+  migrationNotes  String?
+  blockers        String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@unique([projectId, legacyType, legacyName])
+  @@index([status])
+  @@index([modernType, modernName])
+  @@index([legacyType, legacyName])
+  @@index([projectId])
+}
+
+model MissingTableResolution {
+  id               String    @id
+  projectId        String
+  tableName        String
+  status           String    @default("missing")
+  priority         String    @default("medium")
+  blocksCount      Int       @default(0)
+  referencedBy     String    @default("[]")
+  resolutionPath   String?
+  resolutionStatus String    @default("pending")
+  suggestedColumns String    @default("[]")
+  aiSuggestion     String    @default("{}")
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+
+  @@unique([projectId, tableName])
+  @@index([resolutionStatus])
+  @@index([priority])
+  @@index([status])
+  @@index([projectId])
+}
+
+model ModuleDefinition {
+  id             String   @id
+  moduleId       String   @unique
+  name           String
+  description    String?
+  category       String?
+  tables         String   @default("[]")
+  procedures     String   @default("[]")
+  views          String   @default("[]")
+  screens        String   @default("[]")
+  priority       Int      @default(0)
+  complexity     String   @default("medium")
+  estimatedHours Float    @default(0)
+  dependencies   String   @default("[]")
+  businessValue  String   @default("medium")
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+
+  @@index([priority])
+  @@index([status])
+  @@index([name])
+}
+
+model Page {
+  id              String          @id
+  projectId       String
+  moduleId        String?
+  name            String
+  urlSlug         String
+  title           String?
+  layout          String          @default("_Layout")
+  pageType        String          @default("form")
+  sourceFile      String?
+  sourceTable     String?
+  migrationStatus String          @default("pending")
+  reactPath       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  Form            Form[]
+  PageComponent   PageComponent[]
+
+  @@unique([projectId, urlSlug])
+  @@index([pageType])
+  @@index([moduleId])
+  @@index([projectId])
+}
+
+model PageComponent {
+  id                  String          @id
+  pageId              String
+  componentType       String
+  componentName       String
+  parentComponentId   String?
+  position            Int             @default(0)
+  props               String          @default("{}")
+  content             String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime
+  Page                Page            @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  PageComponent       PageComponent?  @relation("PageComponentToPageComponent", fields: [parentComponentId], references: [id])
+  other_PageComponent PageComponent[] @relation("PageComponentToPageComponent")
+
+  @@index([parentComponentId])
+  @@index([componentType])
+  @@index([pageId])
+}
+
+model ParseCache {
+  id            String   @id
+  projectId     String
+  fileType      String
+  filePath      String
+  contentHash   String
+  parseResult   String
+  parseVersion  String   @default("1.0.0")
+  parseDuration Int      @default(0)
+  entityCount   Int      @default(0)
+  isValid       Boolean  @default(true)
+  errorMessage  String?
+  parsedAt      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@unique([projectId, filePath])
+  @@index([isValid])
+  @@index([fileType])
+  @@index([contentHash])
+  @@index([projectId])
+}
+
+model ParsedSchemaTable {
+  id           String   @id
+  tableName    String
+  schema       String?
+  sourceFileId String?
+  columns      String
+  primaryKey   String
+  foreignKeys  String   @default("[]")
+  indexes      String   @default("[]")
+  constraints  String   @default("[]")
+  sourceDDL    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@unique([tableName, schema])
+  @@index([tableName])
+}
+
+model ParsedStoredProcedureRecord {
+  id             String   @id
+  procedureName  String
+  schema         String?
+  sourceFileId   String?
+  parameters     String
+  returnType     String?
+  body           String
+  operations     String   @default("[]")
+  tablesAccessed String   @default("[]")
+  tablesModified String   @default("[]")
+  complexity     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+
+  @@unique([procedureName, schema])
+  @@index([procedureName])
+}
+
+model PipelineConfig {
+  id                String              @id
+  name              String
+  description       String?
+  config            String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  PipelineExecution PipelineExecution[]
+
+  @@index([name])
+}
+
+model PipelineExecution {
+  id              String           @id
+  executionId     String           @unique
+  pipelineId      String
+  pipelineName    String
+  status          String
+  startTime       DateTime         @default(now())
+  endTime         DateTime?
+  duration        Int?
+  aiEngine        String           @default("offline")
+  aiModel         String?
+  stopOnError     Boolean          @default(true)
+  totalAgents     Int              @default(0)
+  completedAgents Int              @default(0)
+  failedAgents    Int              @default(0)
+  skippedAgents   Int              @default(0)
+  itemsProcessed  Int              @default(0)
+  outputFiles     String           @default("[]")
+  errors          String           @default("[]")
+  AgentExecution  AgentExecution[]
+  PipelineConfig  PipelineConfig   @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  @@index([pipelineId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model PipelineRun {
+  id                   String                 @id
+  projectId            String?
+  runId                String                 @unique
+  runName              String?
+  config               String                 @default("{}")
+  triggerSource        String                 @default("manual")
+  status               String                 @default("idle")
+  startTime            DateTime               @default(now())
+  endTime              DateTime?
+  duration             Int?
+  totalAgents          Int                    @default(0)
+  completedAgents      Int                    @default(0)
+  failedAgents         Int                    @default(0)
+  skippedAgents        Int                    @default(0)
+  output               String?
+  errors               String                 @default("[]")
+  itemsProcessed       Int                    @default(0)
+  itemsProduced        Int                    @default(0)
+  PipelineRunExecution PipelineRunExecution[]
+  PipelineRunLog       PipelineRunLog[]
+
+  @@index([startTime])
+  @@index([status])
+  @@index([projectId])
+}
+
+model PipelineRunExecution {
+  id             String      @id
+  runId          String
+  agentId        String
+  agentName      String
+  agentVersion   String      @default("1.0.0")
+  status         String      @default("pending")
+  startTime      DateTime    @default(now())
+  endTime        DateTime?
+  duration       Int?
+  input          String?
+  output         String?
+  itemsProcessed Int         @default(0)
+  itemsProduced  Int         @default(0)
+  retryCount     Int         @default(0)
+  error          String?
+  warnings       String      @default("[]")
+  PipelineRun    PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, agentId])
+  @@index([status])
+  @@index([agentId])
+  @@index([runId])
+}
+
+model PipelineRunLog {
+  id          String      @id
+  runId       String
+  timestamp   DateTime    @default(now())
+  level       String      @default("info")
+  agentId     String?
+  message     String
+  data        String?
+  PipelineRun PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([level])
+  @@index([timestamp])
+  @@index([runId])
+}
+
+model Post {
+  id        String   @id
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  User      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+}
+
+model Project {
+  id           String        @id
+  workspaceId  String?
+  companyId    String
+  name         String
+  slug         String
+  description  String?
+  softwareType String        @default("Custom")
+  status       String        @default("planning")
+  settings     String        @default("{}")
+  statistics   String        @default("{}")
+  createdBy    String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime
+  Company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  Workspace    Workspace?    @relation(fields: [workspaceId], references: [id])
+  UserProject  UserProject[]
+
+  @@unique([companyId, slug])
+  @@index([softwareType])
+  @@index([status])
+  @@index([workspaceId])
+  @@index([companyId])
+}
+
+model ProjectModule {
+  id            String   @id
+  projectId     String
+  moduleKey     String
+  moduleName    String
+  layerNumber   Int      @default(1)
+  matchedTables String   @default("[]")
+  coverage      Int      @default(0)
+  status        String   @default("partial")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@unique([projectId, moduleKey])
+  @@index([status])
+  @@index([moduleKey])
+  @@index([projectId])
+}
+
+model ProjectVersion {
+  id             String   @id
+  projectId      String
+  version        Int      @default(1)
+  name           String?
+  description    String?
+  snapshot       String
+  changeSummary  String   @default("{}")
+  changeCount    Int      @default(0)
+  tablesAdded    Int      @default(0)
+  tablesRemoved  Int      @default(0)
+  tablesModified Int      @default(0)
+  spsAdded       Int      @default(0)
+  spsRemoved     Int      @default(0)
+  spsModified    Int      @default(0)
+  createdBy      String?
+  isAutoSave     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([projectId, version])
+  @@index([createdBy])
+  @@index([createdAt])
+  @@index([projectId])
+}
+
+model PromptTemplate {
+  id          String   @id
+  name        String
+  key         String   @unique
+  category    String
+  description String?
+  template    String
+  variables   String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([isActive])
+  @@index([key])
+  @@index([category])
+}
+
+model QualityMetrics {
+  id                    String   @id
+  projectId             String   @unique
+  projectIdStr          String?
+  avgConfidence         Float    @default(0)
+  highConfidence        Int      @default(0)
+  mediumConfidence      Int      @default(0)
+  lowConfidence         Int      @default(0)
+  unverified            Int      @default(0)
+  totalConflicts        Int      @default(0)
+  resolvedConflicts     Int      @default(0)
+  pendingConflicts      Int      @default(0)
+  criticalConflicts     Int      @default(0)
+  pendingVerifications  Int      @default(0)
+  approvedVerifications Int      @default(0)
+  rejectedVerifications Int      @default(0)
+  totalTables           Int      @default(0)
+  totalColumns          Int      @default(0)
+  totalFKs              Int      @default(0)
+  totalSPs              Int      @default(0)
+  totalViews            Int      @default(0)
+  moduleCoverage        Float    @default(0)
+  fkResolution          Float    @default(0)
+  piiDetection          Float    @default(0)
+  qualityScore          Float    @default(0)
+  calculatedAt          DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+
+  @@index([calculatedAt])
+  @@index([qualityScore])
+  @@index([projectId])
+}
+
+model QuestionSessionRecord {
+  id                String   @id
+  sessionId         String   @unique
+  projectId         String?
+  groups            String   @default("[]")
+  totalQuestions    Int      @default(0)
+  answeredQuestions Int      @default(0)
+  criticalTotal     Int      @default(0)
+  criticalAnswered  Int      @default(0)
+  status            String   @default("pending")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+
+  @@index([status])
+  @@index([projectId])
+}
+
+model Report {
+  id              String         @id
+  projectId       String
+  moduleId        String?
+  reportKey       String         @unique
+  name            String
+  description     String?
+  businessPurpose String?
+  sourceView      String?
+  sourceTable     String?
+  sourceSP        String?
+  reportType      String         @default("tabular")
+  columns         String         @default("[]")
+  groupBy         String         @default("[]")
+  orderBy         String         @default("[]")
+  exportFormats   String         @default("[\"pdf\",\"excel\",\"csv\"]")
+  status          String         @default("draft")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  ReportFilter    ReportFilter[]
+
+  @@index([reportType])
+  @@index([moduleId])
+  @@index([projectId])
+}
+
+model ReportFilter {
+  id           String   @id
+  reportId     String
+  filterKey    String
+  filterName   String
+  filterType   String   @default("text")
+  columnName   String
+  operator     String   @default("=")
+  defaultValue String?
+  isRequired   Boolean  @default(false)
+  isVisible    Boolean  @default(true)
+  options      String   @default("[]")
+  position     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  Report       Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, filterKey])
+  @@index([reportId])
+}
+
+model RequirementRecord {
+  id                   String    @id
+  projectId            String
+  requirementId        String    @unique
+  title                String
+  description          String?
+  category             String    @default("functional")
+  priority             String    @default("medium")
+  status               String    @default("draft")
+  sourceType           String    @default("manual")
+  sourceId             String?
+  linkedTables         String    @default("[]")
+  linkedAPIs           String    @default("[]")
+  linkedScreens        String    @default("[]")
+  linkedTestCases      String    @default("[]")
+  linkedSPs            String    @default("[]")
+  implementationStatus String    @default("not_started")
+  coveragePercent      Int       @default(0)
+  verifiedBy           String?
+  verifiedAt           DateTime?
+  verificationNotes    String?
+  moduleName           String?
+  tags                 String    @default("[]")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime
+
+  @@index([implementationStatus])
+  @@index([priority])
+  @@index([category])
+  @@index([status])
+  @@index([projectId])
+}
+
+model Room {
+  id          String   @id
+  floorId     String
+  name        String
+  description String?
+  code        String?
+  roomNumber  String?
+  capacity    Int?
+  roomType    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Floor       Floor    @relation(fields: [floorId], references: [id], onDelete: Cascade)
+
+  @@unique([floorId, name])
+  @@index([roomType])
+  @@index([isActive])
+  @@index([roomNumber])
+  @@index([floorId])
+}
+
+model SPBusinessRule {
+  id                   String    @id
+  projectId            String
+  spName               String
+  ruleId               String
+  ruleType             String
+  ruleName             String
+  description          String
+  tableName            String
+  conditionSQL         String
+  conditionNormalized  String?
+  businessContext      String?
+  errorHandlingType    String    @default("blocking")
+  errorCode            Int?
+  errorMessage         String?
+  userFriendlyMessage  String?
+  cshtmlValidation     String?
+  cshtmlErrorMessage   String?
+  validationAlignment  String    @default("unknown")
+  migratedTo           String?
+  migrationComplexity  String    @default("simple")
+  migrationNotes       String?
+  extractionConfidence Float     @default(0.8)
+  verifiedBy           String?
+  verifiedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime
+
+  @@unique([projectId, spName, ruleId])
+  @@index([validationAlignment])
+  @@index([errorCode])
+  @@index([ruleType])
+  @@index([spName])
+  @@index([projectId])
+}
+
+model SPClassificationRule {
+  id              String   @id
+  pattern         String   @unique
+  patternFlags    String   @default("i")
+  actionType      String
+  httpMethod      String   @default("GET")
+  routePattern    String
+  routeTemplate   String?
+  isTransactional Boolean  @default(false)
+  requiresAuth    Boolean  @default(true)
+  isCacheable     Boolean  @default(false)
+  cacheTTL        Int?
+  priority        String   @default("medium")
+  riskLevel       String   @default("low")
+  description     String?
+  examples        String   @default("[]")
+  category        String   @default("general")
+  isActive        Boolean  @default(true)
+  matchCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@index([category])
+  @@index([isActive])
+  @@index([httpMethod])
+  @@index([actionType])
+}
+
+model SPCorrelation {
+  id                    String    @id
+  projectId             String
+  spName                String
+  cshtmlViewName        String
+  cshtmlViewPath        String?
+  correlationType       String
+  correlationMethod     String
+  confidence            Float     @default(0.0)
+  confidenceBreakdown   String    @default("{}")
+  fieldMappings         String    @default("[]")
+  unmatchedCSHTMLFields String    @default("[]")
+  unmatchedSPParams     String    @default("[]")
+  typeConflicts         String    @default("[]")
+  validationGaps        String    @default("[]")
+  validationExcessive   String    @default("[]")
+  status                String    @default("pending")
+  verifiedBy            String?
+  verifiedAt            DateTime?
+  reviewNotes           String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime
+
+  @@unique([projectId, spName, cshtmlViewName])
+  @@index([confidence])
+  @@index([status])
+  @@index([correlationType])
+  @@index([cshtmlViewName])
+  @@index([spName])
+  @@index([projectId])
+}
+
+model SPDependencyChain {
+  id                    String   @id
+  projectId             String
+  chainName             String
+  entryPointSP          String
+  processType           String
+  steps                 String   @default("[]")
+  totalSteps            Int      @default(0)
+  estimatedDuration     Int      @default(0)
+  errorHandlingStrategy String   @default("rollback")
+  transactionScope      String   @default("chain")
+  moduleName            String?
+  businessContext       String?
+  generatedWorkflow     String?
+  generatedTests        String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+
+  @@unique([projectId, chainName])
+  @@index([moduleName])
+  @@index([processType])
+  @@index([entryPointSP])
+  @@index([projectId])
+}
+
+model SPDependencyGraph {
+  id               String   @id
+  projectId        String
+  callerSP         String
+  calledSP         String
+  callType         String   @default("exec")
+  parameterMapping String   @default("[]")
+  lineNumber       Int?
+  context          String?
+  createdAt        DateTime @default(now())
+
+  @@unique([projectId, callerSP, calledSP])
+  @@index([calledSP])
+  @@index([callerSP])
+  @@index([projectId])
+}
+
+model SPErrorCodeMapping {
+  id                  String   @id
+  projectId           String
+  spName              String
+  errorCode           Int
+  errorType           String
+  spErrorMessage      String?
+  cshtmlViewName      String?
+  cshtmlHandler       String?
+  cshtmlUserMessage   String?
+  userFriendlyMessage String
+  suggestedHTTPStatus Int      @default(400)
+  businessRule        String?
+  severity            String   @default("error")
+  messageKey          String?
+  messageVariables    String   @default("[]")
+  isResolved          Boolean  @default(false)
+  migratedToCode      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime
+
+  @@unique([projectId, spName, errorCode])
+  @@index([errorType])
+  @@index([errorCode])
+  @@index([spName])
+  @@index([projectId])
+}
+
+model SPIntelligence {
+  id                       String   @id
+  projectId                String
+  procedureName            String
+  originalDDL              String
+  schemaName               String   @default("dbo")
+  actionType               String   @default("unknown")
+  classificationMethod     String   @default("pattern_match")
+  classificationConfidence Float    @default(0.0)
+  inputParameters          String   @default("[]")
+  outputParameters         String   @default("[]")
+  systemParameters         String   @default("[]")
+  optionalParameters       String   @default("[]")
+  businessRules            String   @default("[]")
+  errorCodes               String   @default("[]")
+  tableAccess              String   @default("[]")
+  subProcedureCalls        String   @default("[]")
+  sideEffects              String   @default("[]")
+  hasTransaction           Boolean  @default(false)
+  hasTryCatch              Boolean  @default(false)
+  hasErrorHandling         Boolean  @default(false)
+  hasDynamicSQL            Boolean  @default(false)
+  hasTempTables            Boolean  @default(false)
+  hasCursor                Boolean  @default(false)
+  lineCount                Int      @default(0)
+  parameterCount           Int      @default(0)
+  businessRuleCount        Int      @default(0)
+  tableAccessCount         Int      @default(0)
+  nestingDepth             Int      @default(0)
+  cyclomaticComplexity     Int      @default(0)
+  migrationRisk            String   @default("medium")
+  suggestedHttpMethod      String?
+  suggestedRoute           String?
+  suggestedModule          String?
+  generatedApiCode         String?
+  generatedTypes           String?
+  generatedValidation      String?
+  correlatedViews          String   @default("[]")
+  correlatedTables         String   @default("[]")
+  correlatedControllers    String   @default("[]")
+  isAnalyzed               Boolean  @default(false)
+  isCorrelated             Boolean  @default(false)
+  isGenerated              Boolean  @default(false)
+  needsManualReview        Boolean  @default(false)
+  reviewNotes              String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime
+
+  @@unique([projectId, procedureName])
+  @@index([migrationRisk])
+  @@index([procedureName])
+  @@index([actionType])
+  @@index([projectId])
+}
+
+model SPWorkflowChain {
+  id                String   @id
+  projectId         String
+  chainId           String   @unique
+  chainName         String
+  description       String?
+  processType       String   @default("unknown")
+  moduleName        String?
+  steps             String   @default("[]")
+  totalSteps        Int      @default(0)
+  estimatedDuration Int      @default(0)
+  entryPoints       String   @default("[]")
+  status            String   @default("discovered")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+
+  @@index([moduleName])
+  @@index([processType])
+  @@index([projectId])
+}
+
+model SchemaApply {
+  id            String    @id
+  projectId     String
+  name          String
+  schemaType    String
+  schemaContent String
+  status        String    @default("pending")
+  appliedAt     DateTime?
+  rolledBackAt  DateTime?
+  error         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+
+  @@index([status])
+  @@index([projectId])
+}
+
+model SchemaDiff {
+  id              String   @id
+  projectId       String
+  fromVersionId   String
+  toVersionId     String
+  tableChanges    String   @default("[]")
+  columnChanges   String   @default("[]")
+  fkChanges       String   @default("[]")
+  indexChanges    String   @default("[]")
+  spChanges       String   @default("[]")
+  viewChanges     String   @default("[]")
+  breakingChanges String   @default("[]")
+  affectedModules String   @default("[]")
+  affectedScreens String   @default("[]")
+  affectedAPIs    String   @default("[]")
+  riskLevel       String   @default("low")
+  riskNotes       String   @default("[]")
+  migrationScript String?
+  prismaMigration String?
+  createdAt       DateTime @default(now())
+
+  @@unique([projectId, fromVersionId, toVersionId])
+  @@index([toVersionId])
+  @@index([fromVersionId])
+  @@index([projectId])
+}
+
+model SchemaVersion {
+  id                String   @id
+  projectId         String
+  versionNumber     String
+  versionHash       String   @unique
+  tablesSnapshot    String   @default("[]")
+  viewsSnapshot     String   @default("[]")
+  spsSnapshot       String   @default("[]")
+  totalTables       Int      @default(0)
+  totalViews        Int      @default(0)
+  totalSPs          Int      @default(0)
+  totalColumns      Int      @default(0)
+  totalFKs          Int      @default(0)
+  changesSummary    String   @default("{}")
+  triggeredBy       String?
+  triggerSource     String   @default("upload")
+  description       String?
+  previousVersionId String?
+  createdAt         DateTime @default(now())
+
+  @@unique([projectId, versionNumber])
+  @@index([createdAt])
+  @@index([versionNumber])
+  @@index([projectId])
+}
+
+model ScoringFactor {
+  id          String   @id
+  name        String   @unique
+  weight      Float    @default(0.15)
+  description String?
+  category    String   @default("default")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([active])
+  @@index([name])
+}
+
+model ScreenBlueprintRecord {
+  id          String   @id
+  blueprintId String   @unique
+  tableName   String
+  screenType  String
+  title       String
+  fields      String   @default("[]")
+  actions     String   @default("[]")
+  sections    String   @default("[]")
+  filters     String   @default("[]")
+  layout      String   @default("single_column")
+  widgets     String   @default("[]")
+  moduleName  String?
+  projectId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@unique([tableName, screenType])
+  @@index([projectId])
+  @@index([screenType])
+  @@index([tableName])
+}
+
+model SearchIndex {
+  id             String   @id
+  projectId      String
+  entityType     String
+  entityId       String
+  title          String
+  content        String
+  keywords       String   @default("[]")
+  tags           String   @default("[]")
+  relevanceScore Float    @default(1.0)
+  source         String?
+  indexedAt      DateTime @default(now())
+  updatedAt      DateTime
+
+  @@unique([projectId, entityType, entityId])
+  @@index([entityType])
+  @@index([projectId])
+}
+
+model SourceFile {
+  id          String   @id
+  name        String
+  path        String   @unique
+  type        String
+  size        Int
+  contentHash String
+  content     String
+  modifiedAt  DateTime @default(now())
+  uploadedAt  DateTime @default(now())
+
+  @@index([uploadedAt])
+  @@index([type])
+}
+
+model StoredProcedureCache {
+  id                String         @id
+  projectId         String
+  procedureName     String
+  schemaName        String         @default("dbo")
+  actionType        String         @default("unknown")
+  moduleName        String?
+  moduleConfidence  Int            @default(0)
+  tablesReferenced  String         @default("[]")
+  implicitJoins     String         @default("[]")
+  discoveredTables  String         @default("[]")
+  businessRules     String         @default("[]")
+  writeOperations   String         @default("[]")
+  readOperations    String         @default("[]")
+  parameters        String         @default("[]")
+  apiInputSchema    String         @default("{}")
+  complexity        Int            @default(0)
+  riskLevel         String         @default("low")
+  suggestedEndpoint String?
+  body              String         @default("")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime
+  ToolkitProject    ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, procedureName])
+  @@index([moduleName])
+  @@index([actionType])
+  @@index([projectId])
+}
+
+model SystemSettings {
+  id          String   @id
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime
+
+  @@index([key])
+}
+
+model TeamAllocation {
+  id                String    @id
+  projectId         String
+  allocationId      String    @unique
+  name              String
+  sprintNumber      Int?
+  startDate         DateTime?
+  endDate           DateTime?
+  assignments       String    @default("[]")
+  moduleAssignments String    @default("[]")
+  totalMembers      Int       @default(0)
+  totalModules      Int       @default(0)
+  totalHours        Float     @default(0)
+  totalStoryPoints  Int       @default(0)
+  status            String    @default("planned")
+  plannedVelocity   Int       @default(0)
+  actualVelocity    Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@index([sprintNumber])
+  @@index([status])
+  @@index([projectId])
+}
+
+model TeamMember {
+  id                 String   @id
+  companyId          String
+  userId             String?
+  name               String
+  email              String?
+  role               String   @default("developer")
+  skills             String   @default("[]")
+  availability       Int      @default(100)
+  hourlyRate         Float?
+  currentAssignments String   @default("[]")
+  projectsCompleted  Int      @default(0)
+  averageVelocity    Float    @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
+
+  @@index([role])
+  @@index([isActive])
+  @@index([companyId])
+}
+
+model TestCase {
+  id             String     @id
+  projectId      String
+  moduleId       String?
+  testCaseKey    String     @unique
+  title          String
+  description    String?
+  preconditions  String     @default("[]")
+  testCaseType   String     @default("functional")
+  priority       String     @default("medium")
+  expectedResult String?
+  sourceWorkflow String?
+  sourceTable    String?
+  status         String     @default("draft")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime
+  TestStep       TestStep[]
+
+  @@index([priority])
+  @@index([testCaseType])
+  @@index([moduleId])
+  @@index([projectId])
+}
+
+model TestStep {
+  id                  String   @id
+  testCaseId          String
+  stepNumber          Int
+  instruction         String
+  detailedInstruction String?
+  expectedResult      String?
+  testData            String   @default("{}")
+  isOptional          Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime
+  TestCase            TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([testCaseId, stepNumber])
+  @@index([testCaseId])
+}
+
+model ToolkitArtifact {
+  id           String   @id
+  projectId    String
+  artifactType String
+  name         String
+  content      String
+  metadata     String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@index([artifactType])
+  @@index([projectId])
+}
+
+model ToolkitFile {
+  id              String         @id
+  projectId       String
+  fileName        String
+  filePath        String?
+  fileType        String
+  fileSize        Int            @default(0)
+  lineCount       Int            @default(0)
+  content         String         @default("")
+  contentHash     String?
+  parseStatus     String         @default("pending")
+  parseError      String?
+  parsedAt        DateTime?
+  tablesFound     Int            @default(0)
+  proceduresFound Int            @default(0)
+  complexity      Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  ToolkitProject  ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, fileName])
+  @@index([parseStatus])
+  @@index([fileType])
+  @@index([projectId])
+}
+
+model ToolkitProcedure {
+  id             String         @id
+  projectId      String
+  procedureName  String
+  schemaName     String         @default("dbo")
+  parameters     String
+  returnType     String?
+  body           String
+  operations     String         @default("[]")
+  tablesAccessed String         @default("[]")
+  tablesModified String         @default("[]")
+  complexity     Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  ToolkitProject ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, procedureName])
+  @@index([procedureName])
+}
+
+model ToolkitProject {
+  id                    String                  @id
+  name                  String
+  description           String?
+  softwareType          String                  @default("Custom")
+  targetTemplate        String                  @default("nextjs-react")
+  rawSql                String                  @default("")
+  status                String                  @default("active")
+  color                 String                  @default("#3b82f6")
+  icon                  String                  @default("Database")
+  lastExportAt          DateTime?
+  exportCount           Int                     @default(0)
+  lastExportPath        String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  CSHTMLAnalysisCache   CSHTMLAnalysisCache[]
+  DiscoveredTableCache  DiscoveredTableCache[]
+  StoredProcedureCache  StoredProcedureCache[]
+  ToolkitFile           ToolkitFile[]
+  ToolkitProcedure      ToolkitProcedure[]
+  ToolkitTable          ToolkitTable[]
+  ViewIntelligenceCache ViewIntelligenceCache[]
+
+  @@index([status])
+  @@index([softwareType])
+  @@index([name])
+}
+
+model ToolkitTable {
+  id             String         @id
+  projectId      String
+  tableName      String
+  schemaName     String         @default("dbo")
+  columns        String
+  foreignKeys    String         @default("[]")
+  indexes        String         @default("[]")
+  constraints    String         @default("[]")
+  sourceDDL      String?
+  status         String         @default("standalone")
+  linkedModule   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  ToolkitProject ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, tableName])
+  @@index([tableName])
+}
+
+model ToolkitTestCase {
+  id             String   @id
+  projectId      String
+  testCaseId     String
+  module         String
+  testCase       String
+  description    String
+  preconditions  String
+  steps          String
+  expectedResult String
+  priority       String   @default("Medium")
+  status         String   @default("Not Started")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime
+
+  @@index([module])
+  @@index([projectId])
+}
+
+model ToolkitUserStory {
+  id                 String   @id
+  projectId          String
+  storyId            String
+  title              String
+  role               String
+  feature            String
+  benefit            String
+  acceptanceCriteria String   @default("[]")
+  priority           String   @default("should_have")
+  storyPoints        Int      @default(0)
+  tables             String   @default("[]")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
+
+  @@index([priority])
+  @@index([projectId])
+}
+
+model UIScreenBlueprint {
+  id              String   @id
+  projectId       String
+  screenName      String
+  screenType      String   @default("form")
+  sourceTable     String?
+  sourceCSHTML    String?
+  tableName       String?
+  fields          String   @default("[]")
+  actions         String   @default("[]")
+  sections        String   @default("[]")
+  filters         String   @default("[]")
+  layout          String   @default("single_column")
+  columnIntel     String   @default("{}")
+  piiDetection    String   @default("{}")
+  reactComponent  String?
+  suggestedRoute  String?
+  migrationStatus String   @default("pending")
+  migrationNotes  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@unique([projectId, screenName])
+  @@index([migrationStatus])
+  @@index([sourceTable])
+  @@index([screenType])
+  @@index([projectId])
+}
+
+model UnifiedConsistencyCheck {
+  id             String    @id
+  projectId      String
+  tableName      String?
+  fieldId        String?
+  checkType      String
+  severity       String
+  description    String
+  currentState   String
+  expectedState  String
+  autoFixable    Boolean   @default(false)
+  autoFixAction  String?
+  isResolved     Boolean   @default(false)
+  resolvedAt     DateTime?
+  resolvedBy     String?
+  resolutionNote String?
+  createdAt      DateTime  @default(now())
+
+  @@index([isResolved])
+  @@index([severity])
+  @@index([checkType])
+  @@index([projectId])
+}
+
+model UnifiedEnrichmentLog {
+  id               String   @id
+  fieldId          String
+  projectId        String
+  agentName        String
+  layerEnriched    String
+  previousValue    String?
+  newValue         String
+  confidenceBefore Float?
+  confidenceAfter  Float
+  enrichmentMethod String
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([agentName])
+  @@index([fieldId])
+}
+
+model UnifiedEnrichmentSession {
+  id                String    @id
+  projectId         String
+  status            String    @default("pending")
+  currentStep       Int       @default(0)
+  totalSteps        Int       @default(12)
+  currentAgent      String?
+  totalFields       Int       @default(0)
+  fieldsEnriched    Int       @default(0)
+  fieldsWithIssues  Int       @default(0)
+  averageConfidence Float     @default(0.0)
+  startTime         DateTime  @default(now())
+  endTime           DateTime?
+  durationMs        Int?
+  errors            String    @default("[]")
+  warnings          String    @default("[]")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+
+  @@index([status])
+  @@index([projectId])
+}
+
+model UnifiedField {
+  id                         String                       @id
+  projectId                  String
+  tableId                    String?
+  tableName                  String
+  fieldName                  String
+  qualifiedName              String
+  displayOrder               Int                          @default(0)
+  schemaDataType             String?
+  schemaBaseType             String?
+  schemaMaxLength            Int?
+  schemaPrecision            Int?
+  schemaScale                Int?
+  schemaIsNullable           Boolean                      @default(true)
+  schemaIsPrimaryKey         Boolean                      @default(false)
+  schemaIsIdentity           Boolean                      @default(false)
+  schemaIsComputed           Boolean                      @default(false)
+  schemaDefaultValue         String?
+  schemaCheckConstraint      String?
+  schemaSource               String                       @default("unknown")
+  schemaConfidence           Float                        @default(0.0)
+  fkIsForeignKey             Boolean                      @default(false)
+  fkReferencedTable          String?
+  fkReferencedColumn         String?
+  fkTableExists              Boolean                      @default(false)
+  fkRelationshipType         String?
+  fkOnDelete                 String?
+  fkOnUpdate                 String?
+  fkResolutionStatus         String                       @default("not_fk")
+  fkCascadeChain             String                       @default("[]")
+  fkSources                  String                       @default("{}")
+  fkConfidence               Float                        @default(0.0)
+  intelSemanticType          String?
+  intelSemanticCategory      String?
+  intelBusinessMeaning       String?
+  intelDataPattern           String?
+  intelExampleValues         String                       @default("[]")
+  intelSuggestedLabel        String?
+  intelSuggestedPlaceholder  String?
+  intelSuggestedHelpText     String?
+  intelIsSystemField         Boolean                      @default(false)
+  intelIsAuditField          Boolean                      @default(false)
+  intelIsCalculated          Boolean                      @default(false)
+  intelConfidence            Float                        @default(0.0)
+  uiComponentType            String?
+  uiHtmlInputType            String?
+  uiRenderAs                 String?
+  uiGridWidth                String                       @default("col-md-6")
+  uiLabelPosition            String                       @default("left")
+  uiGroupName                String?
+  uiTabName                  String?
+  uiSectionName              String?
+  uiIsHidden                 Boolean                      @default(false)
+  uiIsReadOnly               Boolean                      @default(false)
+  uiIsDisabled               Boolean                      @default(false)
+  uiConditionalDisplay       String?
+  uiDropdownConfig           String?
+  uiDateConfig               String?
+  uiFileConfig               String?
+  uiSopRulesApplied          String                       @default("[]")
+  uiConfidence               Float                        @default(0.0)
+  validationIsRequired       Boolean                      @default(false)
+  validationClientRules      String                       @default("[]")
+  validationServerRules      String                       @default("[]")
+  validationCrossRules       String                       @default("[]")
+  validationDbConstraints    String                       @default("[]")
+  validationAlignment        String                       @default("unknown")
+  validationMissing          String                       @default("[]")
+  validationExcessive        String                       @default("[]")
+  validationConfidence       Float                        @default(0.0)
+  compSensitivityLevel       String                       @default("public")
+  compIsPII                  Boolean                      @default(false)
+  compIsPHI                  Boolean                      @default(false)
+  compIsFinancial            Boolean                      @default(false)
+  compPiiCategory            String?
+  compPhiCategory            String?
+  compRequiresEncryption     Boolean                      @default(false)
+  compRequiresMasking        Boolean                      @default(false)
+  compMaskingPattern         String?
+  compRetentionPolicy        String?
+  compConsentRequired        Boolean                      @default(false)
+  compAuditRequired          Boolean                      @default(false)
+  compAccessRestrictions     String                       @default("[]")
+  compRegulatoryFrameworks   String                       @default("[]")
+  compConfidence             Float                        @default(0.0)
+  complexityPoints           Float                        @default(0.0)
+  complexityFactors          String                       @default("[]")
+  complexityFrontendHrs      Float                        @default(0.0)
+  complexityBackendHrs       Float                        @default(0.0)
+  complexityTestingHrs       Float                        @default(0.0)
+  complexityMigrationRisk    String                       @default("low")
+  sopAppliedRules            String                       @default("[]")
+  sopTotalApplicable         Int                          @default(0)
+  sopTotalCompliant          Int                          @default(0)
+  sopCompliancePercent       Float                        @default(0.0)
+  sopViolations              String                       @default("[]")
+  sopAutoFixable             String                       @default("[]")
+  cshtmlFoundInViews         String                       @default("[]")
+  cshtmlAjaxEndpoints        String                       @default("[]")
+  cshtmlJsValidation         String                       @default("[]")
+  cshtmlCssClasses           String                       @default("[]")
+  cshtmlInlineStyles         String                       @default("[]")
+  cshtmlDataAttributes       String                       @default("{}")
+  spUsedInSPs                String                       @default("[]")
+  spBusinessRules            String                       @default("[]")
+  spErrorCodes               String                       @default("[]")
+  testCases                  String                       @default("[]")
+  docDataDictionary          String                       @default("{}")
+  docDeveloperNotes          String?
+  docUserGuideText           String?
+  docApiDocumentation        String?
+  metaEnrichedBy             String                       @default("[]")
+  metaEnrichmentComplete     Float                        @default(0.0)
+  metaOverallConfidence      Float                        @default(0.0)
+  metaNeedsReview            Boolean                      @default(false)
+  metaReviewNotes            String                       @default("[]")
+  metaVersion                Int                          @default(1)
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime
+  UnifiedFieldCSHTMLEvidence UnifiedFieldCSHTMLEvidence[]
+  UnifiedFieldDocumentation  UnifiedFieldDocumentation[]
+  UnifiedFieldSOPCompliance  UnifiedFieldSOPCompliance[]
+  UnifiedFieldSPEvidence     UnifiedFieldSPEvidence[]
+  UnifiedFieldTestCase       UnifiedFieldTestCase[]
+  UnifiedFieldValidation     UnifiedFieldValidation[]
+
+  @@unique([projectId, tableName, fieldName])
+  @@index([qualifiedName])
+  @@index([metaOverallConfidence])
+  @@index([metaNeedsReview])
+  @@index([compIsPHI])
+  @@index([compIsPII])
+  @@index([fkIsForeignKey])
+  @@index([tableName])
+  @@index([projectId])
+}
+
+model UnifiedFieldCSHTMLEvidence {
+  id              String       @id
+  fieldId         String
+  viewName        String
+  viewPath        String?
+  formName        String?
+  htmlElementId   String?
+  htmlElementName String?
+  htmlElementType String
+  lineNumber      Int?
+  contextHTML     String?
+  isInCreateForm  Boolean      @default(false)
+  isInUpdateForm  Boolean      @default(false)
+  isInGrid        Boolean      @default(false)
+  isInFilter      Boolean      @default(false)
+  isInModal       Boolean      @default(false)
+  cssClasses      String       @default("[]")
+  inlineStyles    String       @default("[]")
+  dataAttributes  String       @default("{}")
+  createdAt       DateTime     @default(now())
+  UnifiedField    UnifiedField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([viewName])
+  @@index([fieldId])
+}
+
+model UnifiedFieldDocumentation {
+  id              String       @id
+  fieldId         String
+  docType         String
+  content         String
+  format          String       @default("markdown")
+  version         Int          @default(1)
+  isAutoGenerated Boolean      @default(true)
+  isApproved      Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime
+  UnifiedField    UnifiedField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([docType])
+  @@index([fieldId])
+}
+
+model UnifiedFieldSOPCompliance {
+  id               String       @id
+  fieldId          String
+  sopId            String
+  sopName          String
+  sopCategory      String
+  priority         Int          @default(50)
+  isCompliant      Boolean      @default(false)
+  complianceNote   String?
+  autoFixAvailable Boolean      @default(false)
+  autoFixAction    String?
+  fixedAt          DateTime?
+  createdAt        DateTime     @default(now())
+  UnifiedField     UnifiedField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([isCompliant])
+  @@index([sopId])
+  @@index([fieldId])
+}
+
+model UnifiedFieldSPEvidence {
+  id                 String       @id
+  fieldId            String
+  spName             String
+  usageType          String
+  parameterName      String?
+  parameterDirection String?
+  businessRule       String?
+  errorCode          Int?
+  errorMessage       String?
+  createdAt          DateTime     @default(now())
+  UnifiedField       UnifiedField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([usageType])
+  @@index([spName])
+  @@index([fieldId])
+}
+
+model UnifiedFieldTestCase {
+  id             String       @id
+  fieldId        String
+  testCaseId     String
+  title          String
+  testType       String
+  inputValue     String?
+  expectedResult String
+  priority       String       @default("medium")
+  category       String
+  automatable    Boolean      @default(true)
+  generatedFrom  String
+  createdAt      DateTime     @default(now())
+  UnifiedField   UnifiedField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([priority])
+  @@index([testType])
+  @@index([fieldId])
+}
+
+model UnifiedFieldValidation {
+  id           String       @id
+  fieldId      String
+  side         String
+  ruleType     String
+  ruleValue    String?
+  errorMessage String?
+  errorCode    Int?
+  relatedField String?
+  spName       String?
+  endpoint     String?
+  source       String
+  isActive     Boolean      @default(true)
+  confidence   Float        @default(1.0)
+  createdAt    DateTime     @default(now())
+  UnifiedField UnifiedField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([side])
+  @@index([ruleType])
+  @@index([fieldId])
+}
+
+model UnifiedSOPRule {
+  id              String   @id
+  projectId       String?
+  sopId           String   @unique
+  name            String
+  description     String
+  category        String
+  priority        Int      @default(50)
+  isActive        Boolean  @default(true)
+  appliesTo       String
+  condition       String
+  expectedValue   String?
+  autoFixAction   String?
+  sourceDocument  String?
+  sourceVersion   String?
+  isSystemDefault Boolean  @default(false)
+  isCustom        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime
+
+  @@index([projectId])
+  @@index([isActive])
+  @@index([category])
+}
+
+model UnifiedTable {
+  id                    String   @id
+  projectId             String
+  tableName             String
+  schemaName            String   @default("dbo")
+  totalColumns          Int      @default(0)
+  requiredColumns       Int      @default(0)
+  fkColumns             Int      @default(0)
+  piiColumns            Int      @default(0)
+  phiColumns            Int      @default(0)
+  totalComplexityPoints Float    @default(0)
+  complexityRating      String   @default("SIMPLE")
+  estimatedDevDays      Float    @default(0)
+  complianceScore       Float    @default(100.0)
+  sopComplianceScore    Float    @default(100.0)
+  hasComplianceAlert    Boolean  @default(false)
+  complianceAlertText   String?
+  schemaComplete        Boolean  @default(false)
+  fkResolved            Boolean  @default(false)
+  intelligenceComplete  Boolean  @default(false)
+  complianceScanned     Boolean  @default(false)
+  sopChecked            Boolean  @default(false)
+  testsGenerated        Boolean  @default(false)
+  docsGenerated         Boolean  @default(false)
+  moduleName            String?
+  submoduleName         String?
+  moduleConfidence      Float    @default(0.0)
+  overallEnrichment     Float    @default(0.0)
+  overallConfidence     Float    @default(0.0)
+  issueCount            Int      @default(0)
+  warningCount          Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+
+  @@unique([projectId, tableName])
+  @@index([moduleName])
+  @@index([hasComplianceAlert])
+  @@index([complexityRating])
+  @@index([projectId])
+}
+
+model User {
+  id              String        @id
+  email           String        @unique
+  name            String?
+  passwordHash    String?
+  firstName       String?
+  lastName        String?
+  displayName     String?
+  avatar          String?
+  timezone        String        @default("UTC")
+  locale          String        @default("en")
+  isActive        Boolean       @default(true)
+  emailVerified   Boolean       @default(false)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  preferences     String        @default("{}")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  Post            Post[]
+  UserCompany     UserCompany[]
+  UserProject     UserProject[]
+
+  @@index([isActive])
+  @@index([email])
+}
+
+model UserCompany {
+  id        String    @id
+  userId    String
+  companyId String
+  role      String    @default("member")
+  status    String    @default("pending")
+  invitedBy String?
+  invitedAt DateTime?
+  joinedAt  DateTime?
+  settings  String    @default("{}")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([status])
+  @@index([role])
+  @@index([companyId])
+  @@index([userId])
+}
+
+model UserProject {
+  id          String   @id
+  userId      String
+  projectId   String
+  role        String   @default("viewer")
+  status      String   @default("pending")
+  permissions String   @default("[]")
+  settings    String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([status])
+  @@index([role])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model UserStoryRecord {
+  id                 String   @id
+  storyId            String   @unique
+  title              String
+  role               String
+  feature            String
+  benefit            String
+  acceptanceCriteria String   @default("[]")
+  moduleId           String?
+  tables             String   @default("[]")
+  priority           String   @default("should_have")
+  storyPoints        Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
+
+  @@index([moduleId])
+  @@index([priority])
+  @@index([title])
+}
+
+model VerificationItem {
+  id             String    @id
+  projectId      String?
+  itemType       String
+  itemId         String
+  itemName       String
+  itemData       String    @default("{}")
+  confidence     Float     @default(0.5)
+  priority       String    @default("medium")
+  category       String    @default("general")
+  suggestedValue String?   @default("{}")
+  reason         String?
+  status         String    @default("pending")
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+
+  @@unique([itemType, itemId])
+  @@index([category])
+  @@index([itemType])
+  @@index([status, priority])
+  @@index([projectId])
+}
+
+model ViewIntelligenceCache {
+  id                  String         @id
+  projectId           String
+  viewName            String
+  schemaName          String         @default("dbo")
+  sourceTables        String         @default("[]")
+  joinRelationships   String         @default("[]")
+  columns             String         @default("[]")
+  calculatedFields    String         @default("[]")
+  caseStatements      String         @default("[]")
+  purpose             String         @default("unknown")
+  businessContext     String?
+  suggestedReportType String?
+  suggestedWidgets    String         @default("[]")
+  enumSuggestions     String         @default("[]")
+  apiEndpoints        String         @default("[]")
+  complexity          Int            @default(0)
+  hiddenRelationships String         @default("[]")
+  body                String         @default("")
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime
+  ToolkitProject      ToolkitProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, viewName])
+  @@index([purpose])
+  @@index([projectId])
+}
+
+model Workflow {
+  id                 String               @id
+  projectId          String
+  moduleId           String?
+  workflowKey        String               @unique
+  name               String
+  description        String?
+  businessContext    String?
+  isSequential       Boolean              @default(true)
+  allowParallel      Boolean              @default(false)
+  status             String               @default("draft")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  WorkflowState      WorkflowState[]
+  WorkflowTransition WorkflowTransition[]
+
+  @@index([status])
+  @@index([moduleId])
+  @@index([projectId])
+}
+
+model WorkflowState {
+  id                                                               String               @id
+  workflowId                                                       String
+  stateKey                                                         String
+  stateName                                                        String
+  isInitial                                                        Boolean              @default(false)
+  isFinal                                                          Boolean              @default(false)
+  isError                                                          Boolean              @default(false)
+  description                                                      String?
+  order                                                            Int                  @default(0)
+  onEnter                                                          String?
+  onExit                                                           String?
+  createdAt                                                        DateTime             @default(now())
+  updatedAt                                                        DateTime
+  Workflow                                                         Workflow             @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  WorkflowTransition_WorkflowTransition_fromStateIdToWorkflowState WorkflowTransition[] @relation("WorkflowTransition_fromStateIdToWorkflowState")
+  WorkflowTransition_WorkflowTransition_toStateIdToWorkflowState   WorkflowTransition[] @relation("WorkflowTransition_toStateIdToWorkflowState")
+
+  @@unique([workflowId, stateKey])
+  @@index([workflowId])
+}
+
+model WorkflowTransition {
+  id                                                          String        @id
+  workflowId                                                  String
+  transitionKey                                               String
+  transitionName                                              String
+  fromStateId                                                 String
+  toStateId                                                   String
+  trigger                                                     String?
+  triggerType                                                 String        @default("manual")
+  conditions                                                  String        @default("[]")
+  actions                                                     String        @default("[]")
+  createdAt                                                   DateTime      @default(now())
+  updatedAt                                                   DateTime
+  Workflow                                                    Workflow      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  WorkflowState_WorkflowTransition_fromStateIdToWorkflowState WorkflowState @relation("WorkflowTransition_fromStateIdToWorkflowState", fields: [fromStateId], references: [id], onDelete: Cascade)
+  WorkflowState_WorkflowTransition_toStateIdToWorkflowState   WorkflowState @relation("WorkflowTransition_toStateIdToWorkflowState", fields: [toStateId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, transitionKey])
+  @@index([toStateId])
+  @@index([fromStateId])
+  @@index([workflowId])
+}
+
+model Workspace {
+  id          String    @id
+  companyId   String
+  name        String
+  slug        String
+  description String?
+  settings    String    @default("{}")
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  Project     Project[]
+  Company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, slug])
+  @@index([isActive])
+  @@index([companyId])
+}
+
+model AISession {
+  id                   String              @id @default(cuid())
+  externalId           String?             @unique
+  chatId               String              @unique
+  userId               String?
+  parentMessageId      String?
+  childMessageIds      String              @default("[]")
+  messageIndex         Int                 @default(0)
+  sessionDate          DateTime
+  startTime            DateTime
+  endTime              DateTime?
+  duration             Int                 @default(0)
+  durationMs           Int                 @default(0)
+  completed            Boolean             @default(true)
+  error                String?
+  inputTokens          Int                 @default(0)
+  outputTokens         Int                 @default(0)
+  totalTokens          Int                 @default(0)
+  cachedTokens         Int                 @default(0)
+  cacheHitRate         Float               @default(0)
+  reasoningTokens      Int                 @default(0)
+  estimatedCost        Float               @default(0)
+  totalReasoningMs     Int                 @default(0)
+  totalToolCallMs      Int                 @default(0)
+  reasoningToToolRatio Float               @default(0)
+  model                String              @default("unknown")
+  modelName            String?
+  sessionType          SessionType         @default(UNKNOWN)
+  category             String              @default("development")
+  tags                 String              @default("[]")
+  filesModified        Int                 @default(0)
+  filesCreated         Int                 @default(0)
+  filesRead            Int                 @default(0)
+  featuresImplemented  Int                 @default(0)
+  issuesResolved       Int                 @default(0)
+  issuesCreated        Int                 @default(0)
+  commandsRun          Int                 @default(0)
+  commandsFailed       Int                 @default(0)
+  gitCommits           Int                 @default(0)
+  buildAttempts        Int                 @default(0)
+  efficiencyScore      Int                 @default(50)
+  qualityScore         Int                 @default(50)
+  pageVersion          String?
+  gitCommitHash        String?
+  gitBranch            String?
+  title                String?
+  summary              String?
+  highlights           String              @default("[]")
+  status               String              @default("completed")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  costs                AICostRecord[]
+  features             AIFeature[]
+  issues               AIIssue[]
+  messages             AIMessageRecord[]
+  anomalies            AnomalyAlert[]
+  contentBlocks        ContentBlock[]
+  fileOperations       FileOperation[]
+  gitOperations        GitOperation[]
+  patternOccurrences   PatternOccurrence[]
+  toolCalls            ToolCall[]
+
+  @@index([sessionDate])
+  @@index([category])
+  @@index([model])
+  @@index([status])
+  @@index([sessionType])
+  @@index([userId])
+}
+
+model AIIssue {
+  id                  String           @id @default(cuid())
+  sessionId           String
+  issueType           String           @default("unknown")
+  severity            String           @default("medium")
+  title               String
+  description         String?
+  category            String           @default("general")
+  tags                String           @default("[]")
+  fileAffected        String?
+  lineNumber          Int?
+  codeSnippet         String?
+  errorMessage        String?
+  filesInvolved       String           @default("[]")
+  resolution          String?
+  resolutionTime      Int              @default(0)
+  resolutionTimeMs    Int              @default(0)
+  attemptsToFix       Int              @default(1)
+  resolvedBy          String           @default("ai")
+  resolvedAt          DateTime?
+  resolvedInSessionId String?
+  isRepeat            Boolean          @default(false)
+  recurrenceCount     Int              @default(0)
+  patternId           String?
+  originalIssueId     String?
+  firstOccurrence     DateTime         @default(now())
+  lastOccurrence      DateTime         @default(now())
+  tokensConsumed      Int              @default(0)
+  costUSD             Float            @default(0)
+  timeToFixMs         Int              @default(0)
+  rootCause           String?
+  preventionTips      String           @default("[]")
+  relatedIssues       String           @default("[]")
+  confidenceLevel     ConfidenceLevel?
+  status              IssueStatus      @default(DETECTED)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  session             AISession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pattern             AIPattern?       @relation(fields: [patternId], references: [id])
+
+  @@index([issueType])
+  @@index([severity])
+  @@index([category])
+  @@index([status])
+  @@index([recurrenceCount])
+  @@index([sessionId])
+  @@index([isRepeat])
+  @@index([patternId])
+}
+
+model AIFeature {
+  id                String    @id @default(cuid())
+  sessionId         String
+  featureName       String
+  featureType       String    @default("component")
+  description       String?
+  category          String    @default("general")
+  tags              String    @default("[]")
+  module            String?
+  complexity        String    @default("medium")
+  filesCreated      String    @default("[]")
+  filesModified     String    @default("[]")
+  linesAdded        Int       @default(0)
+  linesDeleted      Int       @default(0)
+  linesOfCode       Int       @default(0)
+  developmentTime   Int       @default(0)
+  developmentTimeMs Int       @default(0)
+  complexityScore   Int       @default(0)
+  testCoverage      Float     @default(0)
+  tokensConsumed    Int       @default(0)
+  costUSD           Float     @default(0)
+  hasTests          Boolean   @default(false)
+  hasDocs           Boolean   @default(false)
+  reviewStatus      String    @default("pending")
+  isDuplicate       Boolean   @default(false)
+  duplicateOfId     String?
+  dependencies      String    @default("[]")
+  dependents        String    @default("[]")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  session           AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([featureType])
+  @@index([category])
+  @@index([reviewStatus])
+  @@index([sessionId])
+  @@index([isDuplicate])
+}
+
+model AICostRecord {
+  id                   String    @id @default(cuid())
+  sessionId            String
+  date                 DateTime  @default(now())
+  inputTokens          Int       @default(0)
+  outputTokens         Int       @default(0)
+  cachedTokens         Int       @default(0)
+  reasoningTokens      Int       @default(0)
+  inputCost            Float     @default(0)
+  outputCost           Float     @default(0)
+  reasoningCost        Float     @default(0)
+  totalCost            Float     @default(0)
+  model                String    @default("unknown")
+  pricingInput         Float     @default(0)
+  pricingOutput        Float     @default(0)
+  tokensPerFile        Float     @default(0)
+  tokensPerFeature     Float     @default(0)
+  tokensPerIssue       Float     @default(0)
+  linesOfCodeGenerated Int       @default(0)
+  featuresImplemented  Int       @default(0)
+  issuesResolved       Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  session              AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([model])
+  @@index([sessionId])
+}
+
+model AIPattern {
+  id                   String              @id @default(cuid())
+  patternCode          String?             @unique
+  patternName          String              @unique
+  patternType          String              @default("issue")
+  description          String?
+  detectionRules       String              @default("{}")
+  detectionRegex       String?
+  occurrenceCount      Int                 @default(0)
+  uniqueSessions       Int                 @default(0)
+  uniqueFiles          Int                 @default(0)
+  firstSeen            DateTime            @default(now())
+  lastSeen             DateTime            @default(now())
+  affectedFiles        String              @default("[]")
+  affectedModules      String              @default("[]")
+  totalTimeWasted      Int                 @default(0)
+  totalCostWasted      Float               @default(0)
+  totalTokensWasted    Int                 @default(0)
+  rootCause            String?
+  detectionKeywords    String              @default("[]")
+  preventionStrategies String              @default("[]")
+  preventionRule       String?
+  fixTemplate          String?
+  autoDetectionEnabled Boolean             @default(true)
+  autoFixAvailable     Boolean             @default(false)
+  autoFixScript        String?
+  eslintRule           String?
+  learnedLessons       String              @default("[]")
+  recommendedPractices String              @default("[]")
+  confidence           Int                 @default(50)
+  effectiveness        Float               @default(0)
+  status               PatternStatus       @default(ACTIVE)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  issues               AIIssue[]
+  occurrences          PatternOccurrence[]
+
+  @@index([patternType])
+  @@index([occurrenceCount])
+  @@index([status])
+}
+
+model AIMessageRecord {
+  id            String    @id @default(cuid())
+  sessionId     String
+  messageId     String    @unique
+  role          String
+  content       String?
+  hasReasoning  Boolean   @default(false)
+  hasToolCalls  Boolean   @default(false)
+  hasText       Boolean   @default(false)
+  toolCallCount Int       @default(0)
+  timestamp     DateTime
+  inputTokens   Int?
+  outputTokens  Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  session       AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([role])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model AIGitCommit {
+  id              String   @id @default(cuid())
+  sessionId       String?
+  commitHash      String   @unique
+  commitMessage   String
+  author          String?
+  branch          String?
+  filesChanged    Int      @default(0)
+  linesAdded      Int      @default(0)
+  linesDeleted    Int      @default(0)
+  aiAssisted      Boolean  @default(true)
+  aiContribution  Float    @default(1.0)
+  relatedIssues   String   @default("[]")
+  relatedFeatures String   @default("[]")
+  timestamp       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([commitHash])
+  @@index([branch])
+  @@index([timestamp])
+}
+
+model AIAnalyticsSummary {
+  id                   String   @id @default(cuid())
+  date                 DateTime @unique
+  totalSessions        Int      @default(0)
+  activeSessions       Int      @default(0)
+  totalInputTokens     Int      @default(0)
+  totalOutputTokens    Int      @default(0)
+  totalTokens          Int      @default(0)
+  totalCost            Float    @default(0)
+  totalIssues          Int      @default(0)
+  resolvedIssues       Int      @default(0)
+  recurringIssues      Int      @default(0)
+  totalFeatures        Int      @default(0)
+  avgSessionDuration   Float    @default(0)
+  avgTokensPerFeature  Float    @default(0)
+  avgCostPerFeature    Float    @default(0)
+  avgResolutionTime    Float    @default(0)
+  modelDistribution    String   @default("{}")
+  issueDistribution    String   @default("{}")
+  categoryDistribution String   @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([date])
+}
+
+model ContentBlock {
+  id                String           @id @default(cuid())
+  sessionId         String
+  blockIndex        Int
+  blockType         BlockType
+  content           String
+  contentLength     Int              @default(0)
+  startedAt         DateTime?
+  endedAt           DateTime?
+  durationMs        Int?
+  containsError     Boolean          @default(false)
+  containsDecision  Boolean          @default(false)
+  containsBacktrack Boolean          @default(false)
+  confidenceLevel   ConfidenceLevel?
+  keywords          String           @default("[]")
+  errorKeywords     String           @default("[]")
+  decisionKeywords  String           @default("[]")
+  strategyChanges   String           @default("[]")
+  createdAt         DateTime         @default(now())
+  session           AISession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([blockType])
+  @@index([containsError])
+}
+
+model ToolCall {
+  id               String    @id @default(cuid())
+  sessionId        String
+  externalCallId   String?
+  toolName         ToolName
+  description      String?
+  command          String?
+  filepath         String?
+  oldContent       String?
+  newContent       String?
+  resultContent    String?
+  resultStatus     String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  durationMs       Int?
+  isGitOperation   Boolean   @default(false)
+  isBuildCommand   Boolean   @default(false)
+  isTestCommand    Boolean   @default(false)
+  isServerCommand  Boolean   @default(false)
+  isFileOperation  Boolean   @default(false)
+  isReadOperation  Boolean   @default(false)
+  isWriteOperation Boolean   @default(false)
+  isEditOperation  Boolean   @default(false)
+  isTodoWrite      Boolean   @default(false)
+  isDangerous      Boolean   @default(false)
+  hasError         Boolean   @default(false)
+  errorMessage     String?
+  arguments        String    @default("{}")
+  result           String?
+  isRetry          Boolean   @default(false)
+  retryOfId        String?
+  retryCount       Int       @default(0)
+  createdAt        DateTime  @default(now())
+  session          AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([toolName])
+  @@index([filepath])
+  @@index([hasError])
+}
+
+model FileOperation {
+  id             String        @id @default(cuid())
+  sessionId      String
+  filepath       String
+  operation      FileOpType
+  linesAdded     Int           @default(0)
+  linesRemoved   Int           @default(0)
+  netLines       Int           @default(0)
+  contentHash    String?
+  contentSize    Int           @default(0)
+  fileType       String?
+  fileCategory   FileCategory?
+  errorCount     Int           @default(0)
+  editCount      Int           @default(0)
+  tokensConsumed Int           @default(0)
+  costUSD        Float         @default(0)
+  createdAt      DateTime      @default(now())
+  session        AISession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([filepath])
+  @@index([fileCategory])
+  @@index([operation])
+}
+
+model GitOperation {
+  id             String    @id @default(cuid())
+  sessionId      String
+  operationType  GitOpType
+  commitHash     String?
+  commitMessage  String?
+  filesChanged   Int?
+  insertions     Int?
+  deletions      Int?
+  remoteName     String?
+  branchName     String?
+  forced         Boolean   @default(false)
+  success        Boolean   @default(true)
+  errorMessage   String?
+  tokensConsumed Int       @default(0)
+  costUSD        Float     @default(0)
+  timestamp      DateTime
+  session        AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([operationType])
+  @@index([commitHash])
+}
+
+model PatternOccurrence {
+  id             String    @id @default(cuid())
+  patternId      String
+  sessionId      String
+  filepath       String?
+  lineNumber     Int?
+  matchedContent String?
+  autoFixed      Boolean   @default(false)
+  fixApplied     String?
+  tokensWasted   Int       @default(0)
+  costWasted     Float     @default(0)
+  timeWastedMs   Int       @default(0)
+  detectedAt     DateTime  @default(now())
+  session        AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pattern        AIPattern @relation(fields: [patternId], references: [id])
+
+  @@unique([patternId, sessionId, filepath])
+  @@index([patternId])
+  @@index([sessionId])
+}
+
+model AnomalyAlert {
+  id             String        @id @default(cuid())
+  sessionId      String?
+  anomalyType    AnomalyType
+  severity       AlertSeverity
+  metricName     String
+  metricValue    Float
+  expectedValue  Float
+  threshold      Float
+  zScore         Float?
+  description    String?
+  relatedFile    String?
+  relatedPattern String?
+  status         AlertStatus   @default(OPEN)
+  resolution     String?
+  resolvedBy     String?
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+  session        AISession?    @relation(fields: [sessionId], references: [id])
+
+  @@index([anomalyType])
+  @@index([severity])
+  @@index([status])
+  @@index([sessionId])
+}
+
+model TrendSnapshot {
+  id                 String      @id @default(cuid())
+  period             TrendPeriod
+  periodStart        DateTime
+  periodEnd          DateTime
+  sessionsCount      Int         @default(0)
+  issuesCount        Int         @default(0)
+  featuresCount      Int         @default(0)
+  repeatIssues       Int         @default(0)
+  totalTokens        Int         @default(0)
+  totalCostUSD       Float       @default(0)
+  avgCostPerSession  Float       @default(0)
+  efficiencyScore    Float       @default(0)
+  qualityScore       Float       @default(0)
+  firstAttemptRate   Float       @default(0)
+  totalFilesCreated  Int         @default(0)
+  totalFilesModified Int         @default(0)
+  totalLinesAdded    Int         @default(0)
+  avgSessionDuration Float       @default(0)
+  avgReasoningTime   Float       @default(0)
+  avgToolTime        Float       @default(0)
+  modelDistribution  String      @default("{}")
+  vsPreviousPeriod   String      @default("{}")
+  anomaliesDetected  Int         @default(0)
+  patternsDetected   Int         @default(0)
+  createdAt          DateTime    @default(now())
+
+  @@unique([period, periodStart])
+  @@index([period])
+  @@index([periodStart])
+}
+
+// =============================================================================
+// ERROR LOG & PATTERN DETECTION
+// =============================================================================
+
+model ErrorLog {
+  id            String      @id @default(cuid())
+  requestId     String
+  timestamp     DateTime    @default(now())
+  status        Int         @default(0)
+  statusText    String      @default("")
+  type          String      @default("UNKNOWN")        // BUSINESS_LOGIC, VALIDATION_ERROR, AUTH_ERROR, SERVER_FAILURE, NETWORK_ERROR
+  severity      String      @default("error")          // info, warning, error, critical
+  message       String
+  hint          String?
+  endpoint      String
+  method        String      @default("GET")
+  duration      Int?
+  context       String      @default("{}")
+  retryable     Boolean     @default(false)
+  retryCount    Int         @default(0)
+  userAgent     String?
+  url           String?
+  acknowledged  Boolean     @default(false)
+  acknowledgedAt DateTime?
+  patternId     String?
+  createdAt     DateTime    @default(now())
+
+  ErrorPattern  ErrorPattern? @relation(fields: [patternId], references: [id])
+
+  @@index([timestamp])
+  @@index([severity])
+  @@index([type])
+  @@index([status])
+  @@index([endpoint])
+  @@index([acknowledged])
+  @@index([patternId])
+}
+
+model ErrorPattern {
+  id                String      @id @default(cuid())
+  patternKey        String      @unique
+  patternName       String
+  errorType         String
+  endpoint          String?
+  httpStatus        Int?
+  description       String
+  rootCause         String?
+  howItHappened     String?
+  preventionStrategy String?
+  autoFixSolution   String?
+  occurrenceCount   Int         @default(0)
+  lastOccurrence    DateTime    @default(now())
+  firstOccurrence   DateTime    @default(now())
+  patternStatus     String      @default("ACTIVE")  // ACTIVE, MONITORING, RESOLVED
+  severity          String      @default("warning")
+  estimatedTimeSaved Int        @default(0)
+  estimatedTokensSaved Int      @default(0)
+  estimatedCostSaved Float      @default(0)
+  tags              String      @default("[]")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  ErrorLog          ErrorLog[]
+
+  @@index([errorType])
+  @@index([patternStatus])
+  @@index([severity])
+  @@index([endpoint])
+}
+
+
+enum BlockType {
+  REASONING
+  TEXT
+  TOOL_CALLS
+}
+
+enum ToolName {
+  BASH
+  WRITE
+  READ
+  EDIT
+  TODO_WRITE
+  OTHER
+}
+
+enum FileOpType {
+  CREATED
+  MODIFIED
+  READ
+  DELETED
+}
+
+enum FileCategory {
+  API_ROUTE
+  PAGE
+  COMPONENT
+  SERVICE
+  HOOK
+  UTILITY
+  TYPE_DEFINITION
+  CONFIG
+  TEST
+  SCHEMA
+  STYLE
+  OTHER
+}
+
+enum GitOpType {
+  COMMIT
+  PUSH
+  PULL
+  BRANCH
+  MERGE
+  REBASE
+  STASH
+  TAG
+  OTHER
+}
+
+enum SessionType {
+  BUG_FIX
+  FEATURE
+  REFACTOR
+  ARCHITECTURE
+  DOCUMENTATION
+  TESTING
+  DEPLOYMENT
+  INVESTIGATION
+  UNKNOWN
+}
+
+enum IssueStatus {
+  DETECTED
+  IN_PROGRESS
+  RESOLVED
+  WONT_FIX
+  RECURRING
+}
+
+enum PatternStatus {
+  ACTIVE
+  MONITORING
+  RESOLVED
+  ARCHIVED
+}
+
+enum AnomalyType {
+  TOKEN_SPIKE
+  COST_SPIKE
+  ERROR_BURST
+  QUALITY_DROP
+  REPEAT_STORM
+  LONG_SESSION
+  HIGH_RETRY_COUNT
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum TrendPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ConfidenceLevel {
+  VERY_LOW
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
