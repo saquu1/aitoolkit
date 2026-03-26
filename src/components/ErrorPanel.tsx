@@ -125,8 +125,35 @@ interface ErrorItemProps {
 
 function ErrorItem({ error, onAcknowledge, onRemove }: ErrorItemProps) {
   const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
   const toastInfo = getErrorToastMessage(error)
   const bgColor = error.acknowledged ? 'rgba(100,100,100,0.3)' : 'rgba(30,30,30,0.95)'
+
+  // Copy full error details to clipboard
+  const copyFullDetails = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    const details = `🔐 ERROR REPORT
+===============
+Title: ${toastInfo.title}
+Description: ${toastInfo.description}
+Request ID: ${error.requestId}
+Endpoint: ${error.method} ${error.endpoint}
+Status: ${error.status} ${error.statusText}
+Type: ${error.type}
+Severity: ${error.severity}
+Timestamp: ${new Date(error.timestamp).toLocaleString()}
+Duration: ${error.duration ? error.duration + 'ms' : 'N/A'}
+Occurrences: ${error.displayCount}
+${error.hint ? `Hint: ${error.hint}` : ''}
+${error.retryCount && error.retryCount > 0 ? `Retries: ${error.retryCount}` : ''}
+================`
+
+    navigator.clipboard.writeText(details).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
     <div
@@ -175,6 +202,7 @@ function ErrorItem({ error, onAcknowledge, onRemove }: ErrorItemProps) {
                 padding: '4px 8px',
                 fontSize: '10px',
               }}
+              title="Mark as acknowledged"
             >
               ✓
             </button>
@@ -188,6 +216,7 @@ function ErrorItem({ error, onAcknowledge, onRemove }: ErrorItemProps) {
               padding: '4px 8px',
               fontSize: '10px',
             }}
+            title="Remove this error"
           >
             ✕
           </button>
@@ -229,6 +258,29 @@ function ErrorItem({ error, onAcknowledge, onRemove }: ErrorItemProps) {
           <div style={{ color: '#6b7280', marginTop: '8px' }}>
             {new Date(error.timestamp).toLocaleTimeString()}
           </div>
+          
+          {/* Copy Full Detail Button */}
+          <button
+            onClick={copyFullDetails}
+            style={{
+              marginTop: '10px',
+              width: '100%',
+              padding: '8px 12px',
+              backgroundColor: copied ? '#22c55e' : '#374151',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            {copied ? '✓ Copied!' : '📋 Copy Full Details'}
+          </button>
         </div>
       )}
     </div>

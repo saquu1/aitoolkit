@@ -82,6 +82,8 @@ export const PUBLIC_API_ROUTES = [
   '/api/api-status',
   '/api/projects',
   '/api/file-system',
+  '/api/error-log',
+  '/api/chat-logs/fetch',
 ] as const
 
 export const PROTECTED_API_ROUTES = [
