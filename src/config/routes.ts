@@ -84,6 +84,7 @@ export const PUBLIC_API_ROUTES = [
   '/api/file-system',
   '/api/error-log',
   '/api/chat-logs/fetch',
+  '/api/error-patterns',
 ] as const
 
 export const PROTECTED_API_ROUTES = [

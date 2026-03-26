@@ -12,6 +12,7 @@ import { MemoryToggleButton } from '@/components/MemoryBreakdown'
 import { ThreadStatusBadge } from '@/components/ThreadStatusBadge'
 import { ThreadBreakdown } from '@/components/ThreadBreakdown'
 import { ErrorMonitor } from '@/components/ErrorMonitor'
+import { VersionTracker } from '@/components/VersionTracker'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -282,6 +283,8 @@ function AppContent() {
                 System Ready
               </span>
             </div>
+            {/* Version Tracker */}
+            <VersionTracker />
             {/* Thread Status Badge */}
             <ThreadStatusBadge onClick={() => setShowThreadBreakdown(true)} />
             {/* Memory Breakdown Toggle */}
