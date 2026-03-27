@@ -1,0 +1,210 @@
+
+
+
+Group Information Technology
+
+
+Software Requirements Specifications
+
+Occupational Health Centre Medical Evaluation System
+OHC MES
+Riayatech.AE
+
+
+Author:Faisal Shahzad, Riayatech.AECreation Date:04-10-2024Last Updated:24-02-2025Document Ref:Version:V1.7Demand NumberChange Record
+DateAuthorVersionChange Reference10-10-2024Faisal Shahzad, Riayatech.AEV1.0Internal Review14-10-2024Faisal Shahzad, Riayatech.AEV1.11st Draft 22-10-2024Faisal Shahzad, Riayatech.AEV1.22nd Draft with completion of Sequence diagrams29-10-2024Faisal Shahzad, Riayatech.AEV1.33rd Draft with completion of Flow diagrams31-10-2024Faisal Shahzad, Riayatech.AEV1.44th Draft Relocate the User Notification and Notification Configuration sub-modules to the Organization Setup module.12-11-2024Faisal Shahzad, Riayatech.AEV1.55th requirement updation24-01-2025Faisal Shahzad, Riayatech.AEV1.66th requirement updation24-02-2025Faisal Shahzad, Riayatech.AEV1.77th Draft with updating Mockups, Relocate Sub-modulesDocument Approval
+ENOC Reviewed
+NameDesignationReview dateENOC Endorsed  
+NameDesignationEndorsement dateENOC Sign-off
+NameDesignationSignatureSign-off date
+
+
+Table of Contents
+Change Record	2
+Document Approval	2
+1	Executive Summary	4
+2	Business Objective & Benefits	4
+3	Solution Flow	4
+4	Functional Requirements	5
+4.1	Organization Building	5
+4.1.1	Building	5
+4.1.2	Floors	5
+4.1.3	Rooms	6
+5	Interfaces	7
+6	Use Cases	7
+6.1	Use Case Diagram	7
+6.2	Use Case Description	7
+6.2.1	UC41001 – Add/Edit/Detail Building	7
+6.2.2	UC41002 – Add/Edit/Detail Floor	10
+6.2.3	UC41003 – Add/Edit/Detail Room	12
+6.3	Use Case Sequence Diagrams	15
+6.3.1	UC41001 – Building	15
+6.3.2	UC41002 – Floor	16
+6.3.3	UC41003 – Room	17
+7	Mock Ups	18
+7.1	Organization Building	18
+7.1.1	Building Management	18
+7.1.2	Floor Management	19
+7.1.3	Room Management	20
+
+
+
+1 Executive Summary
+This document is part of software Requirement specification (SRS), which contain requirements details for the proposed health care software product “iHealthCure”. The objective of this document is to outline the requirements and functionalities of a system designed to manage organizational buildings, floors, and rooms. The system aims to streamline the management process by providing users with tools to add, edit, and view details for each entity (building, floor, room). This system is critical for ensuring accurate and up-to-date information on the infrastructure of an organization.
+2 Business Objective & Benefits 
+* Efficient management of buildings, floors, and rooms.
+* Streamlined workflows for facility managers.
+* Improved visibility of infrastructure through searchable and sortable data.
+3 Solution Flow
+Defining Physical Organizational Structure
+
+
+
+4 Functional Requirements
+4.1 Organization Building
+4.1.1 Building
+FR-1Requirements: System should display a page where user will manage Buildings, where following features will available on that page:
+1. The system should display a table of buildings with the following columns:
+* Building Name: The name of the building.
+* Description: A brief description of the building.
+* Status: Indicates if the building is active (shown with a checkmark).
+* Action: Provides options to view details, and edit information about the building.
+2. The system should provide a button labeled "Add Building" that allows users to add a new building to the system. There will be following fields on this page:
+* Checkbox: The form shall include a checkbox labeled "Active" that allows users to set the building's status as active or inactive.
+* Building Name: The form shall provide a text input field labeled "Building" for entering the building's name. This field is mandatory and must be completed before submission.
+* Description: The form shall provide a text input field labeled "Description" for entering additional details about the building. This field is optional.
+* Submit: The form shall include a "Submit" button that, when clicked, saves the entered data and adds the new building to the system.
+* Cancel: The form shall include a "Cancel" button that, when clicked, discards any entered data and returns the user to the previous page or dashboard.
+3. The system should include a search bar that enables users to search for buildings by name or description.
+4. The system should allow users to view a specified number of entries per page, with options to navigate between pages.
+5. The system should allow sorting of the building list by building name, description, or status.
+6. The detail icon should allow the user to view more details about the building.
+7. The edit icon should allow the user to edit the building's information.4.1.2 Floors
+FR-2Requirements: System should display a page where user will manage Floors, where following features will available on that page:
+1. Display a table of floors with columns for:
+* Building Name: The name of the building.
+* Floor Name: The name of the floor.
+* Status: Indicated by a checkmark if active otherwise no.
+* Action: Options to view details, and edit.
+2. The system should provide a button labeled "Add Floor" that allows users to add a new floor to the system. There will be following fields on this page:
+* Status: A checkbox to mark the floor as active. Default state is checked (active).
+* Building: A dropdown menu for selecting the building to which the floor belongs. Displays a list of available buildings. User must select one building (required field).
+* Floor: A text input field for entering the name of the floor. User must provide a floor name (required field).
+* Description: A text input field for entering a description of the floor. Optional field for additional details about the floor.
+* Submit: Button to submit the form data. On successful validation, saves the floor details to the database.
+* Cancel: Button to cancel the operation. Clears all input fields.
+3. The system should include a search bar that enables users to search for floor by name or building name
+4. The system should allow users to view a specified number of entries per page, with options to navigate between pages
+5. The system should allow sorting of the floor list by floor name, building name, or status
+6. The detail icon should allow the user to view more details about the floor.
+7. The edit icon should allow the user to edit the floor information.4.1.3 Rooms
+FR-3Requirements: System should display a page where user will manage Rooms, where following features will available on that page:
+1. Display a table of rooms with columns for:
+* Building Name: The name of the building.
+* Floor Name: The name of the floor.
+* Room Name: The name of the room.
+* Status: Indicated by a checkmark if active otherwise no.
+* Action: Options to view details, and edit
+2. The system should provide a button labeled "Add Room" that allows users to add a new room to the system. There will be following fields on this page:
+* Status: Users should be able to mark a room as active or inactive using a checkbox.
+* Building: Users must select a building from a dropdown list. The building selection is mandatory.
+* Floor: The floor dropdown should populate only after a building is selected.
+* Users must select a floor, making this field mandatory.
+* Room: Users must enter the room name in a text field. This field is required.
+* Description: Users can optionally enter a description of the room.
+3. Users can submit the form to save the room details.
+4. Users can cancel the operation, which should clear any entered data.
+5. The system should include a search bar that enables users to search for room by name, floor name or building name.
+6. The system should allow users to view a specified number of entries per page, with options to navigate between pages.
+7. The system should allow sorting of the room list by room name, building name, floor name or status.
+8. The detail icon should allow the user to view more details about the room.
+9. The edit icon should allow the user to edit the room information.
+5 Interfaces
+6 Use Cases
+6.1 Use Case Diagram
+
+6.2 Use Case Description
+6.2.1 UC41001 – Add/Edit Building
+This use case describes how user manage a list of buildings within the system, including adding, viewing, and editing building information.
+Use Case IDUC41001Use Case NameAdd/Edit BuildingRequirement RefFR-1Created ByRiayatechDate CreatedAugust 20, 2024ActorUserDescriptionThis use case describes how user manage a list of buildings within the system, including adding, viewing, and editing building information.PreconditionsThe user is authenticated and has the necessary permissions to manage building information. The system has access to the database where building information is stored.Post conditionsThe building list is updated according to the user's actions. Any changes made to the buildings are saved in the database.PriorityHighPrimary PathActor ActionsSystem Responses1. The user navigates to the building management page.2. The system displays a table with the following columns:
+* Building Name
+* Description
+* Status 
+* Action3. The system displays an "Add Building" button at the top of the page.4. The user clicks the "Add Building" button.5. The system displays a form to enter the building's name, description, and status.6. The user fills out the form and submits it.7. The system validates the input and saves the new building to the database.8. The system updates the building list to include the newly added building.9. The user clicks the "View Details" icon in the Action column for a specific building.10. The system displays detailed information about the selected building.11. The user clicks the "Edit" icon in the Action column for a specific building.12. The system displays a form pre-filled with the building's current information.13. The user updates the building information and submits the form.14. The system validates the changes and updates the building information in the database.15. The system updates the building list to reflect the changes.16. The user enters a building name or description into the search bar.17. The system sorts and displays the buildings based on the selected criteria.
+
+
+
+18. The system allows the user to choose how many entries to display per page (e.g., 10, 25, 50, and 100) and navigate between pages.Alternate Path Actor ActionsSystem Responses1. The user submits the "Add Building" form with one or more missing required fields 2. The system detects missing required fields. 3. The system displays an error message indicating the missing fields.4. The user corrects the form and resubmit.5. The system updates the building list to include the newly added building.6.  The user submits the "Edit Building" form with invalid or incomplete data.7. The system detects invalid input (e.g., missing required fields or incorrect formats).8. The system displays an error message specifying the invalid fields.9. The user corrects the form and resubmits it.10. The system validates the form and processes the building update.11. The user performs a search that returns no matching buildings.12. The system detects no matching results.13. The system displays a message indicating, "No buildings found matching your search criteria."
+
+
+
+
+
+
+6.2.2 UC41002 – Add/Edit Floor
+This use case describes how user manage a list of floors within the system, including adding, viewing, editing, deleting, and printing floor information.
+Use Case IDUC41002Use Case NameAdd/Edit FloorRequirement RefFR-2Created ByRiayatechDate CreatedAugust 20, 2024ActorUserDescriptionThis use case describes how user manage a list of floors within the system, including adding, viewing, editing, deleting, and printing floor information.PreconditionsThe user is authenticated and has the necessary permissions to manage floor information. The system has access to the database where floor information is stored.Post conditionsThe floor list is updated according to the user's actions. Any changes made to the floors are saved in the database.PriorityHighPrimary PathActor ActionsSystem Responses1. The user navigates to the floor management page.2. 1.The system displays a table with the following columns:
+* Building Name
+* Floor Name
+* Description
+* Status 
+* Action3. The system displays an "Add Floor" button at the top of the page.4. The user clicks the "Add Floor" button.5. The system displays a form to enter the building's name, floor name description, and status.6. The user fills out the form and submits it.7. The system validates the input and saves the new floor to the database.8. The system updates the floor list to include the newly added floor.9. The user clicks the "View Details" icon in the Action column for a specific floor.10. The system displays detailed information about the selected floor.11. The user clicks the "Edit" icon in the Action column for a specific floor.12. The system displays a form pre-filled with the floor's current information.13. The user updates the floor information and submits the form.14. The system validates the changes and updates the floor information in the database.15. The system updates the floor list to reflect the changes.16. The user enters a floor name or description into the search bar.17. The system sorts and displays the floors based on the selected criteria.18. The system allows the user to choose how many entries to display per page (e.g., 10, 25, 50, and 100) and navigate between pages.Alternate Path Actor ActionsSystem Responses1. 1.The user submits the "Add Floor" form with one or more missing required fields 2. The system detects missing required fields.3. The system displays an error message indicating the missing fields.4. The user corrects the form and resubmit.5. The system updates the floor list to include the newly added floor.6. The user submits the "Edit Floor" form with invalid or incomplete data.7. The system detects invalid input (e.g., missing required fields or incorrect formats).8. The system displays an error message specifying the invalid fields.9. The user corrects the form and resubmits it.10. The system validates the form and processes the floor update11. The user performs a search that returns no matching floor.12. The system detects no matching results13. The system displays a message indicating "No floor found matching your search criteria."6.2.3 UC41003 – Add/Edit Room
+This use case describes how user manage a list of rooms within the system, including adding, viewing, and editing room information.
+Use Case IDUC41003Use Case NameAdd/Edit RoomRequirementRefFR-3Created ByRiayatechDate CreatedAugust 20, 2024ActorUserDescriptionThis use case describes how user manage a list of rooms within the system, including adding, viewing, and editing room information.PreconditionsThe user is authenticated and has the necessary permissions to manage room information. The system has access to the database where room information is stored.Post conditionsThe room list is updated according to the user's actions. Any changes made to the rooms are saved in the database.PriorityHighPrimary PathActor ActionsSystem Responses1. The user navigates to the room management page.2. The system displays a table with the following columns:
+* Building Name
+* Floor Name
+* Room Name
+* Description
+* Status 
+* Action3. The system displays an "Add Room" button at the top of the page.4. The user clicks the "Add Room" button.5. The system displays a form to enter the building's name, Room name description, and status.6. The user fills out the form and submits it.7. The system validates the input and saves the new room to the database.8. The system updates the room list to include the newly added room.9. The user clicks the "View Details" icon in the Action column for a specific room.10. The system displays detailed information about the selected room.11. The user clicks the "Edit" icon in the Action column for a specific room.12. The system displays a form pre-filled with the room's current information.13. The user updates the room information and submits the form.14. The system validates the changes and updates the room information in the database.15. The system updates the room list to reflect the changes.16. The user enters a room name or description into the search bar.17. The system sorts and displays the room based on the selected criteria.18. The system allows the user to choose how many entries to display per page (e.g., 10, 25, 50, and 100) and navigate between pages.Alternate Path Actor ActionsSystem Responses1. The user submits the "Add Floor" form with one or more missing required fields 2. The system detects missing required fields.3. The system displays an error message indicating the missing fields.4. The user corrects the form and resubmit.5. The system updates the room list to include the newly added room.6. The user submits the "Edit Room" form with invalid or incomplete data.7. The system detects invalid input (e.g., missing required fields or incorrect formats).8. The system displays an error message specifying the invalid fields.9. The user corrects the form and resubmits it.10. The system validates the form and processes the room update11. The user performs a search that returns no matching room.12. The system detects no matching results13. The system displays a message indicating, "No room found matching your search criteria."6.3 Use Case Sequence Diagrams
+6.3.1 UC41001 – Building
+
+6.3.2 UC41002 – Floor
+
+
+
+6.3.3 UC41003 – Room
+
+
+
+7 Mock Ups
+7.1 Organization Building
+7.1.1 Building ManagementUC41001
+
+Figure 7.1.11 Building Management
+
+Figure 7.1.12 Add Building
+
+Figure 7.1.13 Edit Building
+
+Figure 7.1.14 Building Detail
+
+7.1.2 Floor Management UC41002
+
+Figure 7.1.21 Floor Management
+
+Figure 7.1.22 Add Floor
+
+Figure 7.1.23 Edit Floor
+
+Figure 7.1.24 Floor Detail
+
+7.1.3 Room ManagementUC41003 
+
+Figure 7.1.31 Room Management
+
+Figure 7.1.32 Add Room
+
+Figure  7.1.33 Edit Room
+
+Figure 7.1.34 Room Detail
+
+
+
+Software Requirements Specification
+
+
+
+ Page 1 of 3
+
+

@@ -1,0 +1,44 @@
+{
+  "id": "nextjs-react",
+  "name": "Next.js 15 + React 19",
+  "description": "Modern Next.js application with App Router, React 19, Prisma, and shadcn/ui",
+  "version": "1.0.0",
+  "framework": "nextjs",
+  "language": "typescript",
+  "features": [
+    "app-router",
+    "react-query",
+    "prisma",
+    "tailwindcss",
+    "shadcn-ui",
+    "zod-validation"
+  ],
+  "requiredFiles": [
+    "package.json",
+    "tsconfig.json",
+    "next.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.mjs",
+    ".env.example",
+    "README.md",
+    "src/app/layout.tsx",
+    "src/app/globals.css",
+    "src/app/providers.tsx",
+    "src/app/page.tsx",
+    "src/lib/prisma.ts",
+    "src/lib/utils.ts",
+    "prisma/schema.prisma"
+  ],
+  "placeholderVariables": [
+    "{{PROJECT_NAME}}",
+    "{{MODELS}}",
+    "{{NAVIGATION_CARDS}}"
+  ],
+  "generatedDirectories": [
+    "src/app",
+    "src/components",
+    "src/hooks",
+    "src/types",
+    "src/lib/validations"
+  ]
+}
