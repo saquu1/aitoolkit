@@ -394,47 +394,286 @@ function getIntelligentFallback(pattern: ErrorPattern): {
     confidence: number;
   }> = {
     'SERVER_FAILURE': {
-      rootCause: `Server-side error at ${pattern.endpoint}. Possible causes: unhandled exception, database connection issues, memory limits, or external service failures.`,
-      solution: `1. Check server logs for the exact error message\n2. Verify database connectivity\n3. Add proper error handling and try-catch blocks\n4. Implement request timeout handling\n5. Add health check endpoints`,
-      preventionStrategy: 'Implement comprehensive error logging, add circuit breakers for external services, and ensure proper exception handling throughout the codebase.',
+      rootCause: `SERVER ERROR at ${pattern.endpoint}
+
+WHAT THIS MEANS:
+The server encountered an unexpected error while processing your request. This is like calling a business and having their phone system crash.
+
+POSSIBLE CAUSES:
+1. Database connection failed (server can't reach the data)
+2. Code bug in the backend (programming error)
+3. Server ran out of memory or resources
+4. External service (like AI API) is down or timed out
+5. File permissions or missing files
+
+HOW TO INVESTIGATE:
+- Check if the endpoint URL is correct: ${pattern.endpoint}
+- Try refreshing the page
+- Check if you're logged in (some endpoints require authentication)
+- The server logs would show the exact error message`,
+      solution: `STEP-BY-STEP FIX:
+
+1. IMMEDIATE ACTION:
+   - Wait 30 seconds and try again (might be temporary)
+   - Refresh the page (F5 or Ctrl+R)
+   - Clear browser cache and reload
+
+2. IF ERROR PERSISTS:
+   - Check if you're logged in properly
+   - Try logging out and logging back in
+   - Check your internet connection
+
+3. FOR DEVELOPERS:
+   - Check server logs for the exact error message
+   - Look at the endpoint: src/app/api${pattern.endpoint}/route.ts
+   - Add try-catch blocks around the failing code
+   - Check database connectivity
+   - Verify all required environment variables are set
+
+4. CODE LOCATION TO CHECK:
+   - File: src/app/api${pattern.endpoint}/route.ts
+   - Look for the POST or GET function in that file`,
+      preventionStrategy: `HOW TO PREVENT THIS IN THE FUTURE:
+
+1. Add error handling in the code:
+   - Wrap database calls in try-catch blocks
+   - Return clear error messages to users
+   - Log errors with timestamps
+
+2. Add monitoring:
+   - Set up alerts for 500 errors
+   - Track error frequency
+   - Monitor server resources
+
+3. Improve reliability:
+   - Add request timeouts
+   - Implement retry logic for external services
+   - Add health check endpoints`,
       confidence: 75,
     },
     'NETWORK_ERROR': {
-      rootCause: `Network connectivity issue or CORS error when calling ${pattern.endpoint}. The request may have been blocked or the server was unreachable.`,
-      solution: `1. Check CORS configuration on the server\n2. Verify network connectivity\n3. Implement retry logic with exponential backoff\n4. Add fallback mechanisms for critical endpoints`,
-      preventionStrategy: 'Implement robust retry logic, add request timeouts, and ensure proper CORS headers are set on all API endpoints.',
+      rootCause: `NETWORK ERROR at ${pattern.endpoint}
+
+WHAT THIS MEANS:
+Your browser couldn't connect to the server. This is like trying to make a phone call but the call doesn't go through.
+
+POSSIBLE CAUSES:
+1. Your internet connection is unstable
+2. The server is down or unreachable
+3. CORS policy blocking the request (browser security)
+4. Firewall or proxy blocking the connection
+5. Wrong URL or the endpoint doesn't exist
+
+HOW TO INVESTIGATE:
+- Check if other websites work
+- Try the same URL in a different browser
+- Check browser console (F12) for CORS errors`,
+      solution: `STEP-BY-STEP FIX:
+
+1. CHECK YOUR CONNECTION:
+   - Verify you're connected to the internet
+   - Try opening other websites
+   - Disable VPN if you're using one
+
+2. CHECK THE URL:
+   - Make sure the URL is correct: ${pattern.endpoint}
+   - Check for typos in the address
+
+3. BROWSER ISSUES:
+   - Clear browser cache and cookies
+   - Try incognito/private mode
+   - Disable browser extensions
+   - Try a different browser
+
+4. FOR DEVELOPERS:
+   - Check CORS configuration on server
+   - Verify the API endpoint exists
+   - Check if server is running`,
+      preventionStrategy: `HOW TO PREVENT THIS:
+
+1. Add retry logic in your code
+2. Show user-friendly error messages
+3. Implement offline detection
+4. Add fallback mechanisms`,
       confidence: 80,
     },
     'AUTH_ERROR': {
-      rootCause: `Authentication failed for request to ${pattern.endpoint}. Token may be expired, invalid, or missing required permissions.`,
-      solution: `1. Check token expiration and refresh logic\n2. Verify user permissions\n3. Ensure proper Authorization header is sent\n4. Implement automatic token refresh`,
-      preventionStrategy: 'Implement proactive token refresh, add proper session management, and ensure clear error messages for authentication failures.',
+      rootCause: `AUTHENTICATION ERROR at ${pattern.endpoint}
+
+WHAT THIS MEANS:
+You're not logged in, or your login session has expired. This is like trying to enter a members-only area without a valid membership card.
+
+POSSIBLE CAUSES:
+1. Login session expired (sessions typically last 30 days)
+2. You're not logged in
+3. Your account was deactivated
+4. Token was invalidated (security measure)
+5. Wrong permissions for this action
+
+CURRENT STATUS:
+- HTTP Status: ${pattern.httpStatus}
+- Endpoint: ${pattern.endpoint}
+- This endpoint requires authentication to access`,
+      solution: `STEP-BY-STEP FIX:
+
+1. IMMEDIATE FIX - LOG IN:
+   - Go to the login page: /login
+   - Enter your email and password
+   - After logging in, return to this page
+
+2. IF YOU'RE ALREADY "LOGGED IN":
+   - Your session may have expired
+   - Log out and log back in
+   - Clear browser cookies and re-login
+
+3. IF LOGIN FAILS:
+   - Check if your email is correct
+   - Try "Forgot Password" to reset
+   - Contact admin if account is locked
+
+4. FOR DEVELOPERS:
+   - Check NextAuth session handling
+   - Verify token is being sent in headers
+   - Check AUTH_SECRET environment variable`,
+      preventionStrategy: `HOW TO PREVENT AUTHENTICATION ISSUES:
+
+1. FOR USERS:
+   - Remember to log in before using protected features
+   - Save your login credentials securely
+   - Don't clear cookies if you want to stay logged in
+
+2. FOR DEVELOPERS:
+   - Implement automatic token refresh
+   - Show clear login prompts when auth fails
+   - Add "remember me" functionality
+   - Set appropriate session expiry times`,
       confidence: 85,
     },
     'VALIDATION_ERROR': {
-      rootCause: `Request validation failed for ${pattern.endpoint}. The submitted data did not meet the required schema or business rules.`,
-      solution: `1. Review the validation rules for this endpoint\n2. Ensure client sends properly formatted data\n3. Add clear validation error messages\n4. Implement client-side validation to catch errors early`,
-      preventionStrategy: 'Implement comprehensive validation on both client and server, provide clear error messages, and document API schemas thoroughly.',
+      rootCause: `VALIDATION ERROR at ${pattern.endpoint}
+
+WHAT THIS MEANS:
+The data you submitted doesn't match what the server expects. This is like filling out a form but writing a date in the wrong format.
+
+POSSIBLE CAUSES:
+1. Missing required fields
+2. Data in wrong format (text instead of number)
+3. Data too long or too short
+4. Invalid email format, phone number, etc.
+5. File type not allowed`,
+      solution: `STEP-BY-STEP FIX:
+
+1. CHECK YOUR INPUT:
+   - Make sure all required fields are filled
+   - Check email format (must have @ and domain)
+   - Check phone number format
+   - Check date formats
+
+2. COMMON MISTAKES:
+   - Empty fields that are required
+   - Spaces before/after text
+   - Special characters not allowed
+   - Numbers that are too large
+
+3. FOR DEVELOPERS:
+   - Check the validation schema
+   - Add clear error messages for each field
+   - Show validation errors to users`,
+      preventionStrategy: `HOW TO PREVENT VALIDATION ERRORS:
+
+1. Add client-side validation (check before submitting)
+2. Show clear error messages for each field
+3. Use input masks for dates, phones, etc.
+4. Provide examples of correct formats`,
       confidence: 85,
     },
     'BUSINESS_LOGIC': {
-      rootCause: `Business rule violation at ${pattern.endpoint}. The request conflicts with application logic or data constraints.`,
-      solution: `1. Review business rules for this operation\n2. Check for data conflicts (duplicates, references)\n3. Add proper error messages explaining the constraint\n4. Consider adding pre-checks before operations`,
-      preventionStrategy: 'Document all business rules clearly, implement idempotency for critical operations, and provide user-friendly error messages.',
+      rootCause: `BUSINESS RULE ERROR at ${pattern.endpoint}
+
+WHAT THIS MEANS:
+Your request conflicts with business rules. This is like trying to book a hotel room that's already booked.
+
+POSSIBLE CAUSES:
+1. Duplicate data (item already exists)
+2. Reference constraint (can't delete item in use)
+3. Status conflict (can't edit completed order)
+4. Permission denied (not allowed for your role)
+5. Time-based restriction (too late to cancel)`,
+      solution: `STEP-BY-STEP FIX:
+
+1. CHECK FOR DUPLICATES:
+   - This item might already exist
+   - Try a different name or identifier
+
+2. CHECK DEPENDENCIES:
+   - Can't delete items that are being used
+   - Remove references first
+
+3. CHECK STATUS:
+   - Some actions only work on certain statuses
+   - Check the current state of the item
+
+4. FOR DEVELOPERS:
+   - Return specific error messages
+   - Show which business rule was violated
+   - Suggest how to resolve the conflict`,
+      preventionStrategy: `HOW TO PREVENT BUSINESS LOGIC ERRORS:
+
+1. Check before acting (preview changes)
+2. Show clear business rules to users
+3. Disable buttons for invalid actions
+4. Add confirmation dialogs`,
       confidence: 80,
     },
   };
 
   const fallback = fallbacks[pattern.errorType] || {
-    rootCause: pattern.description || `Error occurred at ${pattern.endpoint}`,
-    solution: `1. Investigate the ${pattern.endpoint} endpoint\n2. Check server logs for details\n3. Add proper error handling`,
-    preventionStrategy: 'Implement comprehensive error handling, logging, and monitoring.',
+    rootCause: `ERROR at ${pattern.endpoint}
+
+WHAT THIS MEANS:
+An unexpected error occurred. The error type is: ${pattern.errorType}
+
+DESCRIPTION:
+${pattern.description}
+
+HTTP Status Code: ${pattern.httpStatus}
+
+This error has occurred ${pattern.occurrenceCount} time(s).`,
+    solution: `STEP-BY-STEP FIX:
+
+1. IMMEDIATE ACTIONS:
+   - Try refreshing the page
+   - Clear your browser cache
+   - Try a different browser
+
+2. IF ERROR PERSISTS:
+   - Note down what you were doing when it happened
+   - Take a screenshot of the error
+   - Contact support with these details
+
+3. FOR DEVELOPERS:
+   - Check server logs for detailed error
+   - Add error handling and logging
+   - Review the code at: ${pattern.endpoint}`,
+    preventionStrategy: 'Add proper error handling, logging, and user feedback.',
     confidence: 60,
   };
 
   return {
     confidence: fallback.confidence,
-    analysis: `Analyzed ${pattern.errorType} error at ${pattern.endpoint}. Using rule-based analysis (AI unavailable).`,
+    analysis: `🔍 ERROR ANALYSIS REPORT
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ERROR TYPE: ${pattern.errorType}
+ENDPOINT: ${pattern.endpoint}
+HTTP STATUS: ${pattern.httpStatus}
+SEVERITY: ${pattern.severity}
+OCCURRENCES: ${pattern.occurrenceCount} time(s)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${fallback.rootCause}`,
     rootCause: fallback.rootCause,
     solution: fallback.solution,
     preventionStrategy: fallback.preventionStrategy,

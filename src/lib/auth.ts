@@ -37,10 +37,24 @@ declare module "@auth/core/jwt" {
   }
 }
 
+// Dynamic URL detection for preview/proxy environments
+function getAuthUrl(): string | undefined {
+  // Check for explicit environment variable first
+  if (process.env.AUTH_URL && !process.env.AUTH_URL.includes('localhost')) {
+    return process.env.AUTH_URL
+  }
+  if (process.env.NEXTAUTH_URL && !process.env.NEXTAUTH_URL.includes('localhost')) {
+    return process.env.NEXTAUTH_URL
+  }
+  // Return undefined to let NextAuth use trustHost
+  return undefined
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // Note: PrismaAdapter removed - not needed for Credentials + JWT strategy
   trustHost: true,
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'dev-secret-key-change-in-production',
+  baseURL: getAuthUrl(),
   session: { 
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days

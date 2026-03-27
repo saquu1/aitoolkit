@@ -27,6 +27,11 @@ function isInternalUrl(url: string): boolean {
   return internalPatterns.some(pattern => lowerUrl.includes(pattern.toLowerCase()))
 }
 
+// Helper to check if URL is a valid public URL
+function isValidPublicUrl(url: string): boolean {
+  return url.startsWith('https://') && !isInternalUrl(url)
+}
+
 export async function GET(request: NextRequest) {
   const headers = request.headers
   const requestUrl = new URL(request.url)
@@ -34,36 +39,67 @@ export async function GET(request: NextRequest) {
   console.log('[Auth Providers] === URL Detection Debug ===')
   console.log('[Auth Providers] request.url:', request.url)
   console.log('[Auth Providers] requestUrl.host:', requestUrl.host)
-  console.log('[Auth Providers] requestUrl.hostname:', requestUrl.hostname)
   console.log('[Auth Providers] host header:', headers.get('host'))
   console.log('[Auth Providers] x-forwarded-host:', headers.get('x-forwarded-host'))
   console.log('[Auth Providers] x-forwarded-proto:', headers.get('x-forwarded-proto'))
   console.log('[Auth Providers] x-original-host:', headers.get('x-original-host'))
-  console.log('[Auth Providers] AUTH_URL env:', process.env.AUTH_URL)
+  console.log('[Auth Providers] referer:', headers.get('referer'))
+  console.log('[Auth Providers] origin:', headers.get('origin'))
   
   // Determine the correct base URL
   let baseUrl: string = ''
   let detectionMethod: string = ''
   
-  // Priority 1: AUTH_URL environment variable (if not internal)
-  if (process.env.AUTH_URL && !isInternalUrl(process.env.AUTH_URL)) {
+  // Priority 1: Check referer header (most reliable for preview URLs)
+  const referer = headers.get('referer')
+  if (referer && !isInternalUrl(referer)) {
+    try {
+      const refererUrl = new URL(referer)
+      if (isValidPublicUrl(refererUrl.origin)) {
+        baseUrl = refererUrl.origin
+        detectionMethod = 'referer header'
+      }
+    } catch (e) {}
+  }
+  
+  // Priority 2: Check origin header
+  if (!baseUrl) {
+    const origin = headers.get('origin')
+    if (origin && isValidPublicUrl(origin)) {
+      baseUrl = origin
+      detectionMethod = 'origin header'
+    }
+  }
+  
+  // Priority 3: x-forwarded-host with x-forwarded-proto
+  if (!baseUrl) {
+    const forwardedHost = headers.get('x-forwarded-host')
+    const forwardedProto = headers.get('x-forwarded-proto') || 'https'
+    if (forwardedHost && !isInternalUrl(forwardedHost)) {
+      baseUrl = `${forwardedProto}://${forwardedHost}`
+      detectionMethod = 'x-forwarded-host header'
+    }
+  }
+  
+  // Priority 4: AUTH_URL environment variable (if not internal)
+  if (!baseUrl && process.env.AUTH_URL && !isInternalUrl(process.env.AUTH_URL)) {
     baseUrl = process.env.AUTH_URL.replace(/\/$/, '')
     detectionMethod = 'AUTH_URL env'
   }
   
-  // Priority 2: NEXTAUTH_URL environment variable (if not internal)
+  // Priority 5: NEXTAUTH_URL environment variable (if not internal)
   if (!baseUrl && process.env.NEXTAUTH_URL && !isInternalUrl(process.env.NEXTAUTH_URL)) {
     baseUrl = process.env.NEXTAUTH_URL.replace(/\/$/, '')
     detectionMethod = 'NEXTAUTH_URL env'
   }
   
-  // Priority 3: NEXT_PUBLIC_APP_URL environment variable (if not internal)
+  // Priority 6: NEXT_PUBLIC_APP_URL environment variable (if not internal)
   if (!baseUrl && process.env.NEXT_PUBLIC_APP_URL && !isInternalUrl(process.env.NEXT_PUBLIC_APP_URL)) {
     baseUrl = process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
     detectionMethod = 'NEXT_PUBLIC_APP_URL env'
   }
   
-  // Priority 4: x-original-host or x-real-host header (if not internal)
+  // Priority 7: x-original-host or x-real-host header
   if (!baseUrl) {
     const originalHost = headers.get('x-original-host') || headers.get('x-real-host')
     if (originalHost && !isInternalUrl(originalHost)) {
@@ -73,17 +109,11 @@ export async function GET(request: NextRequest) {
     }
   }
   
-  // Priority 5: Request URL host (if not internal)
-  if (!baseUrl && requestUrl.host && !isInternalUrl(requestUrl.host)) {
-    baseUrl = `${requestUrl.protocol}//${requestUrl.host}`
-    detectionMethod = 'request.url host'
-  }
-  
-  // Priority 6: Host header (if not internal)
+  // Priority 8: Host header (if not internal)
   if (!baseUrl) {
     const hostHeader = headers.get('host')
     if (hostHeader && !isInternalUrl(hostHeader)) {
-      const proto = headers.get('x-forwarded-proto') || requestUrl.protocol || 'https'
+      const proto = headers.get('x-forwarded-proto') || 'https'
       baseUrl = `${proto}://${hostHeader}`
       detectionMethod = 'host header'
     }
