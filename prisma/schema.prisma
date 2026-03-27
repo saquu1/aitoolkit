@@ -4391,3 +4391,207 @@ model AutoApplyRule {
   
   @@index([isActive])
 }
+
+// =============================================================================
+// FLOW MAP & TEST GENERATOR - Phase 4 Models
+// =============================================================================
+
+/// Stores data flow information between entities
+model DataFlow {
+  id            String   @id @default(cuid())
+  scanId        String
+  
+  // Source info
+  sourceType    String   // 'frontend', 'api', 'database'
+  sourceEntity  String   // Component name, API route, or table name
+  sourceField   String?  // Field/property name
+  
+  // Target info
+  targetType    String   // 'frontend', 'api', 'database'
+  targetEntity  String
+  targetField   String?
+  
+  // Flow details
+  flowType      String   // 'request', 'response', 'query', 'mutation', 'render'
+  dataType      String?  // 'string', 'number', 'object', 'array'
+  
+  // Transformation
+  transformation String? // JSON: how data is transformed
+  isValid       Boolean  @default(true)
+  
+  // Position for visualization
+  positionX     Int      @default(0)
+  positionY     Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([scanId, sourceEntity, sourceField, targetEntity, targetField])
+  @@index([scanId])
+  @@index([sourceType])
+  @@index([targetType])
+}
+
+/// Stores flow nodes for visualization
+model FlowNode {
+  id            String   @id @default(cuid())
+  scanId        String
+  
+  // Node info
+  nodeType      String   // 'frontend_component', 'api_endpoint', 'database_table', 'hook', 'util'
+  nodeName      String
+  nodeLabel     String?
+  description   String?
+  
+  // Visual properties
+  positionX     Int      @default(0)
+  positionY     Int      @default(0)
+  width         Int      @default(150)
+  height        Int      @default(80)
+  color         String   @default("#3b82f6")
+  icon          String?
+  
+  // Metadata
+  filePath      String?
+  lineStart     Int?
+  lineEnd       Int?
+  hasIssues     Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([scanId, nodeName])
+  @@index([scanId])
+  @@index([nodeType])
+}
+
+/// Stores generated test cases
+model GeneratedTest {
+  id            String   @id @default(cuid())
+  scanId        String
+  
+  // Test info
+  testName      String
+  testType      String   // 'contract', 'integration', 'unit', 'e2e'
+  description   String
+  
+  // What is being tested
+  endpointPath  String?  // API endpoint
+  componentName String? // Frontend component
+  tableName     String? // Database table
+  
+  // Test code
+  testCode      String   // Generated test code
+  testFilePath  String   // Where to save the test
+  
+  // Test data
+  inputData     String?  // JSON: test input data
+  expectedOutput String? // JSON: expected output
+  
+  // Status
+  status        String   @default("generated")  // 'generated', 'saved', 'passed', 'failed', 'skipped'
+  lastRunAt     DateTime?
+  lastResult    String?
+  errorMessage  String?
+  
+  // Metrics
+  runCount      Int      @default(0)
+  passCount     Int      @default(0)
+  failCount     Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([scanId, testName])
+  @@index([scanId])
+  @@index([testType])
+  @@index([status])
+}
+
+/// Stores test suites
+model TestSuite {
+  id            String   @id @default(cuid())
+  scanId        String
+  name          String
+  description   String?
+  
+  // Suite config
+  testFramework String   @default("vitest")  // 'vitest', 'jest', 'playwright'
+  testType      String   @default("contract")
+  
+  // Status
+  totalTests    Int      @default(0)
+  passedTests   Int      @default(0)
+  failedTests   Int      @default(0)
+  skippedTests  Int      @default(0)
+  
+  lastRunAt     DateTime?
+  duration      Int?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([scanId, name])
+  @@index([scanId])
+}
+
+/// Stores test run history
+model TestRun {
+  id            String   @id @default(cuid())
+  suiteId       String?
+  scanId        String
+  
+  // Run info
+  runType       String   // 'full', 'incremental', 'single'
+  triggeredBy   String   @default("manual")  // 'manual', 'auto', 'ci'
+  
+  // Results
+  totalTests    Int      @default(0)
+  passedTests   Int      @default(0)
+  failedTests   Int      @default(0)
+  skippedTests  Int      @default(0)
+  
+  // Details
+  duration      Int      @default(0)  // milliseconds
+  coverage      Float?   // 0-100
+  
+  // Output
+  output        String?  // Test output log
+  errorMessage  String?
+  
+  // CI info
+  ciBuildId     String?
+  ciBranch      String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([suiteId])
+  @@index([scanId])
+  @@index([createdAt])
+}
+
+/// Stores contract definitions
+model ContractDefinition {
+  id            String   @id @default(cuid())
+  
+  // Contract info
+  contractType  String   // 'api', 'component', 'database'
+  name          String
+  version       String   @default("1.0.0")
+  
+  // Definition
+  schema        String   // JSON Schema for the contract
+  examples      String   @default("[]")  // JSON array of examples
+  
+  // Validation
+  isValid       Boolean  @default(true)
+  lastValidated DateTime?
+  
+  // Source
+  sourceFile    String?
+  autoGenerated Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([contractType, name])
+  @@index([contractType])
+}
