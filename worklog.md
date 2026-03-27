@@ -4290,3 +4290,190 @@ Stage Summary:
 
 ### Next Steps:
 - Phase 5: Pre-commit Hook + Import Suggestions
+
+---
+## Contract Validator Phase 5: Pre-commit Hook + Import Suggestions - COMPLETED
+
+---
+Task ID: CV-5.1
+Agent: Main Agent
+Task: Add Pre-commit Hook and Import Suggestion Models to Prisma Schema
+
+Work Log:
+- Added PreCommitHook model for hook configuration
+- Added HookExecution model for execution history
+- Added ImportAnalysis model for import tracking
+- Added ImportSuggestion model for fix suggestions
+- Added ModuleResolution model for caching
+- Added SkipRule model for conditional skip rules
+- Ran prisma generate successfully
+
+Stage Summary:
+- 6 new Prisma models added
+- Support for git hook management and import analysis
+
+---
+Task ID: CV-5.2
+Agent: Main Agent
+Task: Create Pre-commit Hook Service
+
+Work Log:
+- Created /src/lib/pre-commit-hook.ts with comprehensive git integration
+- Implemented installHook() for git hook installation
+- Implemented uninstallHook() for removal
+- Implemented runHook() for manual execution
+- Implemented getStagedFiles() for git integration
+- Implemented checkContracts() and checkImports() for validation
+- Implemented autoFixIssues() for automatic fixes
+- Added execution history tracking
+
+Stage Summary:
+- pre-commit-hook.ts: 550+ lines
+- Full git hook lifecycle management
+- Support for blocking commits with issues
+
+---
+Task ID: CV-5.3
+Agent: Main Agent
+Task: Create Import Analyzer Service
+
+Work Log:
+- Created /src/lib/import-analyzer.ts with comprehensive analysis
+- Implemented analyzeCodebase() for full project scanning
+- Implemented analyzeFile() for file-level analysis
+- Implemented resolveImportPath() with alias support
+- Implemented findImportFix() for suggestion generation
+- Implemented buildModuleCache() for resolution caching
+- Implemented applyFix() for automatic fixes
+
+Stage Summary:
+- import-analyzer.ts: 600+ lines
+- Support for named, default, namespace, dynamic imports
+- Unused import detection
+- Wrong path detection and fix suggestions
+
+---
+Task ID: CV-5.4
+Agent: Main Agent
+Task: Create API Endpoints
+
+Work Log:
+- Created /src/app/api/pre-commit-hook/route.ts
+  - GET: config, status, history, stats, hooks, skip-rules
+  - POST: install, uninstall, run, update-config, create-skip-rule, toggle-hook
+- Created /src/app/api/import-analyzer/route.ts
+  - GET: stats, suggestions, issues, unused, invalid, fixable, modules, file-imports, pending-fixes
+  - POST: analyze, apply-fix, apply-all-fixes, dismiss-suggestion, create-suggestion, clear-analysis
+
+Stage Summary:
+- pre-commit-hook API: 120+ lines
+- import-analyzer API: 150+ lines
+- Full CRUD for hook management and import analysis
+
+---
+Task ID: CV-5.5
+Agent: Main Agent
+Task: Create Pre-commit Hook Manager UI
+
+Work Log:
+- Created /src/components/PreCommitHookManager.tsx
+- Hook status display (installed/not installed)
+- Install/Uninstall buttons
+- Configuration dialog with checkboxes
+- Execution history list with filtering
+- Statistics overview (runs, blocked, pass rate)
+- Manual run functionality
+
+Stage Summary:
+- PreCommitHookManager.tsx: 450+ lines
+- Full hook management interface
+- Configuration editing
+
+---
+Task ID: CV-5.6
+Agent: Main Agent
+Task: Create Import Fixer Dashboard UI
+
+Work Log:
+- Created /src/components/ImportFixerDashboard.tsx
+- Statistics overview (total, valid, invalid, unused, fixable)
+- Issues list with filtering and search
+- Issue detail dialog
+- Fix suggestions tab with apply/dismiss
+- Batch apply all fixes functionality
+- Reason icons and impact levels
+
+Stage Summary:
+- ImportFixerDashboard.tsx: 500+ lines
+- Full import management interface
+- Code preview with suggestions
+
+---
+## Summary: Contract Validator Phase 5 Completed
+
+### Files Created:
+1. `/prisma/schema.prisma` - 6 new models for Phase 5
+2. `/src/lib/pre-commit-hook.ts` - Pre-commit hook service
+3. `/src/lib/import-analyzer.ts` - Import analyzer service
+4. `/src/app/api/pre-commit-hook/route.ts` - Hook API
+5. `/src/app/api/import-analyzer/route.ts` - Import API
+6. `/src/components/PreCommitHookManager.tsx` - Hook Manager UI
+7. `/src/components/ImportFixerDashboard.tsx` - Import Fixer UI
+
+### Total Lines of Code: ~2,400+ lines
+
+### Capabilities Implemented:
+
+**5.1 Pre-commit Hook:**
+- Install/uninstall git hooks
+- Run checks on staged files
+- Block commits with errors/warnings
+- Auto-fix issues when possible
+- Execution history tracking
+
+**5.2 Import Analysis:**
+- Scan codebase for imports
+- Detect unused imports
+- Detect wrong import paths
+- Suggest fixes with confidence scores
+- Auto-apply fixes
+
+**5.3 Skip Rules:**
+- File pattern rules
+- Branch-based rules
+- Author-based rules
+- Commit message rules
+
+**5.4 Module Resolution:**
+- Cache module resolutions
+- Track exports from modules
+- Type-only import detection
+
+---
+
+## 🎉 Contract Validator Complete - All 5 Phases Finished
+
+### Total Implementation Summary:
+
+| Phase | Description | Files | Lines |
+|-------|-------------|-------|-------|
+| Phase 1 | Core Validator + Persistence | 5 | ~1,500 |
+| Phase 2 | Intelligence Bank + Priority | 6 | ~1,900 |
+| Phase 3 | Smart Fixer + Auto-Apply | 5 | ~2,300 |
+| Phase 4 | Flow Map + Test Generator | 7 | ~2,500 |
+| Phase 5 | Pre-commit Hook + Imports | 7 | ~2,400 |
+| **Total** | **Complete System** | **30** | **~10,600+** |
+
+### Core Features Delivered:
+1. ✅ Contract validation with persistence
+2. ✅ Entity tracking and usage analytics
+3. ✅ Intelligent priority scoring
+4. ✅ Smart fix suggestions with backup/restore
+5. ✅ Data flow visualization
+6. ✅ Contract test generation
+7. ✅ Pre-commit hooks for CI/CD
+8. ✅ Import analysis and suggestions
+
+### New Prisma Models Added: 31
+### New API Endpoints Created: 50+
+### New UI Components Created: 10+
