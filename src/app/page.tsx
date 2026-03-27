@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic'
 import { ThemeProvider, useTheme } from '@/hooks/useTheme'
 import { SchemaProvider, useSchema } from '@/hooks/useSchema'
 import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
+import { ProjectScopeProvider } from '@/contexts/ProjectScopeContext'
+import { ProjectScopeHeader } from '@/components/project/ProjectScopeHeader'
 import { Clock } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
 import { MemoryToggleButton } from '@/components/MemoryBreakdown'
@@ -282,6 +284,9 @@ function AppContent() {
               </p>
             </div>
           </div>
+          {/* Project Scope Selector */}
+          <ProjectScopeHeader variant="header" showSettings />
+
           <div className="flex items-center gap-3">
             {/* Session Active Time */}
             <div 
@@ -475,10 +480,12 @@ export default function Home() {
   return (
     <ThemeProvider>
       <SchemaProvider>
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-          <AppContent />
-          <ErrorMonitor />
-        </Suspense>
+        <ProjectScopeProvider>
+          <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+            <AppContent />
+            <ErrorMonitor />
+          </Suspense>
+        </ProjectScopeProvider>
       </SchemaProvider>
     </ThemeProvider>
   )
