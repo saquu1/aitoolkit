@@ -382,36 +382,74 @@ export function ErrorPanel({
     },
   })
 
-  // Send error to Pattern Dashboard
+  // Send error to Pattern Dashboard (via error_log)
   const handleSendToPattern = async (error: ManagedError) => {
     try {
-      const response = await fetch('/api/error-patterns', {
+      // Step 1: Log to error_log table first
+      const logResponse = await fetch('/api/error-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'createFromError',
-          data: {
-            patternKey: `${error.type}_${error.endpoint.split('?')[0]}_${error.status}`,
-            patternName: `${error.type} - ${error.endpoint.split('?')[0]}`,
-            errorType: error.type || 'UNKNOWN',
-            endpoint: error.endpoint,
-            httpStatus: error.status,
-            description: error.message || 'Error from Error Monitor',
-            severity: error.severity || 'info',
-            rootCause: error.hint || null,
-          },
+          id: error.id,
+          timestamp: new Date(error.timestamp).toISOString(),
+          status: error.status,
+          statusText: error.statusText,
+          type: error.type || 'UNKNOWN',
+          severity: error.severity || 'error',
+          message: error.message || 'Error from Error Monitor',
+          hint: error.hint || null,
+          endpoint: error.endpoint,
+          method: error.method || 'GET',
+          requestId: error.requestId,
+          duration: error.duration,
+          retryable: true,
+          retryCount: error.retryCount || 0,
         }),
       })
       
-      const result = await response.json()
+      const logResult = await logResponse.json()
       
-      if (!result.success) {
-        console.error('Failed to create pattern:', result.error)
-        throw new Error(result.error || 'Failed to create pattern')
+      if (!logResult.success) {
+        throw new Error(logResult.error || 'Failed to log error')
       }
       
-      console.log('✅ Pattern created:', result.pattern)
-      return result
+      console.log('✅ Error logged:', {
+        errorId: logResult.errorId,
+        patternMatched: logResult.patternMatched,
+        patternId: logResult.patternId,
+      })
+      
+      // Step 2: Check if pattern was auto-created (3+ occurrences)
+      if (logResult.patternMatched) {
+        console.log('🔍 Pattern matched existing pattern:', logResult.patternId)
+      } else {
+        // Check if we should manually create/update pattern
+        const patternResponse = await fetch('/api/error-patterns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'createFromError',
+            data: {
+              patternKey: `${error.type}_${error.endpoint.split('?')[0]}_${error.status}`,
+              patternName: `${error.type} - ${error.endpoint.split('?')[0]}`,
+              errorType: error.type || 'UNKNOWN',
+              endpoint: error.endpoint,
+              httpStatus: error.status,
+              description: error.message || 'Error from Error Monitor',
+              severity: error.severity || 'info',
+              rootCause: error.hint || null,
+            },
+          }),
+        })
+        
+        const patternResult = await patternResponse.json()
+        
+        if (patternResult.success) {
+          console.log('✅ Pattern created/updated:', patternResult.pattern)
+        }
+      }
+      
+      return logResult
     } catch (err) {
       console.error('Error sending to pattern dashboard:', err)
       throw err

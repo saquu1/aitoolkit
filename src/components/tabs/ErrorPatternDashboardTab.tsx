@@ -132,6 +132,8 @@ interface AIResolution {
   savedSolutionId?: string
   autoFixApplied?: boolean
   filePath?: string
+  testResult?: { passed: boolean; message: string }
+  fixApplied?: boolean
 }
 
 // =============================================================================
@@ -493,19 +495,61 @@ ${pattern.autoFixSolution || '// No auto-fix solution available'}
     setAiResolution(null)
 
     try {
+      // First check for saved solutions
+      const savedResponse = await fetch(`/api/saved-solutions?action=match&errorType=${pattern.errorType}&httpStatus=${pattern.httpStatus}&endpoint=${pattern.endpoint}`)
+      const savedData = await savedResponse.json()
+      
+      if (savedData.found && savedData.solution) {
+        // Use saved solution
+        setAiResolution({
+          analysis: `Found a saved solution with ${savedData.solution.successRate}% success rate (used ${savedData.solution.usageCount} times)`,
+          rootCause: 'Previously identified and resolved',
+          solution: savedData.solution.solution,
+          preventionStrategy: 'Solution has been tested and verified',
+          codeFix: savedData.solution.codeFix,
+          steps: ['Apply the saved solution', 'Verify the fix works', 'Report success or failure'],
+          confidence: savedData.solution.confidence / 100,
+          relatedPatterns: [],
+          savedSolutionId: savedData.solution.id,
+        })
+        setAiAnalyzing(false)
+        return
+      }
+      
+      // No saved solution, use AI to analyze
       const response = await fetch('/api/error-patterns/ai-resolution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'analyze',
-          patternId: pattern.id,
+          pattern: {
+            id: pattern.id,
+            patternKey: pattern.patternKey,
+            patternName: pattern.patternName,
+            errorType: pattern.errorType,
+            endpoint: pattern.endpoint,
+            httpStatus: pattern.httpStatus,
+            description: pattern.description,
+            occurrenceCount: pattern.occurrenceCount,
+            severity: pattern.severity,
+            rootCause: pattern.rootCause,
+          },
         }),
       })
 
       const data = await response.json()
 
-      if (data.success) {
-        setAiResolution(data.resolution)
+      if (data.success && data.result) {
+        setAiResolution({
+          analysis: data.result.analysis,
+          rootCause: data.result.rootCause,
+          solution: data.result.solution,
+          preventionStrategy: data.result.preventionStrategy,
+          codeFix: data.result.codeFix?.fixedCode,
+          steps: [],
+          confidence: data.result.confidence / 100,
+          relatedPatterns: [],
+        })
       } else {
         setAiResolution({
           analysis: 'Failed to analyze error pattern',
@@ -533,35 +577,145 @@ ${pattern.autoFixSolution || '// No auto-fix solution available'}
     }
   }
 
+  // Apply AI Fix with full resolution flow
   const applyAIFix = async () => {
-    if (!selectedPattern || !aiResolution) return
+    if (!selectedPattern) return
 
     setAiApplying(true)
 
     try {
+      // If we have a saved solution, just apply it
+      if (aiResolution?.savedSolutionId) {
+        const applyResponse = await fetch('/api/saved-solutions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'apply',
+            solutionId: aiResolution.savedSolutionId,
+          }),
+        })
+        
+        if (applyResponse.ok) {
+          // Mark pattern as resolved
+          await fetch('/api/error-patterns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'resolve',
+              patternId: selectedPattern.id,
+            }),
+          })
+          
+          await fetchPatterns()
+          setShowAiDialog(false)
+          setSelectedPattern(null)
+          setAiResolution(null)
+        }
+        setAiApplying(false)
+        return
+      }
+      
+      // Full AI resolution flow
       const response = await fetch('/api/error-patterns/ai-resolution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'apply_fix',
-          patternId: selectedPattern.id,
-          resolution: aiResolution,
+          action: 'full_resolution',
+          pattern: {
+            id: selectedPattern.id,
+            patternKey: selectedPattern.patternKey,
+            patternName: selectedPattern.patternName,
+            errorType: selectedPattern.errorType,
+            endpoint: selectedPattern.endpoint,
+            httpStatus: selectedPattern.httpStatus,
+            description: selectedPattern.description,
+            occurrenceCount: selectedPattern.occurrenceCount,
+            severity: selectedPattern.severity,
+            rootCause: selectedPattern.rootCause,
+          },
         }),
       })
 
       const data = await response.json()
 
-      if (data.success) {
-        // Refresh patterns and close dialog
-        await fetchPatterns()
-        setShowAiDialog(false)
-        setSelectedPattern(null)
-        setAiResolution(null)
+      if (data.success && data.result) {
+        // Update the resolution with the fix result
+        setAiResolution(prev => prev ? {
+          ...prev,
+          codeFix: data.result.codeFix?.fixedCode,
+          testResult: data.result.testResult,
+          fixApplied: data.result.codeFix?.applied,
+        } : null)
+        
+        // If fix was successful, save the solution
+        if (data.result.success) {
+          await fetch('/api/saved-solutions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'create',
+              data: {
+                errorType: selectedPattern.errorType,
+                httpStatus: selectedPattern.httpStatus,
+                errorPattern: selectedPattern.patternKey,
+                solution: data.result.solution,
+                codeFix: data.result.codeFix?.fixedCode,
+                confidence: data.result.confidence,
+              },
+            }),
+          })
+          
+          // Refresh patterns
+          await fetchPatterns()
+        }
       }
     } catch (error) {
       console.error('Failed to apply AI fix:', error)
     } finally {
       setAiApplying(false)
+    }
+  }
+
+  // Save current solution
+  const saveCurrentSolution = async () => {
+    if (!selectedPattern || !aiResolution) return
+    
+    try {
+      await fetch('/api/saved-solutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          data: {
+            errorType: selectedPattern.errorType,
+            httpStatus: selectedPattern.httpStatus,
+            errorPattern: selectedPattern.patternKey,
+            solution: aiResolution.solution,
+            codeFix: aiResolution.codeFix,
+            confidence: aiResolution.confidence * 100,
+          },
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to save solution:', error)
+    }
+  }
+  
+  // Report solution success/failure
+  const reportSolutionResult = async (success: boolean) => {
+    if (!aiResolution?.savedSolutionId) return
+    
+    try {
+      await fetch('/api/saved-solutions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: success ? 'report-success' : 'report-failure',
+          solutionId: aiResolution.savedSolutionId,
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to report solution result:', error)
     }
   }
 
