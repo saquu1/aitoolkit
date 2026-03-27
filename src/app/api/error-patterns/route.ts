@@ -121,7 +121,68 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, patternId, data } = body;
+    const { action, patternId, data, error } = body;
+
+    // Create pattern from error in Error Monitor
+    if (action === 'createFromError') {
+      try {
+        // Generate pattern key from error details
+        const patternKey = `${error.type}_${error.endpoint}_${error.status}`;
+        const patternName = `${error.type.replace('_', ' ')} - ${error.endpoint.split('/').slice(-2).join('/')}`;
+        
+        // Check if pattern already exists
+        const existingPattern = await db.errorPattern.findUnique({
+          where: { patternKey }
+        });
+        
+        if (existingPattern) {
+          // Update occurrence count
+          const updatedPattern = await db.errorPattern.update({
+            where: { id: existingPattern.id },
+            data: {
+              occurrenceCount: { increment: 1 },
+              lastOccurrence: new Date(),
+            }
+          });
+          
+          return NextResponse.json({
+            success: true,
+            pattern: updatedPattern,
+            message: 'Pattern occurrence count updated',
+          });
+        }
+        
+        // Create new pattern
+        const pattern = await db.errorPattern.create({
+          data: {
+            patternKey,
+            patternName,
+            errorType: error.type || 'UNKNOWN',
+            endpoint: error.endpoint,
+            httpStatus: error.status,
+            description: error.message || error.statusText || 'Error from Error Monitor',
+            severity: error.severity || 'error',
+            rootCause: error.hint || undefined,
+            occurrenceCount: 1,
+            firstOccurrence: new Date(error.timestamp || new Date()),
+            lastOccurrence: new Date(),
+            patternStatus: 'ACTIVE',
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          pattern,
+          message: 'Pattern created from error',
+        });
+      } catch (dbError) {
+        console.error('Database error creating pattern:', dbError);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to create pattern in database',
+        });
+      }
+    }
 
     if (action === 'resolve') {
       try {
