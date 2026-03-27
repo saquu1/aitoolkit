@@ -4093,3 +4093,177 @@ model DataFlowPattern {
   @@unique([sourceEntity, targetEntity])
   @@index([patternType])
 }
+
+// =============================================================================
+// SMART FIXER - Phase 3 Models
+// =============================================================================
+
+/// Stores fix suggestions for contract issues
+model FixSuggestion {
+  id            String   @id @default(cuid())
+  issueId       String   // Reference to ContractIssue
+  
+  // Fix details
+  fixType       String   // 'rename_field', 'add_param', 'remove_param', 'add_null_check', 'change_type', 'create_endpoint'
+  description   String
+  codeChange    String   // JSON: { file, oldCode, newCode, lineStart, lineEnd }
+  
+  // Impact analysis
+  affectedFiles String   @default("[]")  // JSON array of affected file paths
+  affectedEntities String @default("[]") // JSON array of affected entity IDs
+  impactScore   Int      @default(0)     // 0-100: how many things affected
+  
+  // Effort estimation
+  effortLevel   String   @default("medium")  // 'trivial', 'easy', 'medium', 'hard', 'complex'
+  estimatedTime Int      @default(0)     // Minutes estimated
+  
+  // Confidence
+  confidence    Float    @default(0.5)   // 0-1: how confident in this fix
+  autoSafe      Boolean  @default(false) // Is this safe to auto-apply?
+  
+  // Status
+  status        String   @default("suggested")  // 'suggested', 'approved', 'applied', 'rejected', 'reverted'
+  appliedAt     DateTime?
+  appliedBy     String?
+  
+  // Alternative fixes
+  alternatives  String   @default("[]")  // JSON array of alternative fix IDs
+  preferredFix  Boolean  @default(false) // Is this the preferred fix?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([issueId])
+  @@index([fixType])
+  @@index([status])
+}
+
+/// Tracks fix history for rollback capability
+model FixHistory {
+  id            String   @id @default(cuid())
+  scanId        String
+  
+  // What was changed
+  issueId       String
+  suggestionId  String
+  filePath      String
+  
+  // Before/After
+  originalContent String  // Original file content
+  modifiedContent String  // Modified file content
+  diff          String   // Unified diff
+  
+  // Backup location
+  backupPath    String?  // Path to backup file
+  
+  // Status
+  status        String   @default("applied")  // 'applied', 'reverted', 'failed'
+  appliedAt     DateTime @default(now())
+  revertedAt    DateTime?
+  revertedBy    String?
+  
+  // Metadata
+  appliedBy     String?
+  notes         String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([scanId])
+  @@index([issueId])
+  @@index([status])
+}
+
+/// Stores backup snapshots before fixes
+model BackupSnapshot {
+  id            String   @id @default(cuid())
+  scanId        String
+  
+  // File info
+  filePath      String
+  fileName      String
+  
+  // Content
+  content       String
+  contentHash   String   // SHA-256 hash
+  
+  // Metadata
+  fileSize      Int      @default(0)
+  lineCount     Int      @default(0)
+  
+  // Location
+  backupPath    String?  // Path in backup/history/SCAN-ID/
+  
+  // Status
+  restored      Boolean  @default(false)
+  restoredAt    DateTime?
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([scanId, filePath])
+  @@index([scanId])
+  @@index([filePath])
+}
+
+/// Stores fix patterns for learning
+model FixPattern {
+  id            String   @id @default(cuid())
+  
+  // Pattern identification
+  issueType     String   // Type of issue this pattern fixes
+  patternName   String
+  description   String
+  
+  // Pattern details
+  triggerCondition String  // JSON: conditions that trigger this pattern
+  fixTemplate   String   // Template for the fix
+  
+  // Success metrics
+  timesApplied  Int      @default(0)
+  successRate   Float    @default(0.0)  // 0-1
+  avgImpactScore Float   @default(0.0)
+  
+  // Learning
+  lastUsedAt    DateTime?
+  learnedFrom   String?  // Where this pattern was learned from
+  
+  // Status
+  isActive      Boolean  @default(true)
+  confidence    Float    @default(0.5)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([issueType, patternName])
+  @@index([issueType])
+  @@index([isActive])
+}
+
+/// Stores auto-apply rules
+model AutoApplyRule {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  
+  // Conditions
+  issueTypes    String   @default("[]")  // JSON array of issue types to auto-fix
+  severityMax   String   @default("warning")  // Max severity to auto-fix
+  confidenceMin Float    @default(0.9)   // Minimum confidence required
+  
+  // Safety
+  requireBackup Boolean  @default(true)
+  requireTest   Boolean  @default(false) // Run tests after fix?
+  maxFiles      Int      @default(5)     // Max files to modify at once
+  
+  // Scope
+  filePatterns  String   @default("[]")  // JSON: glob patterns for files to include/exclude
+  
+  // Status
+  isActive      Boolean  @default(true)
+  lastAppliedAt DateTime?
+  timesApplied  Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([isActive])
+}

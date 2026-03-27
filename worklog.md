@@ -3700,3 +3700,154 @@ const scopeParams = new URLSearchParams({
 fetch(`/api/intelligence-bank/scope?${scopeParams}`)
 ```
 
+
+---
+## Contract Validator Phase 2: Intelligence Bank - COMPLETED
+
+---
+Task ID: CV-2.1
+Agent: Main Agent
+Task: Add Intelligence Bank Models to Prisma Schema
+
+Work Log:
+- Added EntityRegistry model for tracking code entities (components, API routes, pages, hooks)
+- Added EntityUsage model for tracking where/how entities are used
+- Added EntityRelationship model for tracking connections between entities
+- Added FieldRegistry model for tracking fields within entities
+- Added PriorityScore model for intelligent issue prioritization
+- Added NamingConvention model for naming pattern detection
+- Added DataFlowPattern model for data flow tracking
+- Ran prisma generate successfully
+
+Stage Summary:
+- 7 new Prisma models added
+- Models support entity tracking, usage analytics, relationships, and priority scoring
+- Database schema ready for intelligence bank operations
+
+---
+Task ID: CV-2.2
+Agent: Main Agent
+Task: Create Intelligence Bank Service Library
+
+Work Log:
+- Created /src/lib/intelligence-bank.ts with comprehensive service
+- Implemented registerEntity() for entity registration
+- Implemented trackUsage() for usage tracking with frequency
+- Implemented createRelationship() for entity relationship mapping
+- Implemented registerField() for field registration with PII/PHI detection
+- Implemented detectNamingVariants() for naming pattern analysis
+- Implemented calculatePriority() with weighted scoring
+- Implemented getEntityIntelligence() for detailed entity info
+- Implemented scanAndRegisterCodebase() for full codebase scanning
+- Implemented getStatistics() for overall metrics
+
+Stage Summary:
+- intelligence-bank.ts: 550+ lines
+- Full CRUD operations for all intelligence entities
+- Automatic codebase scanning capability
+- PII/PHI field detection
+
+---
+Task ID: CV-2.3
+Agent: Main Agent
+Task: Create Priority Scoring Engine
+
+Work Log:
+- Created /src/lib/priority-scoring.ts with intelligent scoring
+- Implemented calculateIssuePriority() with multi-factor analysis
+- Implemented calculateImpact() based on usage and data flow
+- Implemented calculateFrequency() based on occurrence patterns
+- Implemented calculateRisk() based on issue type and severity
+- Implemented calculateEffort() based on fix complexity
+- Implemented getProjectHealthScore() for overall project health
+- Implemented getPriorityRecommendations() for issue prioritization
+
+Stage Summary:
+- priority-scoring.ts: 400+ lines
+- Weighted scoring: impact(35%), frequency(25%), risk(25%), effort(15%)
+- Priority levels: critical, high, medium, low
+- Project health grade: A-F scale
+
+---
+Task ID: CV-2.4
+Agent: Main Agent
+Task: Create Intelligence Bank API Endpoints
+
+Work Log:
+- Created /src/app/api/intelligence-bank/route.ts
+- GET endpoints: stats, entities, entity, usage-stats, high-priority, health, relationships, fields, naming-variants, search
+- POST endpoints: register-entity, track-usage, create-relationship, register-field, calculate-priority, scan-codebase, batch-priorities, recommendations
+- Full error handling with proper response structure
+
+Stage Summary:
+- API route: 300+ lines
+- 10 GET actions + 8 POST actions
+- Search functionality for entities
+- Batch priority calculation
+
+---
+Task ID: CV-2.5
+Agent: Main Agent
+Task: Create Intelligence Bank Dashboard UI
+
+Work Log:
+- Created /src/components/IntelligenceBankDashboard.tsx
+- Stats overview with total entities, usages, relationships, fields
+- Health score display with grade (A-F)
+- Entity list with filtering by type and search
+- Priority tab showing critical/high/medium/low distribution
+- Types tab showing entity counts by type
+- Entity detail dialog with props, imports, fields, relationships
+- Scan codebase button for full project scanning
+
+Stage Summary:
+- IntelligenceBankDashboard.tsx: 500+ lines
+- Full entity exploration interface
+- Priority visualization
+- Relationship mapping display
+
+---
+## Summary: Contract Validator Phase 2 Completed
+
+### Files Created:
+1. `/prisma/schema.prisma` - 7 new models for Intelligence Bank
+2. `/src/lib/intelligence-bank.ts` - Intelligence Bank service
+3. `/src/lib/priority-scoring.ts` - Priority scoring engine
+4. `/src/app/api/intelligence-bank/route.ts` - API endpoints
+5. `/src/components/IntelligenceBankDashboard.tsx` - Dashboard UI
+
+### Total Lines of Code: ~1,750+ lines
+
+### Capabilities Implemented:
+
+**2.1 Entity Registry:**
+- Track all code entities (components, API routes, pages, hooks, libs)
+- Store metadata (props, imports, exports)
+- Track usage count and last used
+
+**2.2 Usage Tracking:**
+- Track where entities are used
+- Direct vs indirect usage classification
+- Frequency counting
+
+**2.3 Relationship Mapping:**
+- Track entity relationships (imports, calls, extends)
+- Data flow mapping between entities
+- Contract validation status
+
+**2.4 Field Intelligence:**
+- Track fields within entities
+- Semantic type detection
+- PII/PHI flagging
+- Naming variant detection
+
+**2.5 Priority Scoring:**
+- Multi-factor priority calculation
+- Impact, frequency, risk, effort scoring
+- Project health assessment
+- Issue recommendations
+
+### Next Steps:
+- Phase 3: Smart Fixer + Auto-Apply + Restore
+- Phase 4: Flow Map + Test Generator
+- Phase 5: Pre-commit Hook + Import Suggestions
