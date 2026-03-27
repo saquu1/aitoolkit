@@ -70,6 +70,22 @@ import { ErrorPatternDashboardTab } from '@/components/tabs/ErrorPatternDashboar
 // These components are large (1000+ lines) and loaded on-demand only
 // =============================================================================
 
+// ContractValidatorTab - loaded on demand
+const ContractValidatorTab = dynamic(
+  () => import('@/components/tabs/ContractValidatorTab').then(m => m.ContractValidatorTab),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading Contract Validator...</p>
+        </div>
+      </div>
+    ),
+  }
+)
+
 // ChatLogTab - 4,178 lines - loaded only when user navigates to chat-logs
 const ChatLogTab = dynamic(
   () => import('@/components/tabs/ChatLogTab').then(m => m.ChatLogTab),
@@ -149,7 +165,7 @@ const AutoloadRegistryTab = dynamic(
     ),
   }
 )
-import { Layers, BookOpen, FolderSync, Activity, MessageSquare, ToggleLeft, Bug } from 'lucide-react'
+import { Layers, BookOpen, FolderSync, Activity, MessageSquare, ToggleLeft, Bug, ScanSearch } from 'lucide-react'
 
 // Navigation configuration with URL slugs
 const NAV_ITEMS = [
@@ -169,6 +185,7 @@ const NAV_ITEMS = [
   { id: 'multi-tenant', slug: 'multi-tenant', icon: Shield, label: 'Multi-Tenant', badge: 'Step 5', badgeColorKey: 'warning' },
   { id: 'api-management', slug: 'api-management', icon: Activity, label: 'API Management', badge: 'Debug', badgeColorKey: 'warning' },
   { id: 'error-patterns', slug: 'error-patterns', icon: Bug, label: 'Error Patterns', badge: 'Analysis', badgeColorKey: 'warning' },
+  { id: 'contract-validator', slug: 'contract-validator', icon: ScanSearch, label: 'Contract Validator', badge: 'New', badgeColorKey: 'success' },
   { id: 'chat-logs', slug: 'chat-logs', icon: MessageSquare, label: 'Chat Logs', badge: 'History', badgeColorKey: 'primary' },
   { id: 'autoload', slug: 'autoload', icon: ToggleLeft, label: 'Autoload Config', badge: 'New', badgeColorKey: 'success' },
   { id: 'settings', slug: 'settings', icon: Settings, label: 'Settings' },
@@ -458,6 +475,7 @@ function AppContent() {
               {activeTab === 'chat-logs' && <ChatLogTab />}
               {activeTab === 'autoload' && <AutoloadRegistryTab />}
               {activeTab === 'error-patterns' && <ErrorPatternDashboardTab onNavigate={handleNavigate} />}
+              {activeTab === 'contract-validator' && <ContractValidatorTab />}
               {activeTab === 'settings' && <SettingsTab />}
               {activeTab === 'file-manager' && <FileManagerTab onNavigate={handleNavigate} />}
             </div>

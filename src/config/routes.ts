@@ -85,6 +85,8 @@ export const PUBLIC_API_ROUTES = [
   '/api/error-log',
   '/api/chat-logs/fetch',
   '/api/error-patterns',
+  '/api/error-patterns/ai-resolution',  // AI resolution - public for testing
+  '/api/contract-validator',  // Contract validator - detect frontend/API mismatches
   '/api/download',          // Public download endpoint for files
   '/api/autoload',          // Autoload configuration - public for testing mode
 ] as const
