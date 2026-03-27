@@ -3998,3 +3998,165 @@ Stage Summary:
 ### Next Steps:
 - Phase 4: Flow Map + Test Generator
 - Phase 5: Pre-commit Hook + Import Suggestions
+
+---
+## Contract Validator Phase 4: Flow Map + Test Generator - COMPLETED
+
+---
+Task ID: CV-4.1
+Agent: Main Agent
+Task: Add Flow Map and Test Generator Models to Prisma Schema
+
+Work Log:
+- Added DataFlow model for tracking data flow between entities
+- Added FlowNode model for visualization nodes
+- Added GeneratedTest model for storing generated tests
+- Added TestSuite model for test organization
+- Added TestRun model for execution history
+- Added ContractDefinition model for API contracts
+- Ran prisma generate successfully
+
+Stage Summary:
+- 6 new Prisma models added
+- Support for data flow visualization, test generation, and contract management
+
+---
+Task ID: CV-4.2
+Agent: Main Agent
+Task: Create Flow Map Service
+
+Work Log:
+- Created /src/lib/flow-map.ts with comprehensive flow visualization
+- Implemented generateFlowMap() for full codebase scanning
+- Implemented scanAPIRoutes(), scanComponents(), scanHooks() for discovery
+- Implemented buildNodes() and buildEdges() for graph construction
+- Implemented calculateNodePositions() for layered layout
+- Implemented generateMermaidDiagram() for text-based export
+- Implemented getFlowStats() for flow statistics
+
+Stage Summary:
+- flow-map.ts: 650+ lines
+- Support for Frontend ↔ API ↔ Database flow visualization
+- Canvas-based and Mermaid diagram export
+
+---
+Task ID: CV-4.3
+Agent: Main Agent
+Task: Create Test Generator Service
+
+Work Log:
+- Created /src/lib/test-generator.ts with comprehensive test generation
+- Implemented generateContractTests() for API endpoint tests
+- Implemented generateTestsFromIssues() for regression tests
+- Implemented discoverAPIEndpoints() for route discovery
+- Implemented generateSuccessTest(), generateValidationTest(), generateMissingFieldsTest()
+- Implemented saveTestsToFilesystem() for file persistence
+- Implemented generateTestSuite() for test organization
+- Implemented recordTestRun() for execution tracking
+
+Stage Summary:
+- test-generator.ts: 550+ lines
+- Support for contract, integration, unit, and regression tests
+- Vitest/Jest/Playwright framework support
+
+---
+Task ID: CV-4.4
+Agent: Main Agent
+Task: Create Flow Map and Test Generator API Endpoints
+
+Work Log:
+- Created /src/app/api/flow-map/route.ts
+  - GET: get, stats, mermaid, nodes, flows, list-scans
+  - POST: generate, update-node, delete
+- Created /src/app/api/test-generator/route.ts
+  - GET: tests, stats, test, suites, runs, contracts
+  - POST: generate-contracts, generate-from-issues, generate-suite, save-tests, record-run, update-test-status, create-contract, delete-tests
+
+Stage Summary:
+- flow-map API: 100+ lines
+- test-generator API: 150+ lines
+- Full CRUD for flow visualization and test management
+
+---
+Task ID: CV-4.5
+Agent: Main Agent
+Task: Create Flow Map Viewer UI
+
+Work Log:
+- Created /src/components/FlowMapViewer.tsx
+- Canvas-based visualization with layered layout
+- Node display with color-coded types (Frontend/API/Database)
+- Edge visualization with arrows and labels
+- Legend showing node types and flow types
+- Mermaid diagram export
+- Node list with filtering
+- Issue highlighting for invalid flows
+
+Stage Summary:
+- FlowMapViewer.tsx: 450+ lines
+- Interactive canvas visualization
+- Mermaid code export
+- Layer-based organization (Frontend/API/Database)
+
+---
+Task ID: CV-4.6
+Agent: Main Agent
+Task: Create Test Runner Dashboard UI
+
+Work Log:
+- Created /src/components/TestRunnerDashboard.tsx
+- Test statistics overview (total, saved, passed, failed)
+- Generated tests list with selection
+- Test type icons (contract, integration, unit, e2e)
+- Test detail dialog with code preview
+- Bulk selection and save functionality
+- Test run history tab
+- Contract definitions tab
+
+Stage Summary:
+- TestRunnerDashboard.tsx: 450+ lines
+- Full test management interface
+- Code preview with syntax highlighting
+- Bulk operations support
+
+---
+## Summary: Contract Validator Phase 4 Completed
+
+### Files Created:
+1. `/prisma/schema.prisma` - 6 new models for Flow Map and Test Generator
+2. `/src/lib/flow-map.ts` - Flow visualization service
+3. `/src/lib/test-generator.ts` - Test generation service
+4. `/src/app/api/flow-map/route.ts` - Flow Map API
+5. `/src/app/api/test-generator/route.ts` - Test Generator API
+6. `/src/components/FlowMapViewer.tsx` - Flow Map UI
+7. `/src/components/TestRunnerDashboard.tsx` - Test Runner UI
+
+### Total Lines of Code: ~2,400+ lines
+
+### Capabilities Implemented:
+
+**4.1 Data Flow Visualization:**
+- Scan codebase for Frontend → API → Database flows
+- Visualize connections with canvas-based rendering
+- Layer-based layout (Frontend/API/Database)
+- Mermaid diagram export for documentation
+
+**4.2 Contract Test Generation:**
+- Generate tests from API endpoints
+- Generate regression tests from detected issues
+- Support for Vitest, Jest, Playwright
+- Auto-generate test data
+
+**4.3 Test Management:**
+- Test suite organization
+- Test run history tracking
+- Pass/fail statistics
+- File system persistence
+
+**4.4 Contract Definitions:**
+- API contract storage
+- JSON Schema definitions
+- Example data tracking
+
+### Next Steps:
+- Phase 5: Pre-commit Hook + Import Suggestions
