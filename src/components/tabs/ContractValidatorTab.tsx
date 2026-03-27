@@ -541,7 +541,7 @@ export function ContractValidatorTab() {
             </Card>
           )}
 
-          {result && (
+          {result && result.summary && (
             <>
               {/* Scan ID Banner */}
               {result.savedScanId && (
@@ -565,7 +565,7 @@ export function ContractValidatorTab() {
                     <CardTitle className="text-sm text-gray-600">API Endpoints</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{result.summary.totalEndpoints}</div>
+                    <div className="text-2xl font-bold">{result.summary?.totalEndpoints ?? 0}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -573,7 +573,7 @@ export function ContractValidatorTab() {
                     <CardTitle className="text-sm text-gray-600">API Calls</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{result.summary.totalCalls}</div>
+                    <div className="text-2xl font-bold">{result.summary?.totalCalls ?? 0}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -581,7 +581,7 @@ export function ContractValidatorTab() {
                     <CardTitle className="text-sm text-gray-600">Total Issues</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{result.summary.totalIssues}</div>
+                    <div className="text-2xl font-bold">{result.summary?.totalIssues ?? 0}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -589,7 +589,7 @@ export function ContractValidatorTab() {
                     <CardTitle className="text-sm text-gray-600">Errors</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-red-600">{result.summary.errors}</div>
+                    <div className="text-2xl font-bold text-red-600">{result.summary?.errors ?? 0}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -597,7 +597,7 @@ export function ContractValidatorTab() {
                     <CardTitle className="text-sm text-gray-600">Warnings</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-yellow-600">{result.summary.warnings}</div>
+                    <div className="text-2xl font-bold text-yellow-600">{result.summary?.warnings ?? 0}</div>
                   </CardContent>
                 </Card>
               </div>
