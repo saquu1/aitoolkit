@@ -275,11 +275,12 @@ async function analyzeErrorPattern(pattern: ErrorPattern): Promise<{
   solution: string;
   preventionStrategy: string;
 }> {
-  // Use Z.AI SDK for analysis
-  const ZAI = (await import('z-ai-web-dev-sdk')).default;
-  const zai = await ZAI.create();
+  try {
+    // Use Z.AI SDK for analysis
+    const ZAI = (await import('z-ai-web-dev-sdk')).default;
+    const zai = await ZAI.create();
 
-  const prompt = `You are an expert software engineer analyzing an error pattern. Provide a detailed analysis.
+    const prompt = `You are an expert software engineer analyzing an error pattern. Provide a detailed analysis.
 
 ERROR PATTERN DETAILS:
 - Name: ${pattern.patternName}
@@ -304,7 +305,6 @@ Format your response as JSON:
   "confidence": 85
 }`;
 
-  try {
     const completion = await zai.chat.completions.create({
       messages: [
         { role: 'system', content: 'You are an expert software engineer. Always respond with valid JSON.' },
@@ -337,15 +337,74 @@ Format your response as JSON:
     };
   } catch (error) {
     console.error('AI analysis error:', error);
-    // Fallback analysis
-    return {
-      confidence: 60,
-      analysis: `Error pattern ${pattern.patternName} indicates a ${pattern.errorType} issue at ${pattern.endpoint}`,
-      rootCause: pattern.description,
-      solution: `Investigate the ${pattern.endpoint} endpoint for ${pattern.errorType.toLowerCase()} issues`,
-      preventionStrategy: 'Add proper error handling and monitoring',
-    };
+    // Fallback analysis with intelligent defaults based on error type
+    const intelligentFallback = getIntelligentFallback(pattern);
+    return intelligentFallback;
   }
+}
+
+/**
+ * Get intelligent fallback analysis based on error type
+ */
+function getIntelligentFallback(pattern: ErrorPattern): {
+  confidence: number;
+  analysis: string;
+  rootCause: string;
+  solution: string;
+  preventionStrategy: string;
+} {
+  const fallbacks: Record<string, {
+    rootCause: string;
+    solution: string;
+    preventionStrategy: string;
+    confidence: number;
+  }> = {
+    'SERVER_FAILURE': {
+      rootCause: `Server-side error at ${pattern.endpoint}. Possible causes: unhandled exception, database connection issues, memory limits, or external service failures.`,
+      solution: `1. Check server logs for the exact error message\n2. Verify database connectivity\n3. Add proper error handling and try-catch blocks\n4. Implement request timeout handling\n5. Add health check endpoints`,
+      preventionStrategy: 'Implement comprehensive error logging, add circuit breakers for external services, and ensure proper exception handling throughout the codebase.',
+      confidence: 75,
+    },
+    'NETWORK_ERROR': {
+      rootCause: `Network connectivity issue or CORS error when calling ${pattern.endpoint}. The request may have been blocked or the server was unreachable.`,
+      solution: `1. Check CORS configuration on the server\n2. Verify network connectivity\n3. Implement retry logic with exponential backoff\n4. Add fallback mechanisms for critical endpoints`,
+      preventionStrategy: 'Implement robust retry logic, add request timeouts, and ensure proper CORS headers are set on all API endpoints.',
+      confidence: 80,
+    },
+    'AUTH_ERROR': {
+      rootCause: `Authentication failed for request to ${pattern.endpoint}. Token may be expired, invalid, or missing required permissions.`,
+      solution: `1. Check token expiration and refresh logic\n2. Verify user permissions\n3. Ensure proper Authorization header is sent\n4. Implement automatic token refresh`,
+      preventionStrategy: 'Implement proactive token refresh, add proper session management, and ensure clear error messages for authentication failures.',
+      confidence: 85,
+    },
+    'VALIDATION_ERROR': {
+      rootCause: `Request validation failed for ${pattern.endpoint}. The submitted data did not meet the required schema or business rules.`,
+      solution: `1. Review the validation rules for this endpoint\n2. Ensure client sends properly formatted data\n3. Add clear validation error messages\n4. Implement client-side validation to catch errors early`,
+      preventionStrategy: 'Implement comprehensive validation on both client and server, provide clear error messages, and document API schemas thoroughly.',
+      confidence: 85,
+    },
+    'BUSINESS_LOGIC': {
+      rootCause: `Business rule violation at ${pattern.endpoint}. The request conflicts with application logic or data constraints.`,
+      solution: `1. Review business rules for this operation\n2. Check for data conflicts (duplicates, references)\n3. Add proper error messages explaining the constraint\n4. Consider adding pre-checks before operations`,
+      preventionStrategy: 'Document all business rules clearly, implement idempotency for critical operations, and provide user-friendly error messages.',
+      confidence: 80,
+    },
+  };
+
+  const fallback = fallbacks[pattern.errorType] || {
+    rootCause: pattern.description || `Error occurred at ${pattern.endpoint}`,
+    solution: `1. Investigate the ${pattern.endpoint} endpoint\n2. Check server logs for details\n3. Add proper error handling`,
+    preventionStrategy: 'Implement comprehensive error handling, logging, and monitoring.',
+    confidence: 60,
+  };
+
+  return {
+    confidence: fallback.confidence,
+    analysis: `Analyzed ${pattern.errorType} error at ${pattern.endpoint}. Using rule-based analysis (AI unavailable).`,
+    rootCause: fallback.rootCause,
+    solution: fallback.solution,
+    preventionStrategy: fallback.preventionStrategy,
+  };
 }
 
 /**
