@@ -62,22 +62,56 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, pattern, patternId } = body;
 
+    // Fetch pattern from database if only patternId is provided
+    let resolvedPattern = pattern;
+    if (!resolvedPattern && patternId) {
+      try {
+        const dbPattern = await db.errorPattern.findUnique({
+          where: { id: patternId }
+        });
+        if (dbPattern) {
+          resolvedPattern = {
+            id: dbPattern.id,
+            patternKey: dbPattern.patternKey,
+            patternName: dbPattern.patternName,
+            errorType: dbPattern.errorType,
+            endpoint: dbPattern.endpoint || '',
+            httpStatus: dbPattern.httpStatus || 0,
+            description: dbPattern.description,
+            occurrenceCount: dbPattern.occurrenceCount,
+            severity: dbPattern.severity,
+            rootCause: dbPattern.rootCause || undefined,
+          };
+        }
+      } catch (dbError) {
+        console.error('Failed to fetch pattern from database:', dbError);
+      }
+    }
+
+    // Validate pattern exists
+    if (!resolvedPattern) {
+      return NextResponse.json(
+        { success: false, error: 'Pattern not found. Provide either pattern object or valid patternId.' },
+        { status: 400 }
+      );
+    }
+
     // Handle different actions
     switch (action) {
       case 'analyze':
-        return await handleAnalyze(pattern);
+        return await handleAnalyze(resolvedPattern);
 
       case 'auto_fix':
-        return await handleAutoFix(pattern);
+        return await handleAutoFix(resolvedPattern);
 
       case 'get_saved_solutions':
-        return await handleGetSavedSolutions(pattern);
+        return await handleGetSavedSolutions(resolvedPattern);
 
       case 'save_solution':
-        return await handleSaveSolution(body);
+        return await handleSaveSolution({ ...body, pattern: resolvedPattern });
 
       case 'full_resolution':
-        return await handleFullResolution(pattern);
+        return await handleFullResolution(resolvedPattern);
 
       default:
         return NextResponse.json(
