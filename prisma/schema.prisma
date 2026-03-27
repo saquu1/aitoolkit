@@ -4015,3 +4015,205 @@ enum ConfidenceLevel {
   HIGH
   VERY_HIGH
 }
+
+// =============================================================================
+// INTELLIGENCE BANK - Phase 2 Models
+// =============================================================================
+
+/// Stores information about code entities (components, API routes, pages, hooks, etc.)
+model EntityRegistry {
+  id            String   @id @default(cuid())
+  entityType    String   // 'component', 'api_route', 'page', 'hook', 'lib', 'table', 'procedure'
+  entityName    String
+  filePath      String
+  moduleName    String?  // Feature/module this belongs to
+  description   String?
+  
+  // Metadata
+  props         String   @default("[]")  // JSON array of props/parameters
+  imports       String   @default("[]")  // JSON array of imports
+  exports       String   @default("[]")  // JSON array of exports
+  
+  // Intelligence
+  usageCount    Int      @default(0)     // How many times this entity is used
+  lastUsedAt    DateTime?
+  confidence    Float    @default(0.5)   // Confidence score 0-1
+  
+  // Priority scoring
+  priority      String   @default("medium")  // 'critical', 'high', 'medium', 'low'
+  impactScore   Int      @default(0)     // 0-100 impact score
+  riskScore     Int      @default(0)     // 0-100 risk score
+  
+  // Status
+  status        String   @default("active")  // 'active', 'deprecated', 'deleted'
+  hasIssues     Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  usages        EntityUsage[]
+  relationships EntityRelationship[] @relation("EntityRelations")
+  relatedTo     EntityRelationship[] @relation("RelatedEntities")
+  fields        FieldRegistry[]
+  
+  @@unique([entityType, entityName, filePath])
+  @@index([entityType])
+  @@index([moduleName])
+  @@index([priority])
+  @@index([status])
+}
+
+/// Tracks where entities are used (dependency tracking)
+model EntityUsage {
+  id            String   @id @default(cuid())
+  entityId      String
+  usedInFile    String   // File that uses this entity
+  usedInEntity  String?  // Entity that uses this entity
+  usageType     String   // 'import', 'call', 'render', 'extends', 'reference'
+  usageLine     Int?
+  usageContext  String?  // Additional context about the usage
+  
+  // Intelligence
+  isDirectUsage Boolean  @default(true)  // Direct vs indirect usage
+  frequency     Int      @default(1)     // How many times used in this file
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  Entity        EntityRegistry @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  
+  @@index([entityId])
+  @@index([usedInFile])
+  @@index([usageType])
+}
+
+/// Tracks relationships between entities (data flow, dependencies)
+model EntityRelationship {
+  id              String   @id @default(cuid())
+  sourceEntityId  String
+  targetEntityId  String
+  relationshipType String  // 'calls', 'imports', 'extends', 'implements', 'uses', 'depends_on'
+  
+  // Data contract info
+  dataMapping     String?  // JSON: mapping of fields exchanged
+  contractValid   Boolean  @default(true)
+  lastValidated   DateTime?
+  
+  // Priority for fixing issues
+  priority        String   @default("medium")
+  hasIssues       Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  sourceEntity    EntityRegistry @relation("EntityRelations", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntity    EntityRegistry @relation("RelatedEntities", fields: [targetEntityId], references: [id], onDelete: Cascade)
+  
+  @@unique([sourceEntityId, targetEntityId, relationshipType])
+  @@index([relationshipType])
+  @@index([hasIssues])
+}
+
+/// Tracks fields/properties within entities
+model FieldRegistry {
+  id            String   @id @default(cuid())
+  entityId      String
+  fieldName     String
+  fieldType     String   // 'string', 'number', 'boolean', 'object', 'array', 'unknown'
+  isRequired    Boolean  @default(false)
+  defaultValue  String?
+  
+  // Intelligence
+  semanticType  String?  // 'email', 'phone', 'name', 'id', 'date', etc.
+  isPII         Boolean  @default(false)
+  isPHI         Boolean  @default(false)
+  validation    String?  // JSON validation rules
+  
+  // Usage tracking
+  usageCount    Int      @default(0)
+  lastUsedAt    DateTime?
+  
+  // Naming variants detected
+  namingVariants String  @default("[]")  // JSON: different names found (pattern_id, patternId, PatternID)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  Entity        EntityRegistry @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  
+  @@unique([entityId, fieldName])
+  @@index([fieldType])
+  @@index([semanticType])
+  @@index([isPII])
+}
+
+/// Priority scoring for issues and entities
+model PriorityScore {
+  id            String   @id @default(cuid())
+  entityType    String   // 'issue', 'entity', 'field'
+  entityId      String
+  
+  // Scoring factors (0-100 each)
+  impactScore   Int      @default(0)    // User/business impact
+  frequencyScore Int     @default(0)    // How often this is used
+  riskScore     Int      @default(0)    // Risk of breaking
+  effortScore   Int      @default(0)    // Effort to fix (inverse priority)
+  
+  // Calculated
+  totalScore    Int      @default(0)    // Weighted total
+  priority      String   @default("medium")  // 'critical', 'high', 'medium', 'low'
+  
+  // Context
+  reason        String?  // Why this priority was assigned
+  dependencies  String   @default("[]")  // JSON: entities affected
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([entityType, entityId])
+  @@index([priority])
+  @@index([totalScore])
+}
+
+/// Stores naming conventions and patterns detected
+model NamingConvention {
+  id            String   @id @default(cuid())
+  entityType    String   // 'table', 'column', 'api_route', 'component', 'variable'
+  pattern       String   // Detected pattern: 'snake_case', 'camelCase', 'PascalCase'
+  example       String   // Example name
+  frequency     Int      @default(1)  // How often this pattern appears
+  
+  // Recommendation
+  isPreferred   Boolean  @default(false)
+  suggestedFix  String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([entityType, pattern])
+  @@index([entityType])
+  @@index([isPreferred])
+}
+
+/// Stores detected data flow patterns
+model DataFlowPattern {
+  id            String   @id @default(cuid())
+  sourceEntity  String   // Where data originates
+  targetEntity  String   // Where data goes
+  fieldMappings String   @default("[]")  // JSON: [{sourceField, targetField, transformation}]
+  
+  // Pattern info
+  patternType   String   // 'direct', 'transformed', 'aggregated', 'split'
+  frequency     Int      @default(1)
+  
+  // Intelligence
+  confidence    Float    @default(0.5)
+  hasIssues     Boolean  @default(false)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([sourceEntity, targetEntity])
+  @@index([patternType])
+}
