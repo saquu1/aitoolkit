@@ -121,11 +121,14 @@ interface ErrorItemProps {
   error: ManagedError
   onAcknowledge: (id: string) => void
   onRemove: (id: string) => void
+  onSendToPattern?: (error: ManagedError) => void
 }
 
-function ErrorItem({ error, onAcknowledge, onRemove }: ErrorItemProps) {
+function ErrorItem({ error, onAcknowledge, onRemove, onSendToPattern }: ErrorItemProps) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [sendingToPattern, setSendingToPattern] = useState(false)
+  const [sentToPattern, setSentToPattern] = useState(false)
   const toastInfo = getErrorToastMessage(error)
   const bgColor = error.acknowledged ? 'rgba(100,100,100,0.3)' : 'rgba(30,30,30,0.95)'
 
@@ -153,6 +156,25 @@ ${error.retryCount && error.retryCount > 0 ? `Retries: ${error.retryCount}` : ''
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
+  }
+
+  // Send error to Pattern Dashboard
+  const sendToPatternDashboard = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    if (!onSendToPattern || sentToPattern) return
+    
+    setSendingToPattern(true)
+    try {
+      await onSendToPattern(error)
+      setSentToPattern(true)
+      // Auto-acknowledge after sending
+      onAcknowledge(error.id)
+    } catch (err) {
+      console.error('Failed to send to pattern dashboard:', err)
+    } finally {
+      setSendingToPattern(false)
+    }
   }
 
   return (
@@ -281,6 +303,46 @@ ${error.retryCount && error.retryCount > 0 ? `Retries: ${error.retryCount}` : ''
           >
             {copied ? '✓ Copied!' : '📋 Copy Full Details'}
           </button>
+          
+          {/* Send to Pattern Dashboard Button */}
+          {onSendToPattern && (
+            <button
+              onClick={sendToPatternDashboard}
+              disabled={sendingToPattern || sentToPattern}
+              style={{
+                marginTop: '8px',
+                width: '100%',
+                padding: '8px 12px',
+                backgroundColor: sentToPattern ? '#22c55e' : sendingToPattern ? '#6b7280' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: sentToPattern || sendingToPattern ? 'default' : 'pointer',
+                fontSize: '11px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                opacity: sendingToPattern ? 0.7 : 1,
+              }}
+            >
+              {sendingToPattern ? (
+                <>
+                  <span style={{ animation: 'spin 1s linear infinite' }}>⏳</span>
+                  Sending...
+                </>
+              ) : sentToPattern ? (
+                <>
+                  ✓ Sent to Pattern Dashboard
+                </>
+              ) : (
+                <>
+                  📊 Send to Pattern Dashboard
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -319,6 +381,42 @@ export function ErrorPanel({
       setIsOpen(true)
     },
   })
+
+  // Send error to Pattern Dashboard
+  const handleSendToPattern = async (error: ManagedError) => {
+    try {
+      const response = await fetch('/api/error-patterns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'createFromError',
+          data: {
+            patternKey: `${error.type}_${error.endpoint.split('?')[0]}_${error.status}`,
+            patternName: `${error.type} - ${error.endpoint.split('?')[0]}`,
+            errorType: error.type || 'UNKNOWN',
+            endpoint: error.endpoint,
+            httpStatus: error.status,
+            description: error.message || 'Error from Error Monitor',
+            severity: error.severity || 'info',
+            rootCause: error.hint || null,
+          },
+        }),
+      })
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        console.error('Failed to create pattern:', result.error)
+        throw new Error(result.error || 'Failed to create pattern')
+      }
+      
+      console.log('✅ Pattern created:', result.pattern)
+      return result
+    } catch (err) {
+      console.error('Error sending to pattern dashboard:', err)
+      throw err
+    }
+  }
 
   // Position styles
   const positionStyles: Record<string, React.CSSProperties> = {
@@ -424,6 +522,7 @@ export function ErrorPanel({
                   error={error}
                   onAcknowledge={acknowledgeError}
                   onRemove={removeError}
+                  onSendToPattern={handleSendToPattern}
                 />
               ))
             )}

@@ -199,6 +199,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (action === 'createFromError') {
+      try {
+        // Check if pattern already exists
+        const existingPattern = await db.errorPattern.findFirst({
+          where: {
+            patternKey: data.patternKey,
+          },
+        });
+
+        if (existingPattern) {
+          // Update occurrence count
+          const updated = await db.errorPattern.update({
+            where: { id: existingPattern.id },
+            data: {
+              occurrenceCount: { increment: 1 },
+              lastOccurrence: new Date(),
+            },
+          });
+
+          return NextResponse.json({
+            success: true,
+            pattern: updated,
+            message: 'Pattern occurrence count updated',
+          });
+        }
+
+        // Create new pattern from error
+        const pattern = await db.errorPattern.create({
+          data: {
+            patternKey: data.patternKey,
+            patternName: data.patternName,
+            errorType: data.errorType || 'UNKNOWN',
+            endpoint: data.endpoint || '',
+            httpStatus: data.httpStatus || 0,
+            description: data.description || 'Error from Error Monitor',
+            severity: data.severity || 'info',
+            rootCause: data.rootCause || null,
+            occurrenceCount: 1,
+            firstOccurrence: new Date(),
+            lastOccurrence: new Date(),
+            patternStatus: 'ACTIVE',
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          pattern,
+          message: 'Pattern created from error',
+        });
+      } catch (dbError) {
+        console.error('Failed to create pattern from error:', dbError);
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to create pattern',
+        }, { status: 500 });
+      }
+    }
+
     return NextResponse.json(
       { success: false, error: 'Unknown action' },
       { status: 400 }
