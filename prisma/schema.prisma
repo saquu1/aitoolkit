@@ -3779,6 +3779,130 @@ model AutoloadConfig {
 }
 
 
+// =============================================================================
+// CONTRACT VALIDATOR - Scan History & Issue Tracking
+// =============================================================================
+
+// Scan History - Track contract validation scan sessions
+model ScanHistory {
+  id              String    @id @default(cuid())
+  scanId          String    @unique                  // Human-readable: SCAN-2026-03-27-001
+  projectId       String?
+  scannedFile     String?                            // Primary file that triggered scan
+  filesScanned    String    @default("[]")           // JSON array of all files in dependency chain
+  issuesFound     Int       @default(0)
+  issuesFixed     Int       @default(0)
+  status          String    @default("pending")      // pending, complete, failed
+  duration        Int?                               // Duration in milliseconds
+  error           String?                            // Error message if failed
+  userId          String?                            // Who initiated the scan
+  metadata        String    @default("{}")           // Additional scan metadata
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  issues          ContractIssue[]
+  backups         ScanBackup[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([scanId])
+}
+
+// Contract Issue - Persist detected contract mismatches
+model ContractIssue {
+  id              String    @id @default(cuid())
+  scanId          String
+  issueType       String                             // missing_param, type_mismatch, undefined_access, unknown_endpoint, extra_param
+  severity        String    @default("warning")      // error, warning, info
+  message         String                             // Human-readable description
+  frontendFile    String?
+  frontendLine    Int?
+  apiFile         String?
+  apiLine         Int?
+  suggestion      String                             // Fix suggestion
+  status          String    @default("open")         // open, fixed, ignored, reverted
+  fixApplied      Boolean   @default(false)
+  fixCode         String?                            // The fix that was applied
+  fixDescription  String?                            // Description of the fix
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  scan            ScanHistory @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([status])
+  @@index([issueType])
+  @@index([severity])
+  @@index([frontendFile])
+  @@index([apiFile])
+}
+
+// Scan Backup - Track file backups before fixes
+model ScanBackup {
+  id              String    @id @default(cuid())
+  scanId          String
+  originalPath    String                             // Original file path
+  backupPath      String                             // Path to backup file
+  fileHash        String?                            // Hash of original content
+  fileSize        Int       @default(0)              // Size in bytes
+  changes         String    @default("[]")           // JSON array of changes made
+  restored        Boolean   @default(false)          // Has this backup been restored?
+  restoredAt      DateTime?
+  restoredBy      String?
+  createdAt       DateTime  @default(now())
+  scan            ScanHistory @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, originalPath])
+  @@index([scanId])
+  @@index([originalPath])
+  @@index([restored])
+}
+
+// API Contract - Store known API contracts for validation
+model APIContract {
+  id              String    @id @default(cuid())
+  endpoint        String                             // API endpoint path
+  httpMethod      String    @default("GET")          // GET, POST, PUT, DELETE, PATCH
+  routeFile       String?                            // Path to route.ts file
+  expectedParams  String    @default("[]")           // URL parameters expected
+  expectedBody    String    @default("[]")           // Body parameters expected
+  responseBody    String    @default("[]")           // Response body structure
+  source          String    @default("extracted")    // extracted, manual, generated
+  confidence      Float     @default(1.0)            // Confidence in extraction
+  lastVerified    DateTime?                          // When last verified
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([endpoint, httpMethod])
+  @@index([endpoint])
+  @@index([httpMethod])
+  @@index([isActive])
+}
+
+// Generated Type - Track auto-generated TypeScript types
+model GeneratedType {
+  id              String    @id @default(cuid())
+  typeName        String                             // Name of the generated type
+  typeKind        String    @default("interface")    // interface, type, enum
+  sourceEndpoint  String?                            // API endpoint this was generated from
+  sourceTable     String?                            // DB table this was generated from
+  content         String                             // The actual TypeScript content
+  filePath        String                             // Where the type is saved
+  dependencies    String    @default("[]")           // Other types this depends on
+  lastSynced      DateTime  @default(now())          // When last synced with source
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([typeName, filePath])
+  @@index([typeName])
+  @@index([sourceEndpoint])
+  @@index([sourceTable])
+  @@index([isActive])
+}
+
 enum BlockType {
   REASONING
   TEXT

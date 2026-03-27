@@ -3619,3 +3619,214 @@ GET /api/chat-logs?paginated=true&summary=true&limit=50
 6. Data paginated at source
 7. Workers handle computation
 8. Service Worker caches responses
+
+---
+## Contract Validator Phase 1: Persistence Layer - COMPLETED
+
+---
+Task ID: 31
+Agent: Main Agent
+Task: Contract Validator Phase 1 - Add Persistence Models
+
+Work Log:
+- Analyzed gap analysis document to identify missing persistence layer
+- Added 5 new Prisma models to schema.prisma:
+  - ScanHistory - Track contract validation scan sessions
+  - ContractIssue - Persist detected contract mismatches
+  - ScanBackup - Track file backups before fixes
+  - APIContract - Store known API contracts for validation
+  - GeneratedType - Track auto-generated TypeScript types
+- Created backup folder structure at /backup/history/
+- Created temp folder at /tmp/validator/scans/
+- Ran Prisma migration with `bun run db:push`
+
+Stage Summary:
+- 5 new Prisma models with comprehensive indexing
+- Database synced successfully
+- Backup infrastructure created
+
+---
+Task ID: 32
+Agent: Main Agent
+Task: Contract Validator Phase 1 - Update API with Persistence
+
+Work Log:
+- Rewrote /src/app/api/contract-validator/route.ts with:
+  - generateScanId() - Generate human-readable scan IDs (SCAN-YYYY-MM-DD-XXXXX)
+  - validateAndSave() - Run validation and persist results
+  - getScanHistory() - Retrieve scan history with pagination
+  - getScanById() - Get specific scan with issues and backups
+  - getOpenIssues() - Get all open issues across scans
+  - getScanStats() - Get aggregated statistics
+  - applyIssueFix() - Mark issue as fixed with optional code
+  - ignoreIssue() - Mark issue as ignored
+  - restoreScan() - Restore files from backup
+  - deleteScan() - Delete scan and all related data
+- Added multiple GET action endpoints: validate, history, scan, issues, stats
+- Added multiple POST action endpoints: validate_with_save, validate_endpoint, fix_issue, ignore_issue, restore_scan, delete_scan
+
+Stage Summary:
+- API route: 600+ lines
+- Full CRUD for scans and issues
+- Persistence layer complete
+
+---
+Task ID: 33
+Agent: Main Agent
+Task: Contract Validator Phase 1 - Update UI with Scan History
+
+Work Log:
+- Rewrote /src/components/tabs/ContractValidatorTab.tsx with:
+  - Three-tab interface: Current Scan, Scan History, Open Issues
+  - Stats overview cards (Total Scans, Open Issues, Errors, Fixed, Total Issues)
+  - Scan history list with status badges and issue counts
+  - Scan detail dialog with issue list and actions
+  - Fix/Ignore actions for individual issues
+  - Restore/Delete actions for scans
+  - OpenIssuesTab component for managing open issues
+  - Real-time stats refresh after actions
+
+Stage Summary:
+- UI component: 550+ lines
+- Three-tab interface with full functionality
+- Action buttons for fix, ignore, restore, delete
+- Automatic refresh after operations
+
+---
+Task ID: 34
+Agent: Main Agent
+Task: Contract Validator Phase 1 - Create Backup Service
+
+Work Log:
+- Created /src/lib/contract-validator-backup.ts with:
+  - createScanBackup() - Create backup for scan session
+  - backupFile() - Backup individual file with hash
+  - restoreFromBackup() - Restore files from backup
+  - getBackupManifest() - Get backup manifest
+  - listBackups() - List all backups
+  - deleteBackup() - Delete backup
+  - createScanTempDir() - Create temp directory
+  - saveScanTempData() - Save temporary scan data
+  - loadScanTempData() - Load temporary scan data
+  - cleanupOldTempFiles() - Cleanup old temp files
+  - getFileHash() - Calculate file hash
+  - compareFiles() - Compare two files
+
+Stage Summary:
+- Backup service: 300+ lines
+- File backup with SHA-256 hashing
+- Manifest-based tracking
+- Temp file management with cleanup
+
+---
+## Summary: Contract Validator Phase 1 Completed
+
+### Tasks Completed:
+1. **Model Design**: ScanHistory, ContractIssue, ScanBackup, APIContract, GeneratedType ✅
+2. **Database Migration**: Prisma models added and synced ✅
+3. **API Enhancement**: Persistence endpoints for all operations ✅
+4. **UI Enhancement**: Scan history, issue management, restore functionality ✅
+5. **Backup Infrastructure**: File backup and restore service ✅
+
+### Files Created/Modified:
+- `/prisma/schema.prisma` - Added 5 new models (~120 lines)
+- `/src/app/api/contract-validator/route.ts` - Complete rewrite with persistence (~600 lines)
+- `/src/components/tabs/ContractValidatorTab.tsx` - Complete rewrite with history (~550 lines)
+- `/src/lib/contract-validator-backup.ts` - NEW backup service (~300 lines)
+
+### Total Lines of Code: ~1,570+ lines
+
+### New Capabilities:
+
+**Scan Persistence:**
+- Every scan is saved with unique Scan ID
+- Scan history with status tracking (pending, complete, failed)
+- Duration and timestamp tracking
+- Files scanned logging
+
+**Issue Persistence:**
+- All detected issues saved to database
+- Issue status tracking (open, fixed, ignored, reverted)
+- Fix history with code and description
+- Severity and type filtering
+
+**Backup/Restore:**
+- Automatic backup before fixes
+- SHA-256 file hashing
+- Manifest-based change tracking
+- One-click restore for entire scan
+
+**UI Features:**
+- Scan history tab with clickable entries
+- Open issues tab for cross-scan issue management
+- Fix/Ignore buttons for individual issues
+- Restore/Delete buttons for scans
+- Statistics dashboard with totals
+
+### API Endpoints:
+
+**GET Actions:**
+- `?action=validate` - Run validation (legacy)
+- `?action=history` - Get scan history
+- `?action=scan&scanId=X` - Get specific scan
+- `?action=issues` - Get open issues
+- `?action=stats` - Get aggregated statistics
+
+**POST Actions:**
+- `{action: 'validate_with_save'}` - Run validation and save
+- `{action: 'fix_issue', issueId: X}` - Fix an issue
+- `{action: 'ignore_issue', issueId: X}` - Ignore an issue
+- `{action: 'restore_scan', scanId: X}` - Restore from backup
+- `{action: 'delete_scan', scanId: X}` - Delete scan
+
+### Database Models:
+
+```prisma
+model ScanHistory {
+  id, scanId, projectId, scannedFile, filesScanned,
+  issuesFound, issuesFixed, status, duration, error,
+  userId, metadata, createdAt, completedAt
+}
+
+model ContractIssue {
+  id, scanId, issueType, severity, message,
+  frontendFile, frontendLine, apiFile, apiLine,
+  suggestion, status, fixApplied, fixCode,
+  fixDescription, resolvedAt, resolvedBy
+}
+
+model ScanBackup {
+  id, scanId, originalPath, backupPath, fileHash,
+  fileSize, changes, restored, restoredAt, restoredBy
+}
+
+model APIContract {
+  id, endpoint, httpMethod, routeFile, expectedParams,
+  expectedBody, responseBody, source, confidence,
+  lastVerified, isActive
+}
+
+model GeneratedType {
+  id, typeName, typeKind, sourceEndpoint, sourceTable,
+  content, filePath, dependencies, lastSynced, isActive
+}
+```
+
+### Folder Structure Created:
+```
+/backup/
+└── history/
+    └── SCAN-YYYY-MM-DD-XXXXX/
+        ├── manifest.json
+        ├── components/
+        │   └── *.backup
+        └── api/
+            └── *.backup
+
+/tmp/
+└── validator/
+    └── scans/
+        └── SCAN-YYYY-MM-DD-XXXXX/
+            └── *.json
+```
+
