@@ -3619,3 +3619,84 @@ GET /api/chat-logs?paginated=true&summary=true&limit=50
 6. Data paginated at source
 7. Workers handle computation
 8. Service Worker caches responses
+
+---
+Task ID: 33
+Agent: Main Agent
+Task: Integration - Update existing modules to use project scope
+
+Work Log:
+- Updated /src/app/page.tsx to include ProjectScopeProvider in provider chain
+- Added ProjectScopeHeader component to main header
+- Created /src/contexts/ProjectScopeContext.tsx with global state management
+- Created /src/hooks/useScopedQuery.ts with scope-aware API hooks:
+  - useScopedQuery() - Auto-injects scope params
+  - useScopedMutation() - POST requests with scope
+  - useScopeParams() - Get scope params for manual fetch
+  - Pre-configured hooks for common endpoints
+- Updated /src/components/tabs/IntelligenceBankTab.tsx:
+  - Connected to ProjectScopeContext
+  - Added scope-aware API calls
+  - Added scope info banners (Global/Multi/Isolated mode)
+  - Updated fetch functions to use scope endpoints
+- Created project component files:
+  - ProjectSelector.tsx - Dropdown with All/Single/Multi selection
+  - ContextToggle.tsx - Settings panel for inheritance and scope
+  - ProjectScopeHeader.tsx - Combined header component
+  - index.ts - Exports
+
+Stage Summary:
+- Main page integration complete
+- ProjectScopeProvider added to provider chain
+- ProjectScopeHeader added to main header
+- IntelligenceBankTab updated with scope awareness
+- useScopedQuery hook created for easy API integration
+- All builds passing
+
+---
+## Summary: Integration Complete
+
+### Files Modified:
+1. `/src/app/page.tsx` - Added providers and header component
+2. `/src/components/tabs/IntelligenceBankTab.tsx` - Scope-aware queries
+
+### Files Created:
+1. `/src/contexts/ProjectScopeContext.tsx` - Global state provider
+2. `/src/hooks/useScopedQuery.ts` - Scope-aware API hooks
+3. `/src/components/project/ProjectSelector.tsx` - Project selector component
+4. `/src/components/project/ContextToggle.tsx` - Context settings component
+5. `/src/components/project/ProjectScopeHeader.tsx` - Header component
+6. `/src/components/project/index.ts` - Exports
+
+### Integration Features:
+- **ProjectScopeProvider**: Wraps app for global scope state
+- **ProjectScopeHeader**: Shows selector + mode badge + settings
+- **useScopedQuery**: Automatic scope parameter injection
+- **useScopedMutation**: POST requests with scope headers
+- **Pre-configured hooks**: useIntelligenceBankEntities, useErrorPatterns, etc.
+
+### Scope Mode Banners:
+- Global Scope: Shows "Viewing data across all projects"
+- Multi-Project: Shows "Comparing X selected projects"
+- Isolated Mode: Shows warning about no inheritance
+- Inheritance Mode: Shows "Including Global Data"
+
+### Usage in Components:
+```tsx
+// In any component
+import { useProjectScopeContext } from '@/contexts/ProjectScopeContext'
+
+const { scope, isGlobalScope, projectIds } = useProjectScopeContext()
+
+// Use pre-configured hook
+import { useIntelligenceBankStats } from '@/hooks/useScopedQuery'
+const { data, isLoading } = useIntelligenceBankStats()
+
+// Or manual fetch with scope
+const scopeParams = new URLSearchParams({
+  scopeType: scope.type,
+  projectId: scope.activeProjectId || ''
+})
+fetch(`/api/intelligence-bank/scope?${scopeParams}`)
+```
+
