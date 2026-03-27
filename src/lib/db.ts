@@ -5,9 +5,9 @@
  * - Set default DATABASE_URL for serverless if not set
  * - Auto-create SQLite database if missing
  * - Graceful degradation when database unavailable
+ * - Dynamic import to pick up schema changes in development
  */
 
-import { PrismaClient } from '@prisma/client'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -43,7 +43,7 @@ if (!process.env.DATABASE_URL) {
 // =============================================================================
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+  prisma: any | undefined
   prismaError: Error | undefined
 }
 
@@ -92,15 +92,41 @@ function ensureSQLiteDatabase(): boolean {
 // PRISMA CLIENT INITIALIZATION
 // =============================================================================
 
-let _prismaInstance: PrismaClient | null = null
+let _prismaInstance: any = null
+let _lastInitTime: number = 0
+const REINIT_INTERVAL = 10000 // Reinitialize every 10 seconds in development
 
-function getPrismaClient(): PrismaClient | null {
+// Force reinitialize on schema changes by clearing the cache
+export function forceReinitializePrisma() {
+  console.log('[Prisma] Force reinitializing client...')
+  _prismaInstance = null
+  globalForPrisma.prisma = undefined
+  
+  // Clear the require cache for Prisma client
+  const prismaPath = require.resolve('@prisma/client')
+  Object.keys(require.cache).forEach(key => {
+    if (key.includes('@prisma/client') || key.includes('.prisma/client')) {
+      delete require.cache[key]
+    }
+  })
+}
+
+async function getPrismaClientAsync(): Promise<any> {
+  const now = Date.now()
+  
+  // In development, periodically reinitialize to pick up schema changes
+  if (process.env.NODE_ENV !== 'production' && _prismaInstance && (now - _lastInitTime) > REINIT_INTERVAL) {
+    console.log('[Prisma] Development mode - reinitializing for schema changes...')
+    _prismaInstance = null
+    globalForPrisma.prisma = undefined
+  }
+
   if (_prismaInstance) {
     return _prismaInstance
   }
 
   const databaseUrl = process.env.DATABASE_URL
-  console.log(`[Prisma] Connecting to: ${databaseUrl}`)
+  console.log(`[Prisma] Initializing new client, connecting to: ${databaseUrl}`)
 
   // Ensure SQLite database exists
   if (databaseUrl?.startsWith('file:')) {
@@ -108,9 +134,22 @@ function getPrismaClient(): PrismaClient | null {
   }
 
   try {
+    // Clear cache in development
+    if (process.env.NODE_ENV !== 'production') {
+      const prismaPath = require.resolve('@prisma/client')
+      Object.keys(require.cache).forEach(key => {
+        if (key.includes('@prisma/client') || key.includes('.prisma/client')) {
+          delete require.cache[key]
+        }
+      })
+    }
+    
+    // Dynamic import to get fresh PrismaClient
+    const { PrismaClient } = require('@prisma/client')
+    
     _prismaInstance = new PrismaClient({
       log: process.env.NODE_ENV === 'development' 
-        ? ['query', 'error', 'warn']
+        ? ['error', 'warn']
         : ['error'],
       datasources: {
         db: {
@@ -118,6 +157,7 @@ function getPrismaClient(): PrismaClient | null {
         },
       },
     })
+    _lastInitTime = now
 
     if (process.env.NODE_ENV !== 'production') {
       globalForPrisma.prisma = _prismaInstance
@@ -132,27 +172,101 @@ function getPrismaClient(): PrismaClient | null {
   }
 }
 
-// Export a proxy that lazily initializes the client
-export const prisma = new Proxy({} as PrismaClient, {
-  get(target, prop) {
-    const client = getPrismaClient()
-    if (!client) {
-      if (typeof prop === 'string') {
-        if (prop === '$queryRaw' || prop === '$executeRaw') {
-          return () => { throw new Error('Database not available') }
-        }
-        if (prop === '$connect' || prop === '$disconnect') {
-          return async () => {}
-        }
-        if (prop === '$transaction') {
-          return async () => []
-        }
+function getPrismaClient(): any {
+  // For synchronous access, we use require
+  const now = Date.now()
+  
+  // In development, periodically reinitialize to pick up schema changes
+  if (process.env.NODE_ENV !== 'production' && _prismaInstance && (now - _lastInitTime) > REINIT_INTERVAL) {
+    console.log('[Prisma] Development mode - reinitializing for schema changes...')
+    _prismaInstance = null
+    globalForPrisma.prisma = undefined
+    
+    // Clear the require cache
+    Object.keys(require.cache).forEach(key => {
+      if (key.includes('@prisma/client') || key.includes('.prisma/client')) {
+        delete require.cache[key]
       }
-      throw new Error('Database not available')
-    }
-    return (client as any)[prop]
+    })
   }
-})
+
+  if (_prismaInstance) {
+    return _prismaInstance
+  }
+
+  const databaseUrl = process.env.DATABASE_URL
+  console.log(`[Prisma] Initializing new client, connecting to: ${databaseUrl}`)
+
+  // Ensure SQLite database exists
+  if (databaseUrl?.startsWith('file:')) {
+    ensureSQLiteDatabase()
+  }
+
+  try {
+    // Clear cache before importing
+    if (process.env.NODE_ENV !== 'production') {
+      Object.keys(require.cache).forEach(key => {
+        if (key.includes('@prisma/client') || key.includes('.prisma/client')) {
+          delete require.cache[key]
+        }
+      })
+    }
+    
+    const { PrismaClient } = require('@prisma/client')
+    
+    _prismaInstance = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' 
+        ? ['error', 'warn']
+        : ['error'],
+      datasources: {
+        db: {
+          url: databaseUrl,
+        },
+      },
+    })
+    _lastInitTime = now
+
+    if (process.env.NODE_ENV !== 'production') {
+      globalForPrisma.prisma = _prismaInstance
+    }
+
+    console.log('[Prisma] Client initialized successfully')
+    return _prismaInstance
+  } catch (error) {
+    console.error('[Prisma] Failed to initialize client:', error)
+    globalForPrisma.prismaError = error as Error
+    return null
+  }
+}
+
+// Create a lazy proxy that initializes on first access
+function createPrismaProxy() {
+  return new Proxy({} as any, {
+    get(target, prop) {
+      const client = getPrismaClient()
+      if (!client) {
+        if (typeof prop === 'string') {
+          if (prop === '$queryRaw' || prop === '$executeRaw') {
+            return () => { throw new Error('Database not available') }
+          }
+          if (prop === '$connect' || prop === '$disconnect') {
+            return async () => {}
+          }
+          if (prop === '$transaction') {
+            return async () => []
+          }
+          if (prop === 'then') {
+            return undefined // Avoid thenable issues
+          }
+        }
+        throw new Error('Database not available')
+      }
+      return (client as any)[prop]
+    }
+  })
+}
+
+export const prisma = createPrismaProxy()
 
 // =============================================================================
 // DATABASE AVAILABILITY CHECK
