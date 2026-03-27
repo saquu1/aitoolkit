@@ -4595,3 +4595,204 @@ model ContractDefinition {
   @@unique([contractType, name])
   @@index([contractType])
 }
+
+// =============================================================================
+// PRE-COMMIT HOOK & IMPORT SUGGESTIONS - Phase 5 Models
+// =============================================================================
+
+/// Stores pre-commit hook configuration
+model PreCommitHook {
+  id            String   @id @default(cuid())
+  
+  // Hook config
+  name          String
+  description   String?
+  isActive      Boolean  @default(true)
+  
+  // Triggers
+  runOnCommit   Boolean  @default(true)
+  runOnPush     Boolean  @default(false)
+  runOnPrePush  Boolean  @default(false)
+  
+  // What to check
+  checkContracts Boolean @default(true)
+  checkTypes    Boolean  @default(true)
+  checkImports  Boolean  @default(true)
+  
+  // File patterns
+  includePatterns String @default("[\"**/*.ts\",\"**/*.tsx\"]")
+  excludePatterns String @default("[\"**/node_modules/**\",\"**/.next/**\"]")
+  
+  // Actions
+  blockOnErrors Boolean  @default(true)
+  blockOnWarnings Boolean @default(false)
+  autoFix       Boolean  @default(false)
+  
+  // Statistics
+  timesRun      Int      @default(0)
+  timesBlocked  Int      @default(0)
+  lastRunAt     DateTime?
+  lastBlockedAt DateTime?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([isActive])
+}
+
+/// Stores hook execution history
+model HookExecution {
+  id            String   @id @default(cuid())
+  hookId        String
+  
+  // Execution info
+  trigger       String   // 'commit', 'push', 'pre-push', 'manual'
+  triggeredBy   String?  // User or 'auto'
+  
+  // Files checked
+  filesChecked  Int      @default(0)
+  issuesFound   Int      @default(0)
+  errorsFound   Int      @default(0)
+  warningsFound Int      @default(0)
+  
+  // Result
+  passed        Boolean  @default(true)
+  blocked       Boolean  @default(false)
+  autoFixed     Boolean  @default(false)
+  
+  // Details
+  output        String?
+  errorMessage  String?
+  duration      Int      @default(0)  // milliseconds
+  
+  // Git info
+  gitBranch     String?
+  gitCommit     String?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([hookId])
+  @@index([createdAt])
+  @@index([passed])
+}
+
+/// Stores import analysis results
+model ImportAnalysis {
+  id            String   @id @default(cuid())
+  
+  // File info
+  filePath      String
+  importStatement String
+  
+  // Analysis
+  importType    String   // 'named', 'default', 'namespace', 'dynamic'
+  source        String   // What's being imported
+  sourcePath    String   // Path it's imported from
+  
+  // Status
+  isValid       Boolean  @default(true)
+  canBeFixed    Boolean  @default(false)
+  
+  // Suggestions
+  suggestedFix  String?  // Suggested import fix
+  confidence    Float    @default(0.5)
+  
+  // Usage
+  isUsed        Boolean  @default(true)  // Is this import actually used?
+  usageCount    Int      @default(0)
+  
+  // Position
+  lineNumber    Int?
+  columnNumber  Int?
+  
+  createdAt     DateTime @default(now())
+  
+  @@unique([filePath, importStatement])
+  @@index([filePath])
+  @@index([isValid])
+  @@index([isUsed])
+}
+
+/// Stores import fix suggestions
+model ImportSuggestion {
+  id            String   @id @default(cuid())
+  
+  // Current import
+  filePath      String
+  currentImport String
+  currentPath   String
+  
+  // Suggested fix
+  suggestedImport String?
+  suggestedPath   String
+  reason          String   // 'typo', 'moved', 'renamed', 'wrong_path', 'unused'
+  
+  // Impact
+  impactLevel   String   @default("low")  // 'low', 'medium', 'high'
+  affectedFiles String   @default("[]")   // JSON array
+  
+  // Status
+  status        String   @default("suggested")  // 'suggested', 'applied', 'dismissed'
+  appliedAt     DateTime?
+  dismissedAt   DateTime?
+  dismissedBy   String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([filePath, currentImport])
+  @@index([status])
+  @@index([reason])
+}
+
+/// Stores module resolution cache
+model ModuleResolution {
+  id            String   @id @default(cuid())
+  
+  // Module info
+  moduleName    String
+  modulePath    String
+  moduleType    String   // 'local', 'npm', 'alias'
+  
+  // Resolution
+  resolvedPath  String
+  isTypeOnly    Boolean  @default(false)
+  
+  // Exports
+  namedExports  String   @default("[]")  // JSON array
+  defaultExport Boolean  @default(false)
+  
+  // Status
+  exists        Boolean  @default(true)
+  lastChecked   DateTime @default(now())
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([moduleName, modulePath])
+  @@index([moduleType])
+}
+
+/// Stores pre-commit skip rules
+model SkipRule {
+  id            String   @id @default(cuid())
+  
+  // Rule info
+  name          String
+  description   String?
+  isActive      Boolean  @default(true)
+  
+  // Conditions
+  ruleType      String   // 'file_pattern', 'branch', 'author', 'commit_message'
+  pattern       String   // Regex pattern
+  
+  // Scope
+  skipAll       Boolean  @default(false)
+  skipChecks    String   @default("[]")  // JSON array of check types to skip
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([ruleType])
+}
