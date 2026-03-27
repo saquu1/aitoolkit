@@ -59,6 +59,7 @@ import {
   Server,
   Wifi,
   Lock,
+  Layers,
   FileWarning,
   Brain,
   Trash2,
@@ -75,6 +76,7 @@ import {
   CheckSquare,
 } from 'lucide-react'
 import { useTheme } from '@/hooks/useTheme'
+import { useProjectScopeContext } from '@/contexts/ProjectScopeContext'
 
 // =============================================================================
 // TYPES
@@ -251,6 +253,13 @@ interface ErrorPatternDashboardTabProps {
 
 export function ErrorPatternDashboardTab({ onNavigate }: ErrorPatternDashboardTabProps) {
   const { colors } = useTheme()
+  const { 
+    scope, 
+    isGlobalScope, 
+    isIsolated, 
+    includeGlobal 
+  } = useProjectScopeContext()
+  
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [patterns, setPatterns] = useState<ErrorPattern[]>([])
@@ -272,9 +281,33 @@ export function ErrorPatternDashboardTab({ onNavigate }: ErrorPatternDashboardTa
   const alpha = (color: string, opacity: number) =>
     `color-mix(in srgb, ${color} ${opacity}%, transparent)`
 
+  // Build scope parameters for API calls
+  const getScopeParams = useCallback(() => {
+    const params: Record<string, string> = {}
+    
+    if (scope.type === 'project' && scope.activeProjectId) {
+      params.projectId = scope.activeProjectId
+      params.scopeType = 'project'
+    } else if (scope.type === 'multi' && scope.selectedProjectIds.length > 0) {
+      params.projectIds = JSON.stringify(scope.selectedProjectIds)
+      params.scopeType = 'multi'
+    } else {
+      params.scopeType = 'all'
+    }
+    
+    if (isIsolated) {
+      params.isIsolated = 'true'
+    }
+    if (includeGlobal) {
+      params.includeGlobal = 'true'
+    }
+    
+    return params
+  }, [scope, isIsolated, includeGlobal])
+
   useEffect(() => {
     fetchPatterns()
-  }, [])
+  }, [scope.type, scope.activeProjectId])
 
   useEffect(() => {
     filterPatterns()
@@ -283,7 +316,14 @@ export function ErrorPatternDashboardTab({ onNavigate }: ErrorPatternDashboardTa
   const fetchPatterns = async () => {
     setRefreshing(true)
     try {
-      const response = await fetch('/api/error-patterns')
+      const scopeParams = getScopeParams()
+      const queryParams = new URLSearchParams({
+        action: 'list',
+        ...scopeParams
+      })
+      
+      // Use scope-aware endpoint
+      const response = await fetch(`/api/error-patterns/scope?${queryParams}`)
       const data = await response.json()
 
       if (data.success) {
@@ -536,6 +576,47 @@ ${pattern.autoFixSolution || '// No auto-fix solution available'}
 
   return (
     <div className="space-y-6">
+      {/* Scope Info Banner */}
+      {isGlobalScope && (
+        <Alert className="mb-4">
+          <Layers className="h-4 w-4" />
+          <AlertTitle>Global Scope Active</AlertTitle>
+          <AlertDescription>
+            Viewing error patterns across all projects. Data is aggregated from all projects and global patterns.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {!isGlobalScope && scope.type === 'multi' && (
+        <Alert className="mb-4">
+          <Layers className="h-4 w-4" />
+          <AlertTitle>Multi-Project Scope</AlertTitle>
+          <AlertDescription>
+            Comparing error patterns across {scope.selectedProjectIds.length} selected projects.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {!isGlobalScope && isIsolated && (
+        <Alert className="mb-4" variant="destructive">
+          <Lock className="h-4 w-4" />
+          <AlertTitle>Isolated Mode</AlertTitle>
+          <AlertDescription>
+            This project is isolated. Only project-specific error patterns are visible.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {!isGlobalScope && !isIsolated && includeGlobal && (
+        <Alert className="mb-4">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Including Global Patterns</AlertTitle>
+          <AlertDescription>
+            Inheriting global error patterns in addition to project-specific patterns.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
