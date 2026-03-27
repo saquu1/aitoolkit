@@ -1,0 +1,491 @@
+// =============================================================================
+// AutoPilot Test Runner - End-to-End Pipeline Test
+// =============================================================================
+// This script runs the complete pipeline and saves all outputs
+// =============================================================================
+
+const fs = require('fs');
+const path = require('path');
+
+// File paths
+const UPLOAD_DIR = '/home/z/my-project/upload';
+const DOWNLOAD_DIR = '/home/z/my-project/download';
+
+// Read test files
+const schemaSQL = fs.readFileSync(path.join(UPLOAD_DIR, 'schema.sql'), 'utf8');
+const spSQL = fs.readFileSync(path.join(UPLOAD_DIR, 'patient_procedures.sql'), 'utf8');
+const cshtml = fs.readFileSync(path.join(UPLOAD_DIR, 'PatientCreate.cshtml'), 'utf8');
+
+console.log('='.repeat(80));
+console.log('AI ENTERPRISE ARCHITECT - AUTOPILOT TEST RUNNER');
+console.log('='.repeat(80));
+console.log('');
+console.log('Test Files Loaded:');
+console.log(`  - schema.sql: ${(schemaSQL.length / 1024).toFixed(1)} KB`);
+console.log(`  - patient_procedures.sql: ${(spSQL.length / 1024).toFixed(1)} KB`);
+console.log(`  - PatientCreate.cshtml: ${(cshtml.length / 1024).toFixed(1)} KB`);
+console.log('');
+
+// =============================================================================
+// STAGE 1: FILE CLASSIFICATION & PARSING
+// =============================================================================
+console.log('━'.repeat(80));
+console.log('STAGE 1: FILE CLASSIFICATION & PARSING');
+console.log('━'.repeat(80));
+
+// Parse SQL DDL
+const { parseSqlServer } = require('./src/lib/sql-parser');
+const ddlResult = parseSqlServer(schemaSQL);
+
+console.log('');
+console.log('📊 DDL Parsing Results:');
+console.log(`  ✓ Tables Found: ${ddlResult.tables.length}`);
+ddlResult.tables.forEach(t => {
+  console.log(`    - ${t.tableName} (${t.columns.length} columns, ${t.foreignKeys.length} FKs)`);
+});
+console.log(`  ✓ Stored Procedures: ${ddlResult.storedProcedures?.length || 0}`);
+console.log(`  ✓ Parse Time: ${ddlResult.stats?.parseTimeMs || 0}ms`);
+
+// Parse CSHTML
+const { CSHTMLParser } = require('./src/lib/cshtml-parser');
+const cshtmlParser = new CSHTMLParser(cshtml, 'PatientCreate.cshtml');
+const cshtmlResult = cshtmlParser.parse();
+
+console.log('');
+console.log('📊 CSHTML Parsing Results:');
+console.log(`  ✓ View Name: ${cshtmlResult.viewName}`);
+console.log(`  ✓ View Type: ${cshtmlResult.viewType}`);
+console.log(`  ✓ Form Fields: ${cshtmlResult.fields.length}`);
+cshtmlResult.fields.forEach(f => {
+  console.log(`    - ${f.name} (${f.inputType})${f.isRequired ? ' *' : ''}`);
+});
+console.log(`  ✓ Model: ${cshtmlResult.model?.name || 'Not detected'}`);
+console.log(`  ✓ AJAX Endpoints: ${cshtmlResult.ajaxEndpoints?.length || 0}`);
+console.log(`  ✓ JS Validations: ${cshtmlResult.jsValidations?.length || 0}`);
+
+// =============================================================================
+// STAGE 2: INTELLIGENCE EXTRACTION
+// =============================================================================
+console.log('');
+console.log('━'.repeat(80));
+console.log('STAGE 2: INTELLIGENCE EXTRACTION');
+console.log('━'.repeat(80));
+
+// Extract SP Intelligence
+const { createEnhancedSPIntelligenceEngine } = require('./src/lib/sp-intelligence-enhanced');
+const spEngine = createEnhancedSPIntelligenceEngine(ddlResult.tables);
+
+const spIntelligenceResults = [];
+const spNames = spSQL.match(/CREATE\s+PROCEDURE\s+\[?(\w+)\]?\[?\.?\]?\[?(\w+)?\]?/gi) || [];
+console.log('');
+console.log('📊 SP Intelligence Results:');
+
+// Analyze each SP
+const procedures = spSQL.split(/GO\s*\n/).filter(p => p.includes('CREATE PROCEDURE'));
+procedures.forEach((proc, idx) => {
+  const nameMatch = proc.match(/CREATE\s+PROCEDURE\s+(?:\[?(\w+)\]?\.)?\[?(\w+)\]?/i);
+  const spName = nameMatch ? nameMatch[2] : `sp_${idx}`;
+  
+  const intel = spEngine.analyzeProcedure({
+    procedureName: spName,
+    body: proc,
+    parameters: []
+  });
+  
+  spIntelligenceResults.push(intel);
+  
+  console.log(`  ✓ ${spName}:`);
+  console.log(`    - Action Type: ${intel.actionType}`);
+  console.log(`    - Module: ${intel.moduleName}`);
+  console.log(`    - Form Mode: ${intel.formMode?.mode || 'unknown'}`);
+  console.log(`    - Tables Referenced: ${intel.tablesReferenced?.join(', ') || 'none'}`);
+  console.log(`    - Validation Rules: ${intel.validationRules?.length || 0}`);
+  console.log(`    - Complexity: ${intel.complexity}`);
+  console.log(`    - Risk Level: ${intel.riskLevel}`);
+});
+
+// =============================================================================
+// STAGE 3: CODE GENERATION
+// =============================================================================
+console.log('');
+console.log('━'.repeat(80));
+console.log('STAGE 3: CODE GENERATION');
+console.log('━'.repeat(80));
+
+// Generate Prisma Schema
+function generatePrismaSchema(tables) {
+  const lines = [
+    '// Generated by AI Enterprise Architect',
+    '// Source: SQL Server DDL + SP Intelligence',
+    '// Generated: ' + new Date().toISOString(),
+    '',
+    'datasource db {',
+    '  provider = "sqlserver"',
+    '  url      = env("DATABASE_URL")',
+    '}',
+    '',
+    'generator client {',
+    '  provider = "prisma-client-js"',
+    '}',
+    ''
+  ];
+  
+  for (const table of tables) {
+    const modelName = toPascalSingular(table.tableName);
+    lines.push(`model ${modelName} {`);
+    
+    for (const col of table.columns) {
+      const prismaType = sqlToPrismaType(col.dataType);
+      const attrs = [];
+      
+      if (col.isPrimaryKey) {
+        attrs.push('@id');
+        if (col.dataType === 'UNIQUEIDENTIFIER') attrs.push('@default(uuid())');
+        else if (col.isIdentity) attrs.push('@default(autoincrement())');
+      }
+      
+      if (col.nullable && !col.isPrimaryKey) attrs.push('?');
+      
+      const fieldName = toCamelCase(col.name);
+      const attrStr = attrs.length ? ' ' + attrs.join('') : '';
+      lines.push(`  ${fieldName.padEnd(20)} ${prismaType}${attrStr}`);
+    }
+    
+    lines.push('');
+    lines.push(`  @@map("${table.tableName}")`);
+    lines.push('}');
+    lines.push('');
+  }
+  
+  return lines.join('\n');
+}
+
+function generateTypeScriptTypes(table) {
+  const typeName = toPascalSingular(table.tableName);
+  const lines = [
+    `// Generated TypeScript Types for ${table.tableName}`,
+    `// Source: DDL + SP Intelligence`,
+    '',
+    `export interface ${typeName} {`
+  ];
+  
+  for (const col of table.columns) {
+    const tsType = sqlToTsType(col.dataType);
+    const optional = col.nullable ? '?' : '';
+    lines.push(`  ${toCamelCase(col.name)}${optional}: ${tsType};`);
+  }
+  
+  lines.push('}');
+  lines.push('');
+  
+  const pkCol = table.columns.find(c => c.isPrimaryKey);
+  lines.push(`export type ${typeName}CreateInput = Omit<${typeName}, '${pkCol ? toCamelCase(pkCol.name) : 'id'}'>;`);
+  lines.push(`export type ${typeName}UpdateInput = Partial<${typeName}CreateInput> & { id: string };`);
+  
+  return lines.join('\n');
+}
+
+function generateAPIRoute(table) {
+  const typeName = toPascalSingular(table.tableName);
+  const varName = toCamelCase(table.tableName);
+  
+  return `// Generated API Route for ${table.tableName}
+// Source: DDL + SP Intelligence
+// Generated: ${new Date().toISOString()}
+
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+
+// GET /api/${varName} - List with pagination
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    
+    // Soft delete filter (from SP pattern)
+    const where = { isDeleted: false };
+    
+    const [items, total] = await Promise.all([
+      prisma.${varName}.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdOn: 'desc' }
+      }),
+      prisma.${varName}.count({ where })
+    ]);
+    
+    return NextResponse.json({
+      items,
+      pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) }
+    });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch ${typeName}' }, { status: 500 });
+  }
+}
+
+// POST /api/${varName} - Create (from SP_Create pattern)
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+    
+    // TODO: Add SP-derived uniqueness checks
+    // TODO: Inject audit fields (CreatedBy, CreatedOn)
+    
+    const item = await prisma.${varName}.create({ data });
+    return NextResponse.json(item, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to create ${typeName}' }, { status: 500 });
+  }
+}
+`;
+}
+
+function generateFormComponent(table) {
+  const typeName = toPascalSingular(table.tableName);
+  const varName = toCamelCase(table.tableName);
+  const editableCols = table.columns.filter(c => !c.isPrimaryKey && !c.isIdentity);
+  
+  return `"use client";
+
+// Generated React Form Component for ${table.tableName}
+// Source: DDL + SP Intelligence + CSHTML Analysis
+// Generated: ${new Date().toISOString()}
+
+import { useForm } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { ${typeName} } from '@/types/${varName}';
+
+interface ${typeName}FormProps {
+  initialData?: ${typeName};
+  onSubmit: (data: Partial<${typeName}>) => Promise<void>;
+  isEditing?: boolean;
+}
+
+export function ${typeName}Form({ initialData, onSubmit, isEditing = false }: ${typeName}FormProps) {
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    defaultValues: initialData || {}
+  });
+
+  return (
+    <Card className="bg-slate-800/50 border-slate-700">
+      <CardHeader>
+        <CardTitle className="text-slate-100">
+          {isEditing ? 'Edit' : 'New'} ${typeName}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${editableCols.slice(0, 9).map(col => {
+              const fieldName = toCamelCase(col.name);
+              const label = formatLabel(col.name);
+              const inputType = getInputType(col.dataType);
+              const required = !col.nullable ? ' *' : '';
+              
+              if (col.name.toLowerCase().includes('gender')) {
+                return `<div>
+              <label className="text-sm text-slate-400">${label}${required}</label>
+              <Select {...register('${fieldName}')} defaultValue={initialData?.${fieldName}}>
+                <SelectTrigger className="bg-slate-700/50 border-slate-600">
+                  <SelectValue placeholder="Select ${label.toLowerCase()}" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">Male</SelectItem>
+                  <SelectItem value="F">Female</SelectItem>
+                  <SelectItem value="O">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>`;
+              }
+              
+              return `<div>
+              <label className="text-sm text-slate-400">${label}${required}</label>
+              <Input 
+                {...register('${fieldName}')} 
+                type="${inputType}"
+                placeholder="Enter ${label.toLowerCase()}"
+                className="bg-slate-700/50 border-slate-600"
+              />
+              {errors.${fieldName} && (
+                <span className="text-xs text-red-400">{errors.${fieldName}?.message}</span>
+              )}
+            </div>`;
+            }).join('\n            ')}
+          </div>
+          
+          <div className="flex gap-2 pt-4">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Create'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+`;
+}
+
+// Helper functions
+function toCamelCase(name) {
+  return name.replace(/[_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : '')
+    .replace(/^(.)/, c => c.toLowerCase());
+}
+
+function toPascalSingular(name) {
+  let pascal = name.replace(/[_\s]+(.)?/g, (_, c) => c ? c.toUpperCase() : '')
+    .replace(/^(.)/, c => c.toUpperCase());
+  if (pascal.endsWith('ies')) return pascal.slice(0, -3) + 'y';
+  if (pascal.endsWith('ses')) return pascal.slice(0, -2);
+  if (pascal.endsWith('s') && !pascal.endsWith('ss')) return pascal.slice(0, -1);
+  return pascal;
+}
+
+function sqlToPrismaType(sqlType) {
+  const type = sqlType.toUpperCase();
+  if (['INT', 'BIGINT', 'SMALLINT', 'TINYINT'].includes(type)) return 'Int';
+  if (['DECIMAL', 'NUMERIC', 'MONEY', 'SMALLMONEY'].includes(type)) return 'Decimal';
+  if (['FLOAT', 'REAL'].includes(type)) return 'Float';
+  if (['BIT'].includes(type)) return 'Boolean';
+  if (['DATE', 'DATETIME', 'DATETIME2', 'SMALLDATETIME'].includes(type)) return 'DateTime';
+  if (['UNIQUEIDENTIFIER'].includes(type)) return 'String';
+  return 'String';
+}
+
+function sqlToTsType(sqlType) {
+  const type = sqlType.toUpperCase();
+  if (['INT', 'BIGINT', 'SMALLINT', 'TINYINT'].includes(type)) return 'number';
+  if (['DECIMAL', 'NUMERIC', 'MONEY', 'FLOAT', 'REAL'].includes(type)) return 'number';
+  if (['BIT'].includes(type)) return 'boolean';
+  if (['DATE', 'DATETIME', 'DATETIME2', 'SMALLDATETIME'].includes(type)) return 'Date';
+  return 'string';
+}
+
+function formatLabel(name) {
+  return name.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1')
+    .replace(/\b\w/g, c => c.toUpperCase()).trim();
+}
+
+function getInputType(sqlType) {
+  const type = sqlType.toUpperCase();
+  if (['DATE'].includes(type)) return 'date';
+  if (['DATETIME', 'DATETIME2'].includes(type)) return 'datetime-local';
+  if (['INT', 'BIGINT', 'DECIMAL', 'MONEY'].includes(type)) return 'number';
+  return 'text';
+}
+
+// Generate all outputs
+console.log('');
+console.log('📊 Code Generation Results:');
+
+const outputs = [];
+
+// Prisma
+const prismaSchema = generatePrismaSchema(ddlResult.tables);
+outputs.push({ name: 'schema.prisma', type: 'prisma', content: prismaSchema });
+console.log(`  ✓ Generated Prisma Schema (${prismaSchema.split('\n').length} lines)`);
+
+// TypeScript Types
+ddlResult.tables.forEach(table => {
+  const tsTypes = generateTypeScriptTypes(table);
+  outputs.push({ name: `${toCamelCase(table.tableName)}.ts`, type: 'typescript', content: tsTypes });
+});
+console.log(`  ✓ Generated ${ddlResult.tables.length} TypeScript type files`);
+
+// API Routes
+ddlResult.tables.slice(0, 3).forEach(table => {
+  const apiRoute = generateAPIRoute(table);
+  outputs.push({ name: `route-${toCamelCase(table.tableName)}.ts`, type: 'api', content: apiRoute });
+});
+console.log(`  ✓ Generated 3 API route files`);
+
+// Form Components
+ddlResult.tables.slice(0, 2).forEach(table => {
+  const form = generateFormComponent(table);
+  outputs.push({ name: `${toPascalSingular(table.tableName)}Form.tsx`, type: 'component', content: form });
+});
+console.log(`  ✓ Generated 2 React form components`);
+
+// =============================================================================
+// STAGE 4: EXPORT & DOCUMENTATION
+// =============================================================================
+console.log('');
+console.log('━'.repeat(80));
+console.log('STAGE 4: EXPORT & DOCUMENTATION');
+console.log('━'.repeat(80));
+
+// Save all outputs
+const exportDir = path.join(DOWNLOAD_DIR, 'autopilot-test-' + Date.now());
+fs.mkdirSync(exportDir, { recursive: true });
+
+outputs.forEach(output => {
+  const filePath = path.join(exportDir, output.name);
+  fs.writeFileSync(filePath, output.content);
+});
+
+console.log('');
+console.log('📊 Export Results:');
+console.log(`  ✓ Export Directory: ${exportDir}`);
+console.log(`  ✓ Total Files: ${outputs.length}`);
+console.log(`  ✓ Total Lines: ${outputs.reduce((sum, o) => sum + o.content.split('\n').length, 0)}`);
+
+// Generate summary report
+const report = {
+  timestamp: new Date().toISOString(),
+  summary: {
+    filesProcessed: 3,
+    tablesFound: ddlResult.tables.length,
+    spsFound: procedures.length,
+    viewsFound: 1,
+    validationRulesExtracted: spIntelligenceResults.reduce((sum, r) => sum + (r.validationRules?.length || 0), 0),
+    generatedFiles: outputs.length
+  },
+  tables: ddlResult.tables.map(t => ({
+    name: t.tableName,
+    columns: t.columns.length,
+    foreignKeys: t.foreignKeys.length,
+    indexes: t.indexes?.length || 0
+  })),
+  storedProcedures: spIntelligenceResults.map(r => ({
+    name: r.procedureName,
+    actionType: r.actionType,
+    module: r.moduleName,
+    formMode: r.formMode?.mode,
+    complexity: r.complexity,
+    riskLevel: r.riskLevel
+  })),
+  cshtmlAnalysis: {
+    viewName: cshtmlResult.viewName,
+    viewType: cshtmlResult.viewType,
+    fields: cshtmlResult.fields.length,
+    validations: cshtmlResult.jsValidations?.length || 0,
+    ajaxEndpoints: cshtmlResult.ajaxEndpoints?.length || 0
+  }
+};
+
+fs.writeFileSync(path.join(exportDir, 'pipeline-report.json'), JSON.stringify(report, null, 2));
+console.log(`  ✓ Pipeline Report: pipeline-report.json`);
+
+// =============================================================================
+// FINAL SUMMARY
+// =============================================================================
+console.log('');
+console.log('='.repeat(80));
+console.log('AUTOPILOT TEST COMPLETE');
+console.log('='.repeat(80));
+console.log('');
+console.log('📊 Final Statistics:');
+console.log(`  Files Processed:     3`);
+console.log(`  Tables Discovered:   ${ddlResult.tables.length}`);
+console.log(`  SPs Analyzed:        ${procedures.length}`);
+console.log(`  Views Parsed:        1`);
+console.log(`  Validation Rules:    ${spIntelligenceResults.reduce((sum, r) => sum + (r.validationRules?.length || 0), 0)}`);
+console.log(`  Files Generated:     ${outputs.length}`);
+console.log('');
+console.log(`📁 Output Location: ${exportDir}`);
+console.log('');

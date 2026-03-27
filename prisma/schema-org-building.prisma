@@ -1,0 +1,142 @@
+// =============================================================================
+// Organization Building Models
+// Generated from SRS: Organization Building SRS V1.7
+// Project ID: cmmtztnf90000p680l9xcj0ol
+// =============================================================================
+// This schema defines the hierarchical structure:
+// Building (parent) -> Floor (child of Building) -> Room (grandchild of Building->Floor)
+// 
+// NOTE: This file contains the models to be merged into the main schema.prisma
+// =============================================================================
+
+/// Building - Parent entity for the organization's physical structure
+/// Features: CRUD, search, pagination, sorting
+model OrganizationBuilding {
+  id            String         @id @default(cuid())
+  projectId     String
+  
+  // Core Fields
+  buildingName  String
+  description   String?
+  status        Boolean        @default(true) // true = Active, false = Inactive
+  
+  // Audit Fields
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  
+  // Relations
+  floors        OrganizationFloor[]
+  
+  @@unique([projectId, buildingName])
+  @@index([projectId])
+  @@index([buildingName])
+  @@index([status])
+  @@index([createdAt])
+  @@map("organization_buildings")
+}
+
+/// Floor - Child entity linked to Building
+/// Features: CRUD, cascading from Building selection
+model OrganizationFloor {
+  id            String         @id @default(cuid())
+  projectId     String
+  buildingId    String
+  
+  // Core Fields
+  floorName     String
+  description   String?
+  status        Boolean        @default(true) // true = Active, false = Inactive
+  
+  // Audit Fields
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  
+  // Relations
+  building      OrganizationBuilding @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms         OrganizationRoom[]
+  
+  @@unique([buildingId, floorName])
+  @@index([projectId])
+  @@index([buildingId])
+  @@index([floorName])
+  @@index([status])
+  @@index([createdAt])
+  @@map("organization_floors")
+}
+
+/// Room - Grandchild entity linked to Floor and Building
+/// Features: CRUD, cascading dropdowns (select Building first -> Floor populates)
+model OrganizationRoom {
+  id            String         @id @default(cuid())
+  projectId     String
+  buildingId    String
+  floorId       String
+  
+  // Core Fields
+  roomName      String
+  description   String?
+  status        Boolean        @default(true) // true = Active, false = Inactive
+  
+  // Audit Fields
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  
+  // Relations
+  floor         OrganizationFloor @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  
+  @@unique([floorId, roomName])
+  @@index([projectId])
+  @@index([buildingId])
+  @@index([floorId])
+  @@index([roomName])
+  @@index([status])
+  @@index([createdAt])
+  @@map("organization_rooms")
+}
+
+// =============================================================================
+// Alternative: Toolkit-based Storage (JSON Schema)
+// =============================================================================
+// If you prefer to store these as ToolkitTable entries instead of creating
+// actual database tables, use the following structure:
+// 
+// ToolkitTable entries:
+// 1. tableName: "OrganizationBuilding"
+//    columns: JSON.stringify([
+//      { name: "id", type: "string", primary: true, default: "cuid()" },
+//      { name: "buildingName", type: "string", required: true, maxLength: 100 },
+//      { name: "description", type: "string", optional: true, maxLength: 500 },
+//      { name: "status", type: "boolean", default: true },
+//      { name: "createdAt", type: "DateTime", default: "now()" },
+//      { name: "updatedAt", type: "DateTime", updatedAt: true },
+//      { name: "createdBy", type: "string?", optional: true },
+//      { name: "updatedBy", type: "string?", optional: true }
+//    ])
+// 
+// 2. tableName: "OrganizationFloor"
+//    columns: JSON.stringify([
+//      { name: "id", type: "string", primary: true, default: "cuid()" },
+//      { name: "buildingId", type: "string", required: true, fk: "OrganizationBuilding.id" },
+//      { name: "floorName", type: "string", required: true, maxLength: 100 },
+//      { name: "description", type: "string", optional: true, maxLength: 500 },
+//      { name: "status", type: "boolean", default: true },
+//      ...audit fields
+//    ])
+// 
+// 3. tableName: "OrganizationRoom"
+//    columns: JSON.stringify([
+//      { name: "id", type: "string", primary: true, default: "cuid()" },
+//      { name: "buildingId", type: "string", required: true, fk: "OrganizationBuilding.id" },
+//      { name: "floorId", type: "string", required: true, fk: "OrganizationFloor.id" },
+//      { name: "roomName", type: "string", required: true, maxLength: 100 },
+//      { name: "description", type: "string", optional: true, maxLength: 500 },
+//      { name: "status", type: "boolean", default: true },
+//      ...audit fields
+//    ])
+// =============================================================================
