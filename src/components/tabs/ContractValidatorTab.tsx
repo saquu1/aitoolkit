@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 
 interface ContractIssue {
   id?: string
@@ -66,6 +76,15 @@ interface ScanStats {
   recentScans: ScanHistory[]
 }
 
+interface FileInfo {
+  path: string
+  name: string
+  type: 'api' | 'component' | 'hook' | 'lib' | 'page'
+  lastModified?: string
+  hasRecentErrors?: boolean
+  recentlyModified?: boolean
+}
+
 export function ContractValidatorTab() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ValidationResult | null>(null)
@@ -76,10 +95,71 @@ export function ContractValidatorTab() {
   const [showScanDetail, setShowScanDetail] = useState(false)
   const [fixingIssue, setFixingIssue] = useState<string | null>(null)
 
-  // Load stats and history on mount
+  // File selection state
+  const [scanMode, setScanMode] = useState<'all' | 'selected' | 'feature'>('all')
+  const [files, setFiles] = useState<FileInfo[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [fileSearch, setFileSearch] = useState('')
+  const [loadingFiles, setLoadingFiles] = useState(false)
+  const [selectedFeature, setSelectedFeature] = useState<string>('')
+
+  // Feature groups
+  const features = [
+    {
+      id: 'error-patterns',
+      name: 'Error Pattern System',
+      description: 'Error detection and AI resolution',
+      files: [
+        'src/components/tabs/ErrorPatternDashboardTab.tsx',
+        'src/app/api/error-patterns/route.ts',
+        'src/app/api/error-patterns/ai-resolution/route.ts',
+      ]
+    },
+    {
+      id: 'contract-validator',
+      name: 'Contract Validator',
+      description: 'API contract validation and scanning',
+      files: [
+        'src/components/tabs/ContractValidatorTab.tsx',
+        'src/app/api/contract-validator/route.ts',
+      ]
+    },
+    {
+      id: 'chat-logs',
+      name: 'Chat Logs System',
+      description: 'AI session tracking and analysis',
+      files: [
+        'src/app/api/chat-logs/route.ts',
+        'src/app/api/chat-logs/extract/route.ts',
+        'src/components/tabs/ChatLogTab.tsx',
+      ]
+    },
+    {
+      id: 'intelligence-bank',
+      name: 'Intelligence Bank',
+      description: 'Field and table intelligence storage',
+      files: [
+        'src/components/tabs/IntelligenceBankTab.tsx',
+        'src/app/api/intelligence-bank/route.ts',
+      ]
+    },
+    {
+      id: 'multi-tenant',
+      name: 'Multi-Tenant System',
+      description: 'Company and workspace management',
+      files: [
+        'src/components/tabs/MultiTenantTab.tsx',
+        'src/app/api/multi-tenant/route.ts',
+        'src/lib/multi-tenant.ts',
+      ]
+    },
+  ]
+
+  // Load stats, history, and files on mount
   useEffect(() => {
     loadStats()
     loadHistory()
+    loadFiles()
   }, [])
 
   const loadStats = async () => {
@@ -106,21 +186,83 @@ export function ContractValidatorTab() {
     }
   }
 
+  const loadFiles = async () => {
+    setLoadingFiles(true)
+    try {
+      const response = await fetch('/api/contract-validator?action=list-files')
+      const data = await response.json()
+      if (data.success) {
+        setFiles(data.files)
+      }
+    } catch (error) {
+      console.error('Failed to load files:', error)
+      // Fallback to empty array
+      setFiles([])
+    } finally {
+      setLoadingFiles(false)
+    }
+  }
+
+  const toggleFileSelection = (filePath: string) => {
+    setSelectedFiles(prev => 
+      prev.includes(filePath) 
+        ? prev.filter(f => f !== filePath)
+        : [...prev, filePath]
+    )
+  }
+
+  const selectAllFiles = () => {
+    setSelectedFiles(files.map(f => f.path))
+  }
+
+  const clearSelection = () => {
+    setSelectedFiles([])
+  }
+
+  const selectFeatureFiles = (featureId: string) => {
+    const feature = features.find(f => f.id === featureId)
+    if (feature) {
+      setSelectedFiles(feature.files)
+      setSelectedFeature(featureId)
+    }
+  }
+
   const runValidation = async () => {
     setLoading(true)
     try {
+      const body: any = { action: 'validate_with_save' }
+      
+      // Add file selection if not scanning all
+      if (scanMode === 'selected' && selectedFiles.length > 0) {
+        body.targetFiles = selectedFiles
+        body.scanMode = 'selected'
+      } else if (scanMode === 'feature' && selectedFeature) {
+        body.featureId = selectedFeature
+        body.scanMode = 'feature'
+      }
+
       const response = await fetch('/api/contract-validator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'validate_with_save' })
+        body: JSON.stringify(body)
       })
       const data = await response.json()
-      setResult(data)
-      // Refresh stats and history after scan
-      loadStats()
-      loadHistory()
+      console.log('Validation response:', data)
+      
+      if (data && data.summary) {
+        setResult(data)
+        loadStats()
+        loadHistory()
+      } else if (data.error) {
+        console.error('API Error:', data.error)
+        alert(`Scan failed: ${data.error}`)
+      } else {
+        console.error('Unexpected response format:', data)
+        alert('Unexpected response from server')
+      }
     } catch (error) {
       console.error('Validation failed:', error)
+      alert('Validation request failed')
     } finally {
       setLoading(false)
     }
@@ -153,7 +295,6 @@ export function ContractValidatorTab() {
       })
       const data = await response.json()
       if (data.success) {
-        // Update the selected scan if open
         if (selectedScan) {
           viewScanDetail(selectedScan.scanId)
         }
@@ -275,6 +416,17 @@ export function ContractValidatorTab() {
     }
   }
 
+  const getFileTypeIcon = (type: string) => {
+    switch (type) {
+      case 'api': return '🔌'
+      case 'component': return '🧩'
+      case 'hook': return '🪝'
+      case 'lib': return '📚'
+      case 'page': return '📄'
+      default: return '📄'
+    }
+  }
+
   const formatDuration = (ms?: number) => {
     if (!ms) return '-'
     if (ms < 1000) return `${ms}ms`
@@ -284,6 +436,11 @@ export function ContractValidatorTab() {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString()
   }
+
+  const filteredFiles = files.filter(file => 
+    file.path.toLowerCase().includes(fileSearch.toLowerCase()) ||
+    file.name.toLowerCase().includes(fileSearch.toLowerCase())
+  )
 
   return (
     <div className="p-6 space-y-6">
@@ -343,6 +500,7 @@ export function ContractValidatorTab() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="scan">Current Scan</TabsTrigger>
+          <TabsTrigger value="select">File Selection</TabsTrigger>
           <TabsTrigger value="history">Scan History</TabsTrigger>
           <TabsTrigger value="issues">Open Issues</TabsTrigger>
         </TabsList>
@@ -363,7 +521,7 @@ export function ContractValidatorTab() {
                   <li>• <strong>Type Mismatches</strong> - Data format inconsistencies</li>
                 </ul>
                 <p className="text-sm text-gray-500 mt-4">
-                  All scan results are saved to the database for tracking and restoration.
+                  Use the <strong>File Selection</strong> tab to scan specific files or features.
                 </p>
               </CardContent>
             </Card>
@@ -373,7 +531,11 @@ export function ContractValidatorTab() {
             <Card>
               <CardContent className="p-8 text-center">
                 <div className="animate-pulse text-4xl mb-4">⏳</div>
-                <p className="text-gray-600">Scanning all API routes and frontend calls...</p>
+                <p className="text-gray-600">
+                  {scanMode === 'all' 
+                    ? 'Scanning all API routes and frontend calls...' 
+                    : `Scanning ${selectedFiles.length} selected files...`}
+                </p>
                 <p className="text-sm text-gray-500 mt-2">Results will be saved automatically</p>
               </CardContent>
             </Card>
@@ -504,6 +666,255 @@ export function ContractValidatorTab() {
           )}
         </TabsContent>
 
+        {/* File Selection Tab */}
+        <TabsContent value="select" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Scan Mode Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle>🎯 Scan Mode</CardTitle>
+                <CardDescription>Choose what to scan</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="mode-all"
+                      name="scanMode"
+                      checked={scanMode === 'all'}
+                      onChange={() => {
+                        setScanMode('all')
+                        setSelectedFiles([])
+                        setSelectedFeature('')
+                      }}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="mode-all" className="font-medium">
+                      Scan All Files
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="mode-selected"
+                      name="scanMode"
+                      checked={scanMode === 'selected'}
+                      onChange={() => setScanMode('selected')}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="mode-selected" className="font-medium">
+                      Selected Files Only
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="mode-feature"
+                      name="scanMode"
+                      checked={scanMode === 'feature'}
+                      onChange={() => setScanMode('feature')}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="mode-feature" className="font-medium">
+                      By Feature
+                    </Label>
+                  </div>
+                </div>
+
+                {scanMode === 'selected' && (
+                  <div className="pt-2 text-sm text-gray-600">
+                    {selectedFiles.length} file(s) selected
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Feature Selection */}
+            <Card className={scanMode !== 'feature' ? 'opacity-50' : ''}>
+              <CardHeader>
+                <CardTitle>📦 Select Feature</CardTitle>
+                <CardDescription>Scan files related to a specific feature</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {features.map(feature => (
+                  <div
+                    key={feature.id}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      selectedFeature === feature.id 
+                        ? 'border-blue-500 bg-blue-50' 
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                    onClick={() => scanMode === 'feature' && selectFeatureFiles(feature.id)}
+                  >
+                    <div className="font-medium">{feature.name}</div>
+                    <div className="text-sm text-gray-600">{feature.description}</div>
+                    <div className="text-xs text-gray-500 mt-1">{feature.files.length} files</div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>⚡ Quick Actions</CardTitle>
+                <CardDescription>Priority-based scanning</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const recentFiles = files.filter(f => f.recentlyModified).map(f => f.path)
+                    setSelectedFiles(recentFiles)
+                    setScanMode('selected')
+                  }}
+                >
+                  🕐 Scan Recently Modified
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const errorFiles = files.filter(f => f.hasRecentErrors).map(f => f.path)
+                    setSelectedFiles(errorFiles)
+                    setScanMode('selected')
+                  }}
+                >
+                  🔴 Scan Files with Errors
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const apiFiles = files.filter(f => f.type === 'api').map(f => f.path)
+                    setSelectedFiles(apiFiles)
+                    setScanMode('selected')
+                  }}
+                >
+                  🔌 Scan All API Routes
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => {
+                    const componentFiles = files.filter(f => f.type === 'component').map(f => f.path)
+                    setSelectedFiles(componentFiles)
+                    setScanMode('selected')
+                  }}
+                >
+                  🧩 Scan All Components
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* File List */}
+          {(scanMode === 'selected' || scanMode === 'feature') && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>📁 Select Files to Scan</CardTitle>
+                    <CardDescription>
+                      Choose specific files or use quick actions above
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={selectAllFiles}>
+                      Select All
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={clearSelection}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Search */}
+                <div className="mb-4">
+                  <Input
+                    placeholder="Search files..."
+                    value={fileSearch}
+                    onChange={(e) => setFileSearch(e.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
+
+                {/* File List */}
+                <ScrollArea className="h-96">
+                  {loadingFiles ? (
+                    <div className="text-center py-8 text-gray-500">Loading files...</div>
+                  ) : filteredFiles.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">No files found</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredFiles.map((file) => (
+                        <div
+                          key={file.path}
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer ${
+                            selectedFiles.includes(file.path) 
+                              ? 'bg-blue-50 border border-blue-200' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => toggleFileSelection(file.path)}
+                        >
+                          <Checkbox
+                            checked={selectedFiles.includes(file.path)}
+                            onCheckedChange={() => toggleFileSelection(file.path)}
+                          />
+                          <span className="text-lg">{getFileTypeIcon(file.type)}</span>
+                          <span className="flex-1 truncate font-mono text-sm">{file.path}</span>
+                          {file.hasRecentErrors && (
+                            <Badge variant="destructive" className="text-xs">Error</Badge>
+                          )}
+                          {file.recentlyModified && (
+                            <Badge variant="outline" className="text-xs">Recent</Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+
+                {/* Selection Summary */}
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      {selectedFiles.length} file(s) selected for scanning
+                    </span>
+                    <Button onClick={runValidation} disabled={loading || selectedFiles.length === 0}>
+                      {loading ? 'Scanning...' : `Scan ${selectedFiles.length} Files`}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* All Files Mode Info */}
+          {scanMode === 'all' && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-6 text-center">
+                <div className="text-4xl mb-4">🌐</div>
+                <h3 className="text-lg font-semibold mb-2">Full Codebase Scan</h3>
+                <p className="text-gray-600 mb-4">
+                  This will scan all API routes, components, hooks, and pages in the project.
+                </p>
+                <p className="text-sm text-gray-500 mb-4">
+                  For faster scanning, use the <strong>Selected Files</strong> or <strong>By Feature</strong> mode.
+                </p>
+                <Button onClick={runValidation} disabled={loading}>
+                  {loading ? 'Scanning...' : 'Scan All Files'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
         {/* Scan History Tab */}
         <TabsContent value="history" className="space-y-4">
           <Card>
@@ -573,7 +984,6 @@ export function ContractValidatorTab() {
           
           {selectedScan && (
             <div className="space-y-4">
-              {/* Scan Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <span className="text-sm text-gray-600">Status:</span>
@@ -589,7 +999,6 @@ export function ContractValidatorTab() {
 
               <Separator />
 
-              {/* Issues */}
               <div>
                 <h4 className="font-medium mb-3">
                   Issues ({selectedScan.issues?.length || 0})
@@ -657,7 +1066,7 @@ export function ContractValidatorTab() {
   )
 }
 
-// Separate component for Open Issues Tab
+// Open Issues Tab component
 function OpenIssuesTab({ onFix, onIgnore, fixingIssue }: { 
   onFix: (id: string) => void, 
   onIgnore: (id: string) => void,

@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
-import { db } from '@/lib/db';
+import { cvDb as db } from '@/lib/contract-validator-db';
 
 // =============================================================================
 // TYPES
@@ -89,6 +89,9 @@ export async function GET(request: NextRequest) {
       case 'stats':
         return NextResponse.json(await getScanStats());
       
+      case 'list-files':
+        return NextResponse.json(await listAvailableFiles());
+      
       case 'validate':
       default:
         const result = await validateAllContracts();
@@ -135,9 +138,20 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error('Contract Validator POST Error:', error);
+    // Return proper structure even for errors
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error.message,
+      scanId: '',
+      summary: { 
+        totalEndpoints: 0, 
+        totalCalls: 0, 
+        totalIssues: 0, 
+        errors: 0, 
+        warnings: 0 
+      },
+      endpoints: [],
+      issues: []
     });
   }
 }
@@ -156,6 +170,17 @@ function generateScanId(): string {
 async function validateAndSave(): Promise<ValidationResult & { savedScanId?: string }> {
   const startTime = Date.now();
   const scanId = generateScanId();
+  
+  // Check if models exist
+  if (typeof db.scanHistory === 'undefined') {
+    console.error('[Contract Validator] scanHistory model not available - server restart required')
+    const result = await validateAllContracts();
+    return {
+      ...result,
+      scanId: '',
+      savedScanId: undefined,
+    };
+  }
   
   // Create scan history record
   const scanRecord = await db.scanHistory.create({
@@ -287,49 +312,84 @@ async function getOpenIssues(limit: number = 50) {
 }
 
 async function getScanStats() {
-  const totalScans = await db.scanHistory.count();
-  const totalIssues = await db.contractIssue.count();
-  const openIssues = await db.contractIssue.count({ where: { status: 'open' } });
-  const fixedIssues = await db.contractIssue.count({ where: { status: 'fixed' } });
-  const errorIssues = await db.contractIssue.count({ 
-    where: { status: 'open', severity: 'error' } 
-  });
-  
-  // Issues by type
-  const issuesByType = await db.contractIssue.groupBy({
-    by: ['issueType'],
-    where: { status: 'open' },
-    _count: true
-  });
-  
-  // Recent scans
-  const recentScans = await db.scanHistory.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    select: {
-      scanId: true,
-      status: true,
-      issuesFound: true,
-      duration: true,
-      createdAt: true
+  try {
+    // Check if models exist
+    if (typeof db.scanHistory === 'undefined') {
+      console.error('[Contract Validator] scanHistory model not available - server restart required')
+      return {
+        success: false,
+        error: 'Database models not loaded. Please restart the dev server to load new Prisma models.',
+        stats: {
+          totalScans: 0,
+          totalIssues: 0,
+          openIssues: 0,
+          fixedIssues: 0,
+          errorIssues: 0,
+          issuesByType: {},
+          recentScans: []
+        }
+      }
     }
-  });
-  
-  return {
-    success: true,
-    stats: {
-      totalScans,
-      totalIssues,
-      openIssues,
-      fixedIssues,
-      errorIssues,
-      issuesByType: issuesByType.reduce((acc, item) => {
-        acc[item.issueType] = item._count;
-        return acc;
-      }, {} as Record<string, number>),
-      recentScans
-    }
-  };
+    
+    const totalScans = await db.scanHistory.count();
+    const totalIssues = await db.contractIssue.count();
+    const openIssues = await db.contractIssue.count({ where: { status: 'open' } });
+    const fixedIssues = await db.contractIssue.count({ where: { status: 'fixed' } });
+    const errorIssues = await db.contractIssue.count({ 
+      where: { status: 'open', severity: 'error' } 
+    });
+    
+    // Issues by type
+    const issuesByType = await db.contractIssue.groupBy({
+      by: ['issueType'],
+      where: { status: 'open' },
+      _count: true
+    });
+    
+    // Recent scans
+    const recentScans = await db.scanHistory.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        scanId: true,
+        status: true,
+        issuesFound: true,
+        duration: true,
+        createdAt: true
+      }
+    });
+    
+    return {
+      success: true,
+      stats: {
+        totalScans,
+        totalIssues,
+        openIssues,
+        fixedIssues,
+        errorIssues,
+        issuesByType: issuesByType.reduce((acc, item) => {
+          acc[item.issueType] = item._count;
+          return acc;
+        }, {} as Record<string, number>),
+        recentScans
+      }
+    };
+  } catch (error: any) {
+    console.error('[Contract Validator] getScanStats error:', error);
+    return {
+      success: false,
+      error: error.message,
+      stats: {
+        totalScans: 0,
+        totalIssues: 0,
+        openIssues: 0,
+        fixedIssues: 0,
+        errorIssues: 0,
+        issuesByType: {},
+        recentScans: []
+      }
+    };
+  }
 }
 
 async function applyIssueFix(issueId: string, fixCode?: string, fixDescription?: string) {
@@ -444,6 +504,83 @@ async function deleteScan(scanId: string) {
   return {
     success: true,
     message: `Scan ${scanId} deleted`
+  };
+}
+
+// =============================================================================
+// FILE LISTING
+// =============================================================================
+
+interface FileInfo {
+  path: string;
+  name: string;
+  type: 'api' | 'component' | 'hook' | 'lib' | 'page';
+  lastModified?: string;
+  hasRecentErrors?: boolean;
+  recentlyModified?: boolean;
+}
+
+async function listAvailableFiles(): Promise<{ success: boolean; files: FileInfo[] }> {
+  const srcPath = path.join(process.cwd(), 'src');
+  const files: FileInfo[] = [];
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  
+  function scan(dir: string) {
+    if (!fs.existsSync(dir)) return;
+    
+    const items = fs.readdirSync(dir);
+    for (const item of items) {
+      const fullPath = path.join(dir, item);
+      const stat = fs.statSync(fullPath);
+      
+      if (stat.isDirectory()) {
+        if (!item.includes('node_modules') && !item.includes('.next')) {
+          scan(fullPath);
+        }
+      } else if (item.endsWith('.ts') || item.endsWith('.tsx')) {
+        // Determine file type
+        let type: FileInfo['type'] = 'lib';
+        const relativePath = fullPath.replace(process.cwd(), '');
+        
+        if (relativePath.includes('/app/api/')) {
+          type = 'api';
+        } else if (relativePath.includes('/components/')) {
+          type = 'component';
+        } else if (relativePath.includes('/hooks/')) {
+          type = 'hook';
+        } else if (relativePath.includes('/app/') && !relativePath.includes('/api/')) {
+          type = 'page';
+        }
+        
+        // Check if recently modified
+        const recentlyModified = stat.mtimeMs > oneWeekAgo;
+        
+        files.push({
+          path: relativePath,
+          name: item,
+          type,
+          lastModified: stat.mtime.toISOString(),
+          recentlyModified,
+          // hasRecentErrors would require checking error logs - set to false for now
+          hasRecentErrors: false
+        });
+      }
+    }
+  }
+  
+  scan(srcPath);
+  
+  // Sort: API routes first, then components, then hooks, then pages, then lib
+  const typeOrder = { api: 0, component: 1, hook: 2, page: 3, lib: 4 };
+  files.sort((a, b) => {
+    const typeDiff = typeOrder[a.type] - typeOrder[b.type];
+    if (typeDiff !== 0) return typeDiff;
+    return a.path.localeCompare(b.path);
+  });
+  
+  return {
+    success: true,
+    files
   };
 }
 
