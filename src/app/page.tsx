@@ -45,7 +45,10 @@ import {
   ArrowRightLeft,
   ClipboardList,
   Sparkles,
-  FolderKanban
+  FolderKanban,
+  Activity,
+  Bug,
+  ToggleLeft
 } from 'lucide-react'
 import { DashboardTab } from '@/components/tabs/DashboardTab'
 import { UploadTab } from '@/components/tabs/UploadTab'
@@ -62,7 +65,12 @@ import { IntelligenceBankTab } from '@/components/tabs/IntelligenceBankTab'
 import { LivingDataDictionaryTab } from '@/components/tabs/LivingDataDictionaryTab'
 import { ProjectManagerTab } from '@/components/tabs/ProjectManagerTab'
 import FileManagerTab from '@/components/tabs/FileManagerTab'
-import { Layers, BookOpen, FolderSync } from 'lucide-react'
+import { ChatLogTab } from '@/components/tabs/ChatLogTab'
+import { ContractValidatorTab } from '@/components/tabs/ContractValidatorTab'
+import { ApiManagementTab } from '@/components/tabs/ApiManagementTab'
+import { ErrorPatternDashboardTab } from '@/components/tabs/ErrorPatternDashboardTab'
+import { AutoloadRegistryTab } from '@/components/tabs/AutoloadRegistryTab'
+import { Layers, BookOpen, FolderSync, MessageSquare, FileCheck } from 'lucide-react'
 
 // Navigation configuration with URL slugs
 const NAV_ITEMS = [
@@ -80,6 +88,11 @@ const NAV_ITEMS = [
   { id: 'project-intel', slug: 'project-intelligence', icon: ClipboardList, label: 'Project Intelligence', badge: 'Phase 5', badgeColorKey: 'primary' },
   { id: 'pipeline', slug: 'pipeline', icon: GitBranch, label: 'Pipeline' },
   { id: 'multi-tenant', slug: 'multi-tenant', icon: Shield, label: 'Multi-Tenant', badge: 'Step 5', badgeColorKey: 'warning' },
+  { id: 'api-management', slug: 'api-management', icon: Activity, label: 'API Management', badge: 'Debug', badgeColorKey: 'warning' },
+  { id: 'error-patterns', slug: 'error-patterns', icon: Bug, label: 'Error Patterns', badge: 'Analysis', badgeColorKey: 'warning' },
+  { id: 'chat-logs', slug: 'chat-logs', icon: MessageSquare, label: 'Chat Logs', badge: 'History', badgeColorKey: 'primary' },
+  { id: 'contract-validator', slug: 'contract-validator', icon: FileCheck, label: 'Contract Validator', badge: 'New', badgeColorKey: 'success' },
+  { id: 'autoload', slug: 'autoload', icon: ToggleLeft, label: 'Autoload Config', badge: 'New', badgeColorKey: 'success' },
   { id: 'settings', slug: 'settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -358,6 +371,11 @@ function AppContent() {
               {activeTab === 'project-intel' && <ProjectIntelligenceTab />}
               {activeTab === 'multi-tenant' && <MultiTenantTab onNavigate={handleNavigate} />}
               {activeTab === 'pipeline' && <PipelineTab />}
+              {activeTab === 'api-management' && <ApiManagementTab />}
+              {activeTab === 'error-patterns' && <ErrorPatternDashboardTab onNavigate={handleNavigate} />}
+              {activeTab === 'chat-logs' && <ChatLogTab />}
+              {activeTab === 'contract-validator' && <ContractValidatorTab />}
+              {activeTab === 'autoload' && <AutoloadRegistryTab />}
               {activeTab === 'settings' && <SettingsTab />}
               {activeTab === 'file-manager' && <FileManagerTab onNavigate={handleNavigate} />}
             </div>

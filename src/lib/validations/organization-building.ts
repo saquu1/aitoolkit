@@ -167,3 +167,25 @@ export type RoomCreate = z.infer<typeof roomCreateSchema>;
 export type RoomUpdate = z.infer<typeof roomUpdateSchema>;
 export type RoomQuery = z.infer<typeof roomQuerySchema>;
 export type RoomType = z.infer<typeof roomTypeSchema>;
+
+// -----------------------------------------------------------------------------
+// Aliased Exports (for backward compatibility)
+// -----------------------------------------------------------------------------
+
+export const CreateFloorSchema = floorCreateSchema;
+export const QueryFloorSchema = floorQuerySchema;
+export const CreateRoomSchema = roomCreateSchema;
+export const QueryRoomSchema = roomQuerySchema;
+export const UpdateRoomSchema = roomUpdateSchema;
+export const CreateBuildingSchema = buildingCreateSchema;
+export const QueryBuildingSchema = buildingQuerySchema;
+export const UpdateBuildingSchema = buildingUpdateSchema;
+export const UpdateFloorSchema = floorUpdateSchema;
+
+// -----------------------------------------------------------------------------
+// Validation Helper
+// -----------------------------------------------------------------------------
+
+export function validateWithZod<T>(schema: z.ZodSchema<T>, data: unknown): T {
+  return schema.parse(data);
+}

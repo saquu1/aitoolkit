@@ -33,6 +33,35 @@ model AIMessage {
   @@index([conversationId])
 }
 
+model ChatLog {
+  id            String   @id @default(cuid())
+  sessionId     String?
+  sessionDate   DateTime @default(now())
+  title         String?
+  source        String   @default("unknown")
+  summary       String?
+  issuesSolved  String   @default("[]")
+  featuresAdded String   @default("[]")
+  filesModified String   @default("[]")
+  query         String?
+  response      String?
+  metadata      String   @default("{}")
+  tokensUsed    Int      @default(0)
+  model         String?
+  latency       Int      @default(0)
+  status        String   @default("completed")
+  errorMessage  String?
+  importedAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+
+  @@index([sessionId])
+  @@index([source])
+  @@index([status])
+  @@index([sessionDate])
+  @@index([createdAt])
+}
+
 model AIQuestionRecord {
   id                String   @id
   questionId        String   @unique
@@ -3100,4 +3129,861 @@ model Workspace {
   @@unique([companyId, slug])
   @@index([isActive])
   @@index([companyId])
+}
+model AISession {
+  id                   String              @id @default(cuid())
+  externalId           String?             @unique
+  chatId               String              @unique
+  userId               String?
+  parentMessageId      String?
+  childMessageIds      String              @default("[]")
+  messageIndex         Int                 @default(0)
+  sessionDate          DateTime
+  startTime            DateTime
+  endTime              DateTime?
+  duration             Int                 @default(0)
+  durationMs           Int                 @default(0)
+  completed            Boolean             @default(true)
+  error                String?
+  inputTokens          Int                 @default(0)
+  outputTokens         Int                 @default(0)
+  totalTokens          Int                 @default(0)
+  cachedTokens         Int                 @default(0)
+  cacheHitRate         Float               @default(0)
+  reasoningTokens      Int                 @default(0)
+  estimatedCost        Float               @default(0)
+  totalReasoningMs     Int                 @default(0)
+  totalToolCallMs      Int                 @default(0)
+  reasoningToToolRatio Float               @default(0)
+  model                String              @default("unknown")
+  modelName            String?
+  sessionType          SessionType         @default(UNKNOWN)
+  category             String              @default("development")
+  tags                 String              @default("[]")
+  filesModified        Int                 @default(0)
+  filesCreated         Int                 @default(0)
+  filesRead            Int                 @default(0)
+  featuresImplemented  Int                 @default(0)
+  issuesResolved       Int                 @default(0)
+  issuesCreated        Int                 @default(0)
+  commandsRun          Int                 @default(0)
+  commandsFailed       Int                 @default(0)
+  gitCommits           Int                 @default(0)
+  buildAttempts        Int                 @default(0)
+  efficiencyScore      Int                 @default(50)
+  qualityScore         Int                 @default(50)
+  pageVersion          String?
+  gitCommitHash        String?
+  gitBranch            String?
+  title                String?
+  summary              String?
+  highlights           String              @default("[]")
+  status               String              @default("completed")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  costs                AICostRecord[]
+  features             AIFeature[]
+  issues               AIIssue[]
+  messages             AIMessageRecord[]
+  anomalies            AnomalyAlert[]
+  contentBlocks        ContentBlock[]
+  fileOperations       FileOperation[]
+  gitOperations        GitOperation[]
+  patternOccurrences   PatternOccurrence[]
+  toolCalls            ToolCall[]
+
+  @@index([sessionDate])
+  @@index([category])
+  @@index([model])
+  @@index([status])
+  @@index([sessionType])
+  @@index([userId])
+}
+
+model AIIssue {
+  id                  String           @id @default(cuid())
+  sessionId           String
+  issueType           String           @default("unknown")
+  severity            String           @default("medium")
+  title               String
+  description         String?
+  category            String           @default("general")
+  tags                String           @default("[]")
+  fileAffected        String?
+  lineNumber          Int?
+  codeSnippet         String?
+  errorMessage        String?
+  filesInvolved       String           @default("[]")
+  resolution          String?
+  resolutionTime      Int              @default(0)
+  resolutionTimeMs    Int              @default(0)
+  attemptsToFix       Int              @default(1)
+  resolvedBy          String           @default("ai")
+  resolvedAt          DateTime?
+  resolvedInSessionId String?
+  isRepeat            Boolean          @default(false)
+  recurrenceCount     Int              @default(0)
+  patternId           String?
+  originalIssueId     String?
+  firstOccurrence     DateTime         @default(now())
+  lastOccurrence      DateTime         @default(now())
+  tokensConsumed      Int              @default(0)
+  costUSD             Float            @default(0)
+  timeToFixMs         Int              @default(0)
+  rootCause           String?
+  preventionTips      String           @default("[]")
+  relatedIssues       String           @default("[]")
+  confidenceLevel     ConfidenceLevel?
+  status              IssueStatus      @default(DETECTED)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  session             AISession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pattern             AIPattern?       @relation(fields: [patternId], references: [id])
+
+  @@index([issueType])
+  @@index([severity])
+  @@index([category])
+  @@index([status])
+  @@index([recurrenceCount])
+  @@index([sessionId])
+  @@index([isRepeat])
+  @@index([patternId])
+}
+
+model AIFeature {
+  id                String    @id @default(cuid())
+  sessionId         String
+  featureName       String
+  featureType       String    @default("component")
+  description       String?
+  category          String    @default("general")
+  tags              String    @default("[]")
+  module            String?
+  complexity        String    @default("medium")
+  filesCreated      String    @default("[]")
+  filesModified     String    @default("[]")
+  linesAdded        Int       @default(0)
+  linesDeleted      Int       @default(0)
+  linesOfCode       Int       @default(0)
+  developmentTime   Int       @default(0)
+  developmentTimeMs Int       @default(0)
+  complexityScore   Int       @default(0)
+  testCoverage      Float     @default(0)
+  tokensConsumed    Int       @default(0)
+  costUSD           Float     @default(0)
+  hasTests          Boolean   @default(false)
+  hasDocs           Boolean   @default(false)
+  reviewStatus      String    @default("pending")
+  isDuplicate       Boolean   @default(false)
+  duplicateOfId     String?
+  dependencies      String    @default("[]")
+  dependents        String    @default("[]")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  session           AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([featureType])
+  @@index([category])
+  @@index([reviewStatus])
+  @@index([sessionId])
+  @@index([isDuplicate])
+}
+
+model AICostRecord {
+  id                   String    @id @default(cuid())
+  sessionId            String
+  date                 DateTime  @default(now())
+  inputTokens          Int       @default(0)
+  outputTokens         Int       @default(0)
+  cachedTokens         Int       @default(0)
+  reasoningTokens      Int       @default(0)
+  inputCost            Float     @default(0)
+  outputCost           Float     @default(0)
+  reasoningCost        Float     @default(0)
+  totalCost            Float     @default(0)
+  model                String    @default("unknown")
+  pricingInput         Float     @default(0)
+  pricingOutput        Float     @default(0)
+  tokensPerFile        Float     @default(0)
+  tokensPerFeature     Float     @default(0)
+  tokensPerIssue       Float     @default(0)
+  linesOfCodeGenerated Int       @default(0)
+  featuresImplemented  Int       @default(0)
+  issuesResolved       Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  session              AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@index([model])
+  @@index([sessionId])
+}
+
+model AIPattern {
+  id                   String              @id @default(cuid())
+  patternCode          String?             @unique
+  patternName          String              @unique
+  patternType          String              @default("issue")
+  description          String?
+  detectionRules       String              @default("{}")
+  detectionRegex       String?
+  occurrenceCount      Int                 @default(0)
+  uniqueSessions       Int                 @default(0)
+  uniqueFiles          Int                 @default(0)
+  firstSeen            DateTime            @default(now())
+  lastSeen             DateTime            @default(now())
+  affectedFiles        String              @default("[]")
+  affectedModules      String              @default("[]")
+  totalTimeWasted      Int                 @default(0)
+  totalCostWasted      Float               @default(0)
+  totalTokensWasted    Int                 @default(0)
+  rootCause            String?
+  detectionKeywords    String              @default("[]")
+  preventionStrategies String              @default("[]")
+  preventionRule       String?
+  fixTemplate          String?
+  autoDetectionEnabled Boolean             @default(true)
+  autoFixAvailable     Boolean             @default(false)
+  autoFixScript        String?
+  eslintRule           String?
+  learnedLessons       String              @default("[]")
+  recommendedPractices String              @default("[]")
+  confidence           Int                 @default(50)
+  effectiveness        Float               @default(0)
+  status               PatternStatus       @default(ACTIVE)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  issues               AIIssue[]
+  occurrences          PatternOccurrence[]
+
+  @@index([patternType])
+  @@index([occurrenceCount])
+  @@index([status])
+}
+
+model AIMessageRecord {
+  id            String    @id @default(cuid())
+  sessionId     String
+  messageId     String    @unique
+  role          String
+  content       String?
+  hasReasoning  Boolean   @default(false)
+  hasToolCalls  Boolean   @default(false)
+  hasText       Boolean   @default(false)
+  toolCallCount Int       @default(0)
+  timestamp     DateTime
+  inputTokens   Int?
+  outputTokens  Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  session       AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([role])
+  @@index([timestamp])
+  @@index([sessionId])
+}
+
+model AIGitCommit {
+  id              String   @id @default(cuid())
+  sessionId       String?
+  commitHash      String   @unique
+  commitMessage   String
+  author          String?
+  branch          String?
+  filesChanged    Int      @default(0)
+  linesAdded      Int      @default(0)
+  linesDeleted    Int      @default(0)
+  aiAssisted      Boolean  @default(true)
+  aiContribution  Float    @default(1.0)
+  relatedIssues   String   @default("[]")
+  relatedFeatures String   @default("[]")
+  timestamp       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([commitHash])
+  @@index([branch])
+  @@index([timestamp])
+}
+
+model AIAnalyticsSummary {
+  id                   String   @id @default(cuid())
+  date                 DateTime @unique
+  totalSessions        Int      @default(0)
+  activeSessions       Int      @default(0)
+  totalInputTokens     Int      @default(0)
+  totalOutputTokens    Int      @default(0)
+  totalTokens          Int      @default(0)
+  totalCost            Float    @default(0)
+  totalIssues          Int      @default(0)
+  resolvedIssues       Int      @default(0)
+  recurringIssues      Int      @default(0)
+  totalFeatures        Int      @default(0)
+  avgSessionDuration   Float    @default(0)
+  avgTokensPerFeature  Float    @default(0)
+  avgCostPerFeature    Float    @default(0)
+  avgResolutionTime    Float    @default(0)
+  modelDistribution    String   @default("{}")
+  issueDistribution    String   @default("{}")
+  categoryDistribution String   @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([date])
+}
+
+model ContentBlock {
+  id                String           @id @default(cuid())
+  sessionId         String
+  blockIndex        Int
+  blockType         BlockType
+  content           String
+  contentLength     Int              @default(0)
+  startedAt         DateTime?
+  endedAt           DateTime?
+  durationMs        Int?
+  containsError     Boolean          @default(false)
+  containsDecision  Boolean          @default(false)
+  containsBacktrack Boolean          @default(false)
+  confidenceLevel   ConfidenceLevel?
+  keywords          String           @default("[]")
+  errorKeywords     String           @default("[]")
+  decisionKeywords  String           @default("[]")
+  strategyChanges   String           @default("[]")
+  createdAt         DateTime         @default(now())
+  session           AISession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([blockType])
+  @@index([containsError])
+}
+
+model ToolCall {
+  id               String    @id @default(cuid())
+  sessionId        String
+  externalCallId   String?
+  toolName         ToolName
+  description      String?
+  command          String?
+  filepath         String?
+  oldContent       String?
+  newContent       String?
+  resultContent    String?
+  resultStatus     String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  durationMs       Int?
+  isGitOperation   Boolean   @default(false)
+  isBuildCommand   Boolean   @default(false)
+  isTestCommand    Boolean   @default(false)
+  isServerCommand  Boolean   @default(false)
+  isFileOperation  Boolean   @default(false)
+  isReadOperation  Boolean   @default(false)
+  isWriteOperation Boolean   @default(false)
+  isEditOperation  Boolean   @default(false)
+  isTodoWrite      Boolean   @default(false)
+  isDangerous      Boolean   @default(false)
+  hasError         Boolean   @default(false)
+  errorMessage     String?
+  arguments        String    @default("{}")
+  result           String?
+  isRetry          Boolean   @default(false)
+  retryOfId        String?
+  retryCount       Int       @default(0)
+  createdAt        DateTime  @default(now())
+  session          AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([toolName])
+  @@index([filepath])
+  @@index([hasError])
+}
+
+model FileOperation {
+  id             String        @id @default(cuid())
+  sessionId      String
+  filepath       String
+  operation      FileOpType
+  linesAdded     Int           @default(0)
+  linesRemoved   Int           @default(0)
+  netLines       Int           @default(0)
+  contentHash    String?
+  contentSize    Int           @default(0)
+  fileType       String?
+  fileCategory   FileCategory?
+  errorCount     Int           @default(0)
+  editCount      Int           @default(0)
+  tokensConsumed Int           @default(0)
+  costUSD        Float         @default(0)
+  createdAt      DateTime      @default(now())
+  session        AISession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([filepath])
+  @@index([fileCategory])
+  @@index([operation])
+}
+
+model GitOperation {
+  id             String    @id @default(cuid())
+  sessionId      String
+  operationType  GitOpType
+  commitHash     String?
+  commitMessage  String?
+  filesChanged   Int?
+  insertions     Int?
+  deletions      Int?
+  remoteName     String?
+  branchName     String?
+  forced         Boolean   @default(false)
+  success        Boolean   @default(true)
+  errorMessage   String?
+  tokensConsumed Int       @default(0)
+  costUSD        Float     @default(0)
+  timestamp      DateTime
+  session        AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([operationType])
+  @@index([commitHash])
+}
+
+model PatternOccurrence {
+  id             String    @id @default(cuid())
+  patternId      String
+  sessionId      String
+  filepath       String?
+  lineNumber     Int?
+  matchedContent String?
+  autoFixed      Boolean   @default(false)
+  fixApplied     String?
+  tokensWasted   Int       @default(0)
+  costWasted     Float     @default(0)
+  timeWastedMs   Int       @default(0)
+  detectedAt     DateTime  @default(now())
+  session        AISession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  pattern        AIPattern @relation(fields: [patternId], references: [id])
+
+  @@unique([patternId, sessionId, filepath])
+  @@index([patternId])
+  @@index([sessionId])
+}
+
+model AnomalyAlert {
+  id             String        @id @default(cuid())
+  sessionId      String?
+  anomalyType    AnomalyType
+  severity       AlertSeverity
+  metricName     String
+  metricValue    Float
+  expectedValue  Float
+  threshold      Float
+  zScore         Float?
+  description    String?
+  relatedFile    String?
+  relatedPattern String?
+  status         AlertStatus   @default(OPEN)
+  resolution     String?
+  resolvedBy     String?
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+  session        AISession?    @relation(fields: [sessionId], references: [id])
+
+  @@index([anomalyType])
+  @@index([severity])
+  @@index([status])
+  @@index([sessionId])
+}
+
+model TrendSnapshot {
+  id                 String      @id @default(cuid())
+  period             TrendPeriod
+  periodStart        DateTime
+  periodEnd          DateTime
+  sessionsCount      Int         @default(0)
+  issuesCount        Int         @default(0)
+  featuresCount      Int         @default(0)
+  repeatIssues       Int         @default(0)
+  totalTokens        Int         @default(0)
+  totalCostUSD       Float       @default(0)
+  avgCostPerSession  Float       @default(0)
+  efficiencyScore    Float       @default(0)
+  qualityScore       Float       @default(0)
+  firstAttemptRate   Float       @default(0)
+  totalFilesCreated  Int         @default(0)
+  totalFilesModified Int         @default(0)
+  totalLinesAdded    Int         @default(0)
+  avgSessionDuration Float       @default(0)
+  avgReasoningTime   Float       @default(0)
+  avgToolTime        Float       @default(0)
+  modelDistribution  String      @default("{}")
+  vsPreviousPeriod   String      @default("{}")
+  anomaliesDetected  Int         @default(0)
+  patternsDetected   Int         @default(0)
+  createdAt          DateTime    @default(now())
+
+  @@unique([period, periodStart])
+  @@index([period])
+  @@index([periodStart])
+}
+
+// =============================================================================
+// ERROR LOG & PATTERN DETECTION
+// =============================================================================
+
+model ErrorLog {
+  id            String      @id @default(cuid())
+  requestId     String
+  timestamp     DateTime    @default(now())
+  status        Int         @default(0)
+  statusText    String      @default("")
+  type          String      @default("UNKNOWN")        // BUSINESS_LOGIC, VALIDATION_ERROR, AUTH_ERROR, SERVER_FAILURE, NETWORK_ERROR
+  severity      String      @default("error")          // info, warning, error, critical
+  message       String
+  hint          String?
+  endpoint      String
+  method        String      @default("GET")
+  duration      Int?
+  context       String      @default("{}")
+  retryable     Boolean     @default(false)
+  retryCount    Int         @default(0)
+  userAgent     String?
+  url           String?
+  acknowledged  Boolean     @default(false)
+  acknowledgedAt DateTime?
+  patternId     String?
+  createdAt     DateTime    @default(now())
+
+  ErrorPattern  ErrorPattern? @relation(fields: [patternId], references: [id])
+
+  @@index([timestamp])
+  @@index([severity])
+  @@index([type])
+  @@index([status])
+  @@index([endpoint])
+  @@index([acknowledged])
+  @@index([patternId])
+}
+
+model ErrorPattern {
+  id                String      @id @default(cuid())
+  patternKey        String      @unique
+  patternName       String
+  errorType         String
+  endpoint          String?
+  httpStatus        Int?
+  description       String
+  rootCause         String?
+  howItHappened     String?
+  preventionStrategy String?
+  autoFixSolution   String?
+  occurrenceCount   Int         @default(0)
+  lastOccurrence    DateTime    @default(now())
+  firstOccurrence   DateTime    @default(now())
+  patternStatus     String      @default("ACTIVE")  // ACTIVE, MONITORING, RESOLVED
+  severity          String      @default("warning")
+  estimatedTimeSaved Int        @default(0)
+  estimatedTokensSaved Int      @default(0)
+  estimatedCostSaved Float      @default(0)
+  tags              String      @default("[]")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  ErrorLog          ErrorLog[]
+
+  @@index([errorType])
+  @@index([patternStatus])
+  @@index([severity])
+  @@index([endpoint])
+}
+
+// Saved AI Error Solutions - Store successful fixes for future use
+model SavedErrorSolution {
+  id                String   @id @default(cuid())
+  errorType         String
+  httpStatus        Int
+  errorPattern      String
+  solution          String
+  codeFix           String?
+  confidence        Int      @default(80)
+  successRate       Int      @default(100)
+  usageCount        Int      @default(0)
+  lastUsedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([errorType])
+  @@index([httpStatus])
+  @@index([successRate])
+}
+
+// Autoload Configuration - Control which pages auto-fetch data
+model AutoloadConfig {
+  id            String    @id @default(cuid())
+  pageKey       String    @unique    // e.g., 'dashboard', 'modules', 'projects'
+  pageName      String               // Human readable name
+  category      String    @default("general") // e.g., 'core', 'analytics', 'management'
+  enabled       Boolean   @default(true)     // Is autoload enabled?
+  description   String?                      // What data is loaded
+  fetchEndpoint String?                      // API endpoint called on load
+  lastToggledAt DateTime?                    // When was it last toggled
+  toggledBy     String?                      // Who toggled it (for future multi-user)
+  reason        String?                      // Why disabled (optional note)
+  priority      Int       @default(5)        // 1-10, lower = less critical
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([enabled])
+  @@index([category])
+  @@index([pageKey])
+}
+
+// =============================================================================
+// CONTRACT VALIDATOR - Scan History & Issue Tracking
+// =============================================================================
+
+model ScanHistory {
+  id            String   @id @default(cuid())
+  scanId        String   @unique
+  status        String   @default("pending")     // pending, running, complete, failed
+  filesScanned  String   @default("[]")          // JSON array of file paths
+  issuesFound   Int      @default(0)
+  issuesFixed   Int      @default(0)
+  error         String?
+  duration      Int?                              // milliseconds
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  
+  issues        ContractIssue[]
+  backups       ScanBackup[]
+  
+  @@index([scanId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ContractIssue {
+  id            String    @id @default(cuid())
+  scanId        String
+  issueType     String                          // missing_param, undefined_access, unknown_endpoint, type_mismatch, extra_param
+  severity      String                          // error, warning, info
+  message       String
+  frontendFile  String?
+  frontendLine  Int?
+  apiFile       String?
+  suggestion    String?
+  status        String    @default("open")      // open, fixed, ignored, reverted
+  fixApplied    Boolean   @default(false)
+  fixCode       String?
+  fixDescription String?
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  
+  scan          ScanHistory @relation(fields: [scanId], references: [scanId], onDelete: Cascade)
+  
+  @@index([scanId])
+  @@index([status])
+  @@index([severity])
+  @@index([issueType])
+}
+
+model ScanBackup {
+  id            String   @id @default(cuid())
+  scanId        String
+  filePath      String
+  backupPath    String
+  content       String                          // Original file content
+  restored      Boolean  @default(false)
+  restoredAt    DateTime?
+  createdAt     DateTime @default(now())
+  
+  scan          ScanHistory @relation(fields: [scanId], references: [scanId], onDelete: Cascade)
+  
+  @@index([scanId])
+  @@index([filePath])
+}
+
+// Contract Scan - For scope-aware contract validator
+model ContractScan {
+  id            String     @id @default(cuid())
+  scanId        String     @unique
+  projectId     String?
+  scanScope     String     @default("project")     // project, global
+  status        String     @default("pending")      // pending, running, passed, failed
+  endpointCount Int        @default(0)
+  passedCount   Int        @default(0)
+  failedCount   Int        @default(0)
+  warningCount  Int        @default(0)
+  config        String?                             // JSON config
+  completedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  issues        ContractIssueTest[]
+  tests         ContractTest[]
+  
+  @@index([scanId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// Contract Test - Test templates for contract validation
+model ContractTest {
+  id               String    @id @default(cuid())
+  testName         String
+  testType         String                            // schema, response, request
+  projectId        String?
+  endpoint         String?
+  method           String    @default("GET")
+  requestSchema    String?                           // JSON
+  responseSchema   String?                           // JSON
+  expectedResponse String?                           // JSON
+  headers          String?                           // JSON
+  status           String    @default("active")     // active, disabled
+  lastRunAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  scanId           String?
+  
+  scan             ContractScan? @relation(fields: [scanId], references: [id], onDelete: SetNull)
+  
+  @@index([testName])
+  @@index([projectId])
+  @@index([testType])
+}
+
+// Contract Issue Test - Issues found during contract scans
+model ContractIssueTest {
+  id           String    @id @default(cuid())
+  scanId       String
+  issueType    String                            // missing_param, undefined_access, etc.
+  severity     String                            // error, warning, info
+  message      String
+  endpoint     String?
+  method       String?
+  projectId    String?
+  resolved     Boolean   @default(false)
+  resolvedAt   DateTime?
+  resolvedBy   String?
+  resolution   String?
+  createdAt    DateTime  @default(now())
+  
+  scan         ContractScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  
+  @@index([scanId])
+  @@index([severity])
+  @@index([resolved])
+}
+
+
+enum BlockType {
+  REASONING
+  TEXT
+  TOOL_CALLS
+}
+
+enum ToolName {
+  BASH
+  WRITE
+  READ
+  EDIT
+  TODO_WRITE
+  OTHER
+}
+
+enum FileOpType {
+  CREATED
+  MODIFIED
+  READ
+  DELETED
+}
+
+enum FileCategory {
+  API_ROUTE
+  PAGE
+  COMPONENT
+  SERVICE
+  HOOK
+  UTILITY
+  TYPE_DEFINITION
+  CONFIG
+  TEST
+  SCHEMA
+  STYLE
+  OTHER
+}
+
+enum GitOpType {
+  COMMIT
+  PUSH
+  PULL
+  BRANCH
+  MERGE
+  REBASE
+  STASH
+  TAG
+  OTHER
+}
+
+enum SessionType {
+  BUG_FIX
+  FEATURE
+  REFACTOR
+  ARCHITECTURE
+  DOCUMENTATION
+  TESTING
+  DEPLOYMENT
+  INVESTIGATION
+  UNKNOWN
+}
+
+enum IssueStatus {
+  DETECTED
+  IN_PROGRESS
+  RESOLVED
+  WONT_FIX
+  RECURRING
+}
+
+enum PatternStatus {
+  ACTIVE
+  MONITORING
+  RESOLVED
+  ARCHIVED
+}
+
+enum AnomalyType {
+  TOKEN_SPIKE
+  COST_SPIKE
+  ERROR_BURST
+  QUALITY_DROP
+  REPEAT_STORM
+  LONG_SESSION
+  HIGH_RETRY_COUNT
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum TrendPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ConfidenceLevel {
+  VERY_LOW
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
 }

@@ -29,9 +29,9 @@ export async function GET(request: NextRequest) {
       // Calculate FK stats
       let totalFKs = 0
       let resolvedFKs = 0
-      const tableNames = new Set(project.tables.map(t => t.tableName.toLowerCase()))
+      const tableNames = new Set(project.ToolkitTable.map(t => t.tableName.toLowerCase()))
 
-      project.tables.forEach(table => {
+      project.ToolkitTable.forEach(table => {
         try {
           const fks = JSON.parse(table.foreignKeys || '[]')
           fks.forEach((fk: any) => {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
       // Calculate total columns
       let totalColumns = 0
-      project.tables.forEach(table => {
+      project.ToolkitTable.forEach(table => {
         try {
           const columns = JSON.parse(table.columns || '[]')
           totalColumns += columns.length
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
         stats: {
           projectId: project.id,
           projectName: project.name,
-          totalTables: project.tables.length,
+          totalTables: project.ToolkitTable.length,
           totalColumns,
-          totalProcedures: project.procedures.length,
+          totalProcedures: project.ToolkitProcedure.length,
           fkRelationships: totalFKs,
           fkResolved: resolvedFKs,
           fkResolvedPercent: totalFKs > 0 ? Math.round((resolvedFKs / totalFKs) * 100) : 0,
@@ -71,8 +71,8 @@ export async function GET(request: NextRequest) {
     // Get aggregate stats across all projects
     const projects = await prisma.toolkitProject.findMany({
       include: {
-        tables: true,
-        procedures: true
+        ToolkitTable: true,
+        ToolkitProcedure: true
       }
     })
 
@@ -84,13 +84,13 @@ export async function GET(request: NextRequest) {
     let lastSync: Date | null = null
 
     projects.forEach(project => {
-      totalTables += project.tables.length
-      totalProcedures += project.procedures.length
+      totalTables += project.ToolkitTable.length
+      totalProcedures += project.ToolkitProcedure.length
 
       // Get all table names for FK resolution
-      const tableNames = new Set(project.tables.map(t => t.tableName.toLowerCase()))
+      const tableNames = new Set(project.ToolkitTable.map(t => t.tableName.toLowerCase()))
 
-      project.tables.forEach(table => {
+      project.ToolkitTable.forEach(table => {
         try {
           const columns = JSON.parse(table.columns || '[]')
           totalColumns += columns.length

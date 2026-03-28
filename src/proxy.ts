@@ -1,63 +1,19 @@
+/**
+ * PROXY - Route Protection (Next.js 16)
+ * ======================================
+ * Replaces deprecated middleware.ts
+ * Uses Route Registry for protected routes (Principle 1)
+ * Single source of truth in src/config/routes.ts
+ */
+
 import { auth } from "@/lib/auth"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-
-// Routes that don't require authentication
-const publicRoutes = [
-  "/",
-  "/login",
-  "/register",
-  "/auth/error",
-  "/forgot-password",
-  "/reset-password",
-]
-
-// API routes that don't require authentication
-const publicApiRoutes = [
-  "/api/health",
-  "/api/auth",
-  "/api/public",
-  "/api/parsers",
-  "/api/toolkit",
-  "/api/ai",
-  "/api/generate",
-  "/api/migrate",
-  "/api/schema",
-  "/api/intelligence",
-  "/api/export",
-  "/api/projects",
-  "/api/project-status",
-  "/api/project-intelligence",
-  "/api/project-export",
-  "/api/download",
-  "/api/file-system",
-  "/api/file-manager",
-  "/api/file-manager-v2",
-  "/api/sp-generate",
-  "/api/fk-resolution",
-  "/api/backup",
-  "/api/billing",
-  "/api/collaboration",
-  "/api/formatting",
-  "/api/monitoring",
-  "/api/multi-db",
-  "/api/multi-tenant",
-  "/api/notifications",
-  "/api/pipeline",
-  "/api/quality",
-  "/api/validation",
-  "/api/agents",
-  "/api/phase2",
-  "/api/phase3",
-  "/api/session-status",
-  "/api/session-actions",
-  "/api/organization-building",
-  "/api/schema-apply",
-  "/api/prompts",
-  "/api/memory-stats",
-  "/api/system/threads",
-  "/api/schema/stats",
-]
+import { 
+  getPublicRoutes, 
+  getPublicApiPrefixes, 
+  getProtectedPrefixes 
+} from "@/config/routes"
 
 // Static file patterns to skip
 const staticPatterns = [
@@ -68,48 +24,63 @@ const staticPatterns = [
   "/robots.txt",
 ]
 
-export default auth(async (req) => {
+// Next.js 16 proxy export
+export default auth(async (req: NextRequest) => {
   const { nextUrl } = req
-  const session = req.auth
+  const session = (req as any).auth
   const isLoggedIn = !!session?.user
   
-  // Check if it's a static file
+  // =========================================================================
+  // Skip static files
+  // =========================================================================
   for (const pattern of staticPatterns) {
     if (nextUrl.pathname.startsWith(pattern)) {
       return NextResponse.next()
     }
   }
 
-  // Check if it's a public API route
-  for (const route of publicApiRoutes) {
+  // =========================================================================
+  // Public API routes - use Route Registry
+  // =========================================================================
+  const publicApiPrefixes = getPublicApiPrefixes()
+  for (const route of publicApiPrefixes) {
     if (nextUrl.pathname.startsWith(route)) {
       return NextResponse.next()
     }
   }
 
-  // Check if it's a public page route
+  // =========================================================================
+  // Public page routes - use Route Registry
+  // =========================================================================
+  const publicRoutes = getPublicRoutes()
   const isPublicPage = publicRoutes.some(route => 
     nextUrl.pathname === route || nextUrl.pathname.startsWith(route + "/")
   )
 
-  // API routes require authentication (except public ones)
+  // =========================================================================
+  // API routes require authentication (except public ones above)
+  // =========================================================================
   if (nextUrl.pathname.startsWith("/api/")) {
     if (!isLoggedIn) {
       return NextResponse.json(
-        { error: "Unauthorized", message: "Authentication required" },
+        { error: "Unauthorized", message: "Authentication required", code: "UNAUTHORIZED" },
         { status: 401 }
       )
     }
     return NextResponse.next()
   }
 
+  // =========================================================================
   // Redirect logged-in users away from auth pages
+  // =========================================================================
   if (isPublicPage && isLoggedIn && (nextUrl.pathname === "/login" || nextUrl.pathname === "/register")) {
     return NextResponse.redirect(new URL("/dashboard", req.url))
   }
 
-  // Protected routes require authentication
-  const protectedPrefixes = ["/dashboard", "/settings", "/projects", "/admin"]
+  // =========================================================================
+  // Protected routes - use Route Registry
+  // =========================================================================
+  const protectedPrefixes = getProtectedPrefixes()
   const isProtectedRoute = protectedPrefixes.some(prefix => 
     nextUrl.pathname.startsWith(prefix)
   )
@@ -121,12 +92,16 @@ export default auth(async (req) => {
     return NextResponse.redirect(loginUrl)
   }
 
+  // =========================================================================
   // Admin routes require admin role
+  // =========================================================================
   if (nextUrl.pathname.startsWith("/admin") && session?.user?.role !== "admin" && session?.user?.role !== "owner") {
     return NextResponse.redirect(new URL("/dashboard?error=forbidden", req.url))
   }
 
-  // Add security headers to all responses
+  // =========================================================================
+  // Security headers
+  // =========================================================================
   const response = NextResponse.next()
   
   // Prevent clickjacking
