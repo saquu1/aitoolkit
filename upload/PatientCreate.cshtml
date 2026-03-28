@@ -1,0 +1,314 @@
+@model HIS.Web.Models.PatientViewModel
+
+@{
+    ViewBag.Title = "Patient Registration";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">
+                        <i class="fa fa-user-plus"></i> Patient Registration
+                        <span class="pull-right">
+                            @if (User.IsInRole("Admin") || User.IsInRole("Receptionist"))
+                            {
+                                <a href="@Url.Action("Index", "Patient")" class="btn btn-secondary">
+                                    <i class="fa fa-list"></i> Back to List
+                                </a>
+                            }
+                        </span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    @using (Html.BeginForm("Create", "Patient", FormMethod.Post, new { @class = "form-horizontal", id = "patientForm" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        
+                        <div class="row">
+                            <!-- MRN Field -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">
+                                        MRN <mandatory>*</mandatory>
+                                    </label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.MRN, new { @class = "form-control", placeholder = "Enter MRN", maxlength = "20" })
+                                        @Html.ValidationMessageFor(m => m.MRN, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Branch Dropdown -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Branch <mandatory>*</mandatory></label>
+                                    <div class="col-md-8">
+                                        @Html.DropDownListFor(m => m.BranchID, (SelectList)ViewBag.Branches, "-- Select Branch --", new { @class = "form-control select2" })
+                                        @Html.ValidationMessageFor(m => m.BranchID, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- First Name -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">First Name <mandatory>*</mandatory></label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.FirstName, new { @class = "form-control", placeholder = "Enter first name", maxlength = "100" })
+                                        @Html.ValidationMessageFor(m => m.FirstName, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Last Name -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Last Name <mandatory>*</mandatory></label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.LastName, new { @class = "form-control", placeholder = "Enter last name", maxlength = "100" })
+                                        @Html.ValidationMessageFor(m => m.LastName, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Date of Birth -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Date of Birth <mandatory>*</mandatory></label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.DateOfBirth, "{0:yyyy-MM-dd}", new { @class = "form-control datepicker", type = "date" })
+                                        @Html.ValidationMessageFor(m => m.DateOfBirth, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Gender -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Gender <mandatory>*</mandatory></label>
+                                    <div class="col-md-8">
+                                        @Html.DropDownListFor(m => m.Gender, new SelectList(new[] {
+                                            new { Value = "M", Text = "Male" },
+                                            new { Value = "F", Text = "Female" },
+                                            new { Value = "O", Text = "Other" }
+                                        }, "Value", "Text"), "-- Select Gender --", new { @class = "form-control" })
+                                        @Html.ValidationMessageFor(m => m.Gender, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Phone -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Phone</label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.Phone, new { @class = "form-control", placeholder = "Enter phone number", maxlength = "20" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Email -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Email</label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.Email, new { @class = "form-control", placeholder = "Enter email", type = "email", maxlength = "100" })
+                                        @Html.ValidationMessageFor(m => m.Email, "", new { @class = "text-danger" })
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- Address -->
+                            <div class="col-md-8">
+                                <div class="form-group">
+                                    <label class="control-label col-md-2">Address</label>
+                                    <div class="col-md-10">
+                                        @Html.TextAreaFor(m => m.Address, new { @class = "form-control", placeholder = "Enter full address", rows = "2" })
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <!-- City -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">City</label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.City, new { @class = "form-control", placeholder = "Enter city" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- State -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">State</label>
+                                    <div class="col-md-8">
+                                        @Html.DropDownListFor(m => m.State, (SelectList)ViewBag.States, "-- Select State --", new { @class = "form-control" })
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Zip Code -->
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label class="control-label col-md-4">Zip Code</label>
+                                    <div class="col-md-8">
+                                        @Html.TextBoxFor(m => m.ZipCode, new { @class = "form-control", placeholder = "Enter zip code", maxlength = "20" })
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <div class="col-md-offset-2 col-md-10">
+                                        <button type="submit" class="btn btn-primary" id="btnSave">
+                                            <i class="fa fa-save"></i> Save Patient
+                                        </button>
+                                        <a href="@Url.Action("Index", "Patient")" class="btn btn-default">
+                                            <i class="fa fa-times"></i> Cancel
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+    
+    <script type="text/javascript">
+        $(document).ready(function () {
+            // Initialize date picker
+            $('.datepicker').datepicker({
+                format: 'yyyy-mm-dd',
+                autoclose: true,
+                todayHighlight: true
+            });
+            
+            // Initialize Select2 dropdowns
+            $('.select2').select2({
+                theme: 'bootstrap4',
+                placeholder: '-- Select --'
+            });
+            
+            // Form validation rules
+            $('#patientForm').validate({
+                rules: {
+                    MRN: {
+                        required: true,
+                        minlength: 3,
+                        maxlength: 20,
+                        remote: {
+                            url: '/Patient/CheckMRNAvailability',
+                            type: 'POST',
+                            data: {
+                                mrn: function() { return $('#MRN').val(); }
+                            }
+                        }
+                    },
+                    FirstName: {
+                        required: true,
+                        maxlength: 100
+                    },
+                    LastName: {
+                        required: true,
+                        maxlength: 100
+                    },
+                    DateOfBirth: {
+                        required: true,
+                        date: true
+                    },
+                    Gender: {
+                        required: true
+                    },
+                    BranchID: {
+                        required: true
+                    },
+                    Email: {
+                        email: true,
+                        maxlength: 100
+                    },
+                    Phone: {
+                        maxlength: 20
+                    }
+                },
+                messages: {
+                    MRN: {
+                        required: "MRN is required",
+                        minlength: "MRN must be at least 3 characters",
+                        remote: "This MRN already exists"
+                    },
+                    FirstName: {
+                        required: "First name is required"
+                    },
+                    LastName: {
+                        required: "Last name is required"
+                    },
+                    DateOfBirth: {
+                        required: "Date of birth is required"
+                    },
+                    Gender: {
+                        required: "Please select gender"
+                    },
+                    BranchID: {
+                        required: "Please select a branch"
+                    }
+                },
+                errorElement: 'span',
+                errorClass: 'text-danger',
+                highlight: function(element) {
+                    $(element).closest('.form-group').addClass('has-error');
+                },
+                unhighlight: function(element) {
+                    $(element).closest('.form-group').removeClass('has-error');
+                }
+            });
+            
+            // AJAX form submission
+            $('#patientForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                if (!$(this).valid()) return;
+                
+                var formData = $(this).serialize();
+                
+                $.ajax({
+                    url: '@Url.Action("Create", "Patient")',
+                    type: 'POST',
+                    data: formData,
+                    success: function(response) {
+                        if (response.success) {
+                            toastr.success('Patient created successfully!');
+                            setTimeout(function() {
+                                window.location.href = '@Url.Action("Index", "Patient")';
+                            }, 1500);
+                        } else {
+                            toastr.error(response.message || 'Failed to create patient');
+                        }
+                    },
+                    error: function(xhr) {
+                        toastr.error('An error occurred while saving the patient');
+                    }
+                });
+            });
+        });
+    </script>
+}

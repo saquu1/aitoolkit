@@ -1,0 +1,167 @@
+@model iHealthCure.Entities.Organization
+
+@{
+    ViewBag.Title = "Create Organization";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-building"></i> Create Organization
+                    </h3>
+                </div>
+                <div class="card-body">
+                    @using (Html.BeginForm("Create", "Organizations", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+                    {
+                        @Html.AntiForgeryToken()
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.Name, new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextBoxFor(m => m.Name, new { @class = "form-control", placeholder = "Enter organization name" })
+                                @Html.ValidationMessageFor(m => m.Name, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.OrganizationTypeId, "Organization Type", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.DropDownListFor(m => m.OrganizationTypeId, (SelectList)ViewBag.OrganizationTypes, "Select Type", new { @class = "form-control select2" })
+                                @Html.ValidationMessageFor(m => m.OrganizationTypeId, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.Email, new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextBoxFor(m => m.Email, new { @class = "form-control", type = "email", placeholder = "Enter email address" })
+                                @Html.ValidationMessageFor(m => m.Email, "", new { @class = "text-danger" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.UAN, "UAN", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextBoxFor(m => m.UAN, new { @class = "form-control", placeholder = "Enter UAN number" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.TelNo, "Telephone", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextBoxFor(m => m.TelNo, new { @class = "form-control", placeholder = "Enter telephone number" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.CellNoOne, "Mobile", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextBoxFor(m => m.CellNoOne, new { @class = "form-control", placeholder = "Enter mobile number" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.CountryId, "Country", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.DropDownListFor(m => m.CountryId, (SelectList)ViewBag.Countries, "Select Country", new { @class = "form-control select2", id = "CountryId" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.ProvinceId, "Province", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.DropDownListFor(m => m.ProvinceId, (SelectList)ViewBag.Provinces, "Select Province", new { @class = "form-control select2", id = "ProvinceId" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.CityId, "City", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.DropDownListFor(m => m.CityId, (SelectList)ViewBag.Cities, "Select City", new { @class = "form-control select2", id = "CityId" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.Address, new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextAreaFor(m => m.Address, new { @class = "form-control", rows = "3", placeholder = "Enter complete address" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.Code, "Organization Code", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                @Html.TextBoxFor(m => m.Code, new { @class = "form-control", placeholder = "Enter organization code" })
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            @Html.LabelFor(m => m.IsActive, "Status", new { @class = "col-md-2 control-label" })
+                            <div class="col-md-10">
+                                <div class="checkbox">
+                                    <label>
+                                        @Html.CheckBoxFor(m => m.IsActive, new { @checked = "checked" }) Active
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <div class="col-md-offset-2 col-md-10">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Organization
+                                </button>
+                                @Html.ActionLink("Cancel", "Index", "Organizations", null, new { @class = "btn btn-default" })
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @Scripts.Render("~/bundles/jqueryval")
+    <script>
+        $(document).ready(function() {
+            // Cascade: Country -> Province -> City
+            $('#CountryId').change(function() {
+                var countryId = $(this).val();
+                if (countryId) {
+                    $.getJSON('/Organizations/GetProvincesByCountry', { countryId: countryId }, function(data) {
+                        var options = '<option value="">Select Province</option>';
+                        $.each(data, function(i, item) {
+                            options += '<option value="' + item.Id + '">' + item.Name + '</option>';
+                        });
+                        $('#ProvinceId').html(options);
+                        $('#CityId').html('<option value="">Select City</option>');
+                    });
+                }
+            });
+            
+            $('#ProvinceId').change(function() {
+                var provinceId = $(this).val();
+                if (provinceId) {
+                    $.getJSON('/Organizations/GetCitiesByProvince', { provinceId: provinceId }, function(data) {
+                        var options = '<option value="">Select City</option>';
+                        $.each(data, function(i, item) {
+                            options += '<option value="' + item.Id + '">' + item.Name + '</option>';
+                        });
+                        $('#CityId').html(options);
+                    });
+                }
+            });
+            
+            // Initialize select2
+            $('.select2').select2({
+                theme: 'bootstrap4',
+                placeholder: 'Select an option'
+            });
+        });
+    </script>
+}
