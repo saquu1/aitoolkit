@@ -1,207 +1,819 @@
-/**
- * INTELLIGENCE API
- * ================
- * TIER 2 Intelligence Features API
- * - File Hotspots
- * - Issue Recurrence
- * - Quality Scores
- * - Cost Analysis
- * - Pattern Library
- */
+// =============================================================================
+// Step 4 Intelligence API Route
+// Handles AI Questions, Screen Blueprints, Business Rules, User Stories
+// =============================================================================
 
-import { NextRequest, NextResponse } from 'next/server'
-import {
-  getFileHotspots,
-  detectRecurringIssues,
-  calculateSessionQualityScore,
-  analyzeCosts,
-  createPattern,
-  getPatterns
-} from '@/lib/intelligence-service'
+import { NextRequest, NextResponse } from 'next/server';
+import { aiQuestionEngine } from '@/lib/ai-question-engine';
+import { screenBlueprintGenerator } from '@/lib/screen-blueprint-generator';
+import { businessRuleEngine } from '@/lib/business-rule-engine';
+import { parseSqlServer } from '@/lib/sql-parser';
+import { getAllModules } from '@/lib/layer-definitions';
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const action = searchParams.get('action')
-  
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN ROUTER
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
+    const { action } = body;
+
     switch (action) {
-      case 'hotspots': {
-        const days = parseInt(searchParams.get('days') || '30')
-        const limit = parseInt(searchParams.get('limit') || '20')
-        const minSessions = parseInt(searchParams.get('minSessions') || '2')
-        
-        const hotspots = await getFileHotspots({ days, limit, minSessions })
-        
-        return NextResponse.json({
-          success: true,
-          hotspots,
-          count: hotspots.length,
-          generatedAt: new Date().toISOString()
-        })
-      }
+      case 'generate-questions':
+        return await generateQuestions(body);
       
-      case 'recurring-issues': {
-        const days = parseInt(searchParams.get('days') || '30')
-        const minOccurrences = parseInt(searchParams.get('minOccurrences') || '2')
-        
-        const issues = await detectRecurringIssues({ days, minOccurrences })
-        
-        return NextResponse.json({
-          success: true,
-          recurringIssues: issues,
-          count: issues.length,
-          totalWasted: issues.reduce((sum, i) => sum + i.totalCost, 0)
-        })
-      }
+      case 'answer-question':
+        return await answerQuestion(body);
       
-      case 'quality-score': {
-        const sessionId = searchParams.get('sessionId')
-        
-        if (!sessionId) {
-          return NextResponse.json({ error: 'sessionId required' }, { status: 400 })
-        }
-        
-        const score = await calculateSessionQualityScore(sessionId)
-        
-        return NextResponse.json({
-          success: true,
-          qualityScore: score
-        })
-      }
+      case 'generate-blueprints':
+        return await generateBlueprints(body);
       
-      case 'cost-analysis': {
-        const sessionId = searchParams.get('sessionId')
-        
-        if (!sessionId) {
-          return NextResponse.json({ error: 'sessionId required' }, { status: 400 })
-        }
-        
-        const analysis = await analyzeCosts(sessionId)
-        
-        return NextResponse.json({
-          success: true,
-          costAnalysis: analysis
-        })
-      }
+      case 'generate-rules':
+        return await generateRules(body);
       
-      case 'patterns': {
-        const patterns = await getPatterns()
-        
-        return NextResponse.json({
-          success: true,
-          patterns,
-          count: patterns.length
-        })
-      }
+      case 'update-rule':
+        return await updateRule(body);
       
-      case 'dashboard': {
-        // Get all intelligence data for dashboard
-        const [hotspots, recurringIssues, patterns] = await Promise.all([
-          getFileHotspots({ days: 30, limit: 10 }),
-          detectRecurringIssues({ days: 30, minOccurrences: 2 }),
-          getPatterns()
-        ])
-        
-        // Calculate totals
-        const totalWasted = recurringIssues.reduce((sum, i) => sum + i.totalCost, 0)
-        const avgRiskScore = hotspots.length > 0 
-          ? hotspots.reduce((sum, h) => sum + h.riskScore, 0) / hotspots.length 
-          : 0
-        
-        return NextResponse.json({
-          success: true,
-          dashboard: {
-            fileHotspots: hotspots,
-            recurringIssues,
-            patterns,
-            summary: {
-              hotspotCount: hotspots.length,
-              highRiskFiles: hotspots.filter(h => h.riskScore > 70).length,
-              recurringIssueCount: recurringIssues.length,
-              totalWastedCost: totalWasted,
-              avgRiskScore: Math.round(avgRiskScore),
-              activePatterns: patterns.filter(p => p.status === 'active').length
-            }
-          }
-        })
-      }
+      case 'approve-rule':
+        return await approveRule(body);
+      
+      case 'generate-user-stories':
+        return await generateUserStories(body);
+      
+      case 'export-rules':
+        return await exportRules(body);
+      
+      case 'analyze-columns':
+        return await analyzeColumns(body);
+      
+      case 'discover-relationships':
+        return await discoverRelationships(body);
+      
+      case 'infer-rules':
+        return await inferBusinessRules(body);
+      
+      case 'score-health':
+        return await scoreSchemaHealth(body);
+      
+      case 'link-modules':
+        return await linkModules(body);
       
       default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Intelligence API error:', error)
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Step 4 API error:', error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const body = await request.json()
-    const { action } = body
-    
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action');
+
     switch (action) {
-      case 'create-pattern': {
-        const { name, keywords, regex, files, rootCause, fixBefore, fixAfter, preventionRule } = body
-        
-        if (!name || !keywords || keywords.length === 0) {
-          return NextResponse.json({ error: 'name and keywords required' }, { status: 400 })
-        }
-        
-        const pattern = await createPattern({
-          name,
-          keywords,
-          regex,
-          files,
-          rootCause,
-          fixBefore: fixBefore || '',
-          fixAfter: fixAfter || '',
-          preventionRule
-        })
-        
-        return NextResponse.json({
-          success: true,
-          pattern,
-          message: `Pattern ${pattern.patternCode} created successfully`
-        })
-      }
+      case 'get-all-rules':
+        return await getAllRules();
       
-      case 'batch-quality-scores': {
-        const { sessionIds } = body
-        
-        if (!sessionIds || !Array.isArray(sessionIds)) {
-          return NextResponse.json({ error: 'sessionIds array required' }, { status: 400 })
-        }
-        
-        const scores = []
-        for (const sessionId of sessionIds.slice(0, 20)) {
-          try {
-            const score = await calculateSessionQualityScore(sessionId)
-            scores.push(score)
-          } catch (e) {
-            // Skip failed sessions
-          }
-        }
-        
-        return NextResponse.json({
-          success: true,
-          scores,
-          count: scores.length,
-          averageScore: scores.length > 0 
-            ? Math.round(scores.reduce((sum, s) => sum + s.overallScore, 0) / scores.length)
-            : 0
-        })
-      }
+      case 'get-rule':
+        return await getRule(searchParams);
       
       default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
-  } catch (error) {
-    console.error('Intelligence API error:', error)
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI QUESTION ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function generateQuestions(body: { sql?: string; tables?: unknown[]; modules?: unknown[] }) {
+  let tables = body.tables || [];
+  const modules = body.modules || getAllModules();
+
+  // Parse SQL if provided
+  if (body.sql && tables.length === 0) {
+    const parseResult = parseSqlServer(body.sql);
+    tables = parseResult.tables;
+  }
+
+  const session = aiQuestionEngine.generateProjectQuestions(tables as any[], modules as any[]);
+
+  return NextResponse.json({
+    success: true,
+    session,
+    statistics: {
+      totalQuestions: session.progress.total,
+      criticalQuestions: session.progress.criticalTotal,
+      groups: session.groups.length
+    }
+  });
+}
+
+async function answerQuestion(body: { session: any; questionId: string; answer: string | string[] }) {
+  const { session, questionId, answer } = body;
+
+  const updatedSession = aiQuestionEngine.answerQuestion(session, questionId, answer);
+
+  return NextResponse.json({
+    success: true,
+    session: updatedSession,
+    nextQuestion: aiQuestionEngine.getNextQuestion(updatedSession)
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREEN BLUEPRINT GENERATOR
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function generateBlueprints(body: { sql?: string; tables?: unknown[]; options?: any }) {
+  let tables = body.tables || [];
+
+  // Parse SQL if provided
+  if (body.sql && tables.length === 0) {
+    const parseResult = parseSqlServer(body.sql);
+    tables = parseResult.tables;
+  }
+
+  const results: Record<string, any> = {};
+
+  for (const table of tables as any[]) {
+    results[table.tableName] = screenBlueprintGenerator.generateAllScreens(table, body.options);
+  }
+
+  return NextResponse.json({
+    success: true,
+    blueprints: results,
+    summary: {
+      totalTables: tables.length,
+      totalScreens: Object.values(results).reduce((sum) => sum + 3, 0), // 3 screens per table
+      totalWidgets: Object.values(results).reduce((sum: number, r: any) => sum + r.dashboardWidgets.length, 0)
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUSINESS RULE ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function generateRules(body: { sql?: string; tables?: unknown[]; modules?: unknown[] }) {
+  let tables = body.tables || [];
+  const modules = body.modules || getAllModules();
+
+  // Parse SQL if provided
+  if (body.sql && tables.length === 0) {
+    const parseResult = parseSqlServer(body.sql);
+    tables = parseResult.tables;
+  }
+
+  // Convert tables to expected format
+  const tableDefs = (tables as any[]).map(t => ({
+    tableName: t.tableName,
+    columns: t.columns || []
+  }));
+
+  const groups = businessRuleEngine.generateAllRules(tableDefs as any, modules as any[]);
+
+  return NextResponse.json({
+    success: true,
+    groups,
+    statistics: {
+      totalRules: groups.reduce((sum: number, g: any) => sum + g.rules.length, 0),
+      criticalRules: groups.reduce(
+        (sum: number, g: any) => sum + g.rules.filter((r: any) => r.priority === 'critical').length, 
+        0
+      ),
+      groupsCount: groups.length
+    }
+  });
+}
+
+async function updateRule(body: { ruleId: string; updates: Record<string, unknown> }) {
+  const { ruleId, updates } = body;
+
+  const updatedRule = businessRuleEngine.updateRule(ruleId, updates as any);
+
+  if (!updatedRule) {
+    return NextResponse.json({
+      success: false,
+      error: 'Rule not found'
+    }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    rule: updatedRule
+  });
+}
+
+async function approveRule(body: { ruleId: string; approvedBy: string }) {
+  const { ruleId, approvedBy } = body;
+
+  const updatedRule = businessRuleEngine.approveRule(ruleId, approvedBy);
+
+  if (!updatedRule) {
+    return NextResponse.json({
+      success: false,
+      error: 'Rule not found'
+    }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    success: true,
+    rule: updatedRule
+  });
+}
+
+async function getAllRules() {
+  const rules = businessRuleEngine.getAllRules();
+
+  return NextResponse.json({
+    success: true,
+    rules,
+    count: rules.length
+  });
+}
+
+async function getRule(searchParams: URLSearchParams) {
+  const ruleId = searchParams.get('ruleId');
+  
+  if (!ruleId) {
+    return NextResponse.json({
+      success: false,
+      error: 'ruleId is required'
+    }, { status: 400 });
+  }
+
+  const rule = businessRuleEngine.getRule(ruleId);
+
+  if (!rule) {
+    return NextResponse.json({
+      success: false,
+      error: 'Rule not found'
+    }, { status: 404 });
+  }
+
+  const validation = businessRuleEngine.validateRule(rule);
+
+  return NextResponse.json({
+    success: true,
+    rule,
+    validation
+  });
+}
+
+async function exportRules(body: { format: 'json' | 'markdown' | 'csv' }) {
+  const { format = 'json' } = body;
+  const content = businessRuleEngine.exportRules(format);
+
+  return NextResponse.json({
+    success: true,
+    format,
+    content,
+    mimeType: format === 'json' ? 'application/json' : 
+              format === 'markdown' ? 'text/markdown' : 
+              'text/csv'
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER STORY GENERATOR
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface UserStory {
+  id: string;
+  code: string;
+  title: string;
+  role: string;
+  feature: string;
+  benefit: string;
+  acceptanceCriteria: string[];
+  priority: 'must_have' | 'should_have' | 'could_have' | 'wont_have';
+  storyPoints: number;
+  tableName: string;
+  moduleName?: string;
+  relatedColumns: string[];
+}
+
+async function generateUserStories(body: { sql?: string; tables?: unknown[]; moduleName?: string }) {
+  let tables = body.tables || [];
+
+  // Parse SQL if provided
+  if (body.sql && tables.length === 0) {
+    const parseResult = parseSqlServer(body.sql);
+    tables = parseResult.tables;
+  }
+
+  const stories: UserStory[] = [];
+  let storyIndex = 1;
+
+  for (const table of tables as any[]) {
+    const tableStories = generateTableUserStories(table, body.moduleName, storyIndex);
+    stories.push(...tableStories);
+    storyIndex += tableStories.length;
+  }
+
+  return NextResponse.json({
+    success: true,
+    stories,
+    statistics: {
+      totalStories: stories.length,
+      mustHave: stories.filter(s => s.priority === 'must_have').length,
+      shouldHave: stories.filter(s => s.priority === 'should_have').length,
+      totalStoryPoints: stories.reduce((sum, s) => sum + s.storyPoints, 0)
+    }
+  });
+}
+
+function generateTableUserStories(table: any, moduleName?: string, startIndex: number = 1): UserStory[] {
+  const stories: UserStory[] = [];
+  const tableName = table.tableName;
+  const singularName = singularize(tableName);
+  const columns = table.columns || [];
+
+  // CRUD stories
+  stories.push({
+    id: `US-${tableName}-${startIndex}`,
+    code: `US-${tableName.substring(0, 3).toUpperCase()}-${String(startIndex).padStart(3, '0')}`,
+    title: `Create ${singularName}`,
+    role: 'User',
+    feature: `create a new ${singularName} record`,
+    benefit: `I can add new ${tableName.toLowerCase()} to the system`,
+    acceptanceCriteria: [
+      `Given I am on the ${tableName} list page`,
+      `When I click the "Add ${singularName}" button`,
+      `Then I should see a form with all required fields`,
+      `And I can fill in the form and save the ${singularName}`,
+      `And I should see a success message after saving`
+    ],
+    priority: 'must_have',
+    storyPoints: 3,
+    tableName,
+    moduleName,
+    relatedColumns: columns.filter((c: any) => !c.isNullable && !c.isIdentity).map((c: any) => c.name)
+  });
+
+  stories.push({
+    id: `US-${tableName}-${startIndex + 1}`,
+    code: `US-${tableName.substring(0, 3).toUpperCase()}-${String(startIndex + 1).padStart(3, '0')}`,
+    title: `View ${singularName} List`,
+    role: 'User',
+    feature: `view a list of all ${tableName.toLowerCase()}`,
+    benefit: `I can see all ${tableName.toLowerCase()} at a glance`,
+    acceptanceCriteria: [
+      `Given I navigate to the ${tableName} module`,
+      `Then I should see a list of all ${tableName.toLowerCase()}`,
+      `And the list should show key columns`,
+      `And I can sort by any column`,
+      `And I can paginate through results`
+    ],
+    priority: 'must_have',
+    storyPoints: 2,
+    tableName,
+    moduleName,
+    relatedColumns: columns.slice(0, 5).map((c: any) => c.name)
+  });
+
+  stories.push({
+    id: `US-${tableName}-${startIndex + 2}`,
+    code: `US-${tableName.substring(0, 3).toUpperCase()}-${String(startIndex + 2).padStart(3, '0')}`,
+    title: `Update ${singularName}`,
+    role: 'User',
+    feature: `edit an existing ${singularName} record`,
+    benefit: `I can keep ${tableName.toLowerCase()} information up to date`,
+    acceptanceCriteria: [
+      `Given I am viewing a ${singularName} record`,
+      `When I click the "Edit" button`,
+      `Then I should see an editable form`,
+      `And I can modify the fields and save changes`,
+      `And I should see a success message after saving`
+    ],
+    priority: 'must_have',
+    storyPoints: 2,
+    tableName,
+    moduleName,
+    relatedColumns: columns.filter((c: any) => !c.isPrimaryKey).map((c: any) => c.name)
+  });
+
+  stories.push({
+    id: `US-${tableName}-${startIndex + 3}`,
+    code: `US-${tableName.substring(0, 3).toUpperCase()}-${String(startIndex + 3).padStart(3, '0')}`,
+    title: `Delete ${singularName}`,
+    role: 'User',
+    feature: `delete a ${singularName} record`,
+    benefit: `I can remove outdated or incorrect ${tableName.toLowerCase()}`,
+    acceptanceCriteria: [
+      `Given I am viewing a ${singularName} record`,
+      `When I click the "Delete" button`,
+      `Then I should see a confirmation dialog`,
+      `And when I confirm, the record should be removed`,
+      `And I should see a success message`
+    ],
+    priority: 'should_have',
+    storyPoints: 1,
+    tableName,
+    moduleName,
+    relatedColumns: []
+  });
+
+  // Search story
+  stories.push({
+    id: `US-${tableName}-${startIndex + 4}`,
+    code: `US-${tableName.substring(0, 3).toUpperCase()}-${String(startIndex + 4).padStart(3, '0')}`,
+    title: `Search ${tableName}`,
+    role: 'User',
+    feature: `search for specific ${tableName.toLowerCase()}`,
+    benefit: `I can quickly find the ${singularName} I need`,
+    acceptanceCriteria: [
+      `Given I am on the ${tableName} list page`,
+      `When I type in the search box`,
+      `Then the list should filter in real-time`,
+      `And search should cover name and key fields`,
+      `And I should see matching results highlighted`
+    ],
+    priority: 'should_have',
+    storyPoints: 2,
+    tableName,
+    moduleName,
+    relatedColumns: columns.filter((c: any) => 
+      c.name.toLowerCase().includes('name') || 
+      c.name.toLowerCase().includes('code') ||
+      c.name.toLowerCase().includes('email') ||
+      c.name.toLowerCase().includes('phone')
+    ).map((c: any) => c.name)
+  });
+
+  return stories;
+}
+
+function singularize(tableName: string): string {
+  const singulars: Record<string, string> = {
+    'patients': 'Patient',
+    'appointments': 'Appointment',
+    'users': 'User',
+    'doctors': 'Doctor',
+    'organizations': 'Organization',
+    'branches': 'Branch',
+    'departments': 'Department',
+    'invoices': 'Invoice',
+    'payments': 'Payment',
+    'prescriptions': 'Prescription',
+    'laboratories': 'Laboratory',
+    'pharmacies': 'Pharmacy'
+  };
+  
+  const lower = tableName.toLowerCase();
+  if (singulars[lower]) return singulars[lower];
+  
+  if (lower.endsWith('ies')) return lower.slice(0, -3) + 'y';
+  if (lower.endsWith('ses') || lower.endsWith('xes') || lower.endsWith('ches')) return lower.slice(0, -2);
+  if (lower.endsWith('s')) return lower.slice(0, -1);
+  
+  return tableName;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLUMN INTELLIGENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function analyzeColumns(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]')
+    }));
+  }
+  
+  let totalColumns = 0;
+  let pkColumns = 0;
+  let fkColumns = 0;
+  let nullableColumns = 0;
+  const columnTypes: Record<string, number> = {};
+  
+  for (const table of projectTables) {
+    for (const col of (table.columns || [])) {
+      totalColumns++;
+      if (col.isPrimaryKey) pkColumns++;
+      if (col.isFK || col.name.endsWith('Id')) fkColumns++;
+      if (col.nullable) nullableColumns++;
+      
+      const type = (col.dataType || col.type || 'unknown').toUpperCase();
+      columnTypes[type] = (columnTypes[type] || 0) + 1;
+    }
+  }
+  
+  return NextResponse.json({
+    success: true,
+    statistics: {
+      totalTables: projectTables.length,
+      totalColumns,
+      pkColumns,
+      fkColumns,
+      nullableColumns,
+      columnTypes
+    },
+    itemsProcessed: totalColumns
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RELATIONSHIP DISCOVERY
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function discoverRelationships(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]'),
+      foreignKeys: JSON.parse(t.foreignKeys || '[]')
+    }));
+  }
+  
+  const relationships: any[] = [];
+  const tableNames = new Set(projectTables.map((t: any) => t.tableName.toLowerCase()));
+  
+  for (const table of projectTables) {
+    // From explicit FKs
+    for (const fk of (table.foreignKeys || [])) {
+      relationships.push({
+        from: table.tableName,
+        to: fk.referencesTable || fk.referencedTable,
+        column: fk.column || fk.columnName,
+        type: 'explicit'
+      });
+    }
+    
+    // From naming convention (Id suffix)
+    for (const col of (table.columns || [])) {
+      if (col.name.endsWith('Id') && col.name !== 'Id') {
+        const refTable = col.name.replace(/Id$/, '');
+        if (tableNames.has(refTable.toLowerCase())) {
+          relationships.push({
+            from: table.tableName,
+            to: refTable,
+            column: col.name,
+            type: 'inferred'
+          });
+        }
+      }
+    }
+  }
+  
+  return NextResponse.json({
+    success: true,
+    relationships,
+    statistics: {
+      totalRelationships: relationships.length,
+      explicit: relationships.filter(r => r.type === 'explicit').length,
+      inferred: relationships.filter(r => r.type === 'inferred').length
+    },
+    itemsProcessed: relationships.length
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUSINESS RULES INFERENCE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function inferBusinessRules(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]')
+    }));
+  }
+  
+  const rules: any[] = [];
+  
+  for (const table of projectTables) {
+    // Infer rules from column names
+    for (const col of (table.columns || [])) {
+      const colLower = col.name.toLowerCase();
+      
+      if (colLower.includes('email')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Valid email format required',
+          type: 'validation'
+        });
+      }
+      
+      if (colLower.includes('phone') || colLower.includes('mobile')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Valid phone format required',
+          type: 'validation'
+        });
+      }
+      
+      if (colLower.startsWith('is') || colLower.startsWith('has')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Boolean flag - default false',
+          type: 'default'
+        });
+      }
+      
+      if (colLower.includes('created') || colLower.includes('modified')) {
+        rules.push({
+          table: table.tableName,
+          column: col.name,
+          rule: 'Audit field - auto-managed',
+          type: 'audit'
+        });
+      }
+    }
+  }
+  
+  return NextResponse.json({
+    success: true,
+    rules,
+    statistics: {
+      totalRules: rules.length,
+      validation: rules.filter(r => r.type === 'validation').length,
+      default: rules.filter(r => r.type === 'default').length,
+      audit: rules.filter(r => r.type === 'audit').length
+    },
+    itemsProcessed: rules.length
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEMA HEALTH SCORE
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function scoreSchemaHealth(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]'),
+      foreignKeys: JSON.parse(t.foreignKeys || '[]')
+    }));
+  }
+  
+  let totalScore = 0;
+  const maxScore = 100;
+  const details: string[] = [];
+  
+  // Check for PKs (25 points)
+  const tablesWithPK = projectTables.filter((t: any) => 
+    (t.columns || []).some((c: any) => c.isPrimaryKey)
+  ).length;
+  const pkScore = projectTables.length > 0 ? (tablesWithPK / projectTables.length) * 25 : 0;
+  totalScore += pkScore;
+  if (pkScore < 25) details.push('Some tables missing primary keys');
+  
+  // Check for FKs (25 points)
+  const tablesWithFK = projectTables.filter((t: any) => 
+    (t.foreignKeys || []).length > 0
+  ).length;
+  const fkScore = projectTables.length > 0 ? Math.min((tablesWithFK / projectTables.length) * 25, 25) : 0;
+  totalScore += fkScore;
+  
+  // Check for naming conventions (25 points)
+  const wellNamed = projectTables.filter((t: any) => 
+    /^[A-Z][a-zA-Z0-9_]*$/.test(t.tableName)
+  ).length;
+  const namingScore = projectTables.length > 0 ? (wellNamed / projectTables.length) * 25 : 0;
+  totalScore += namingScore;
+  
+  // Check for audit columns (25 points)
+  const tablesWithAudit = projectTables.filter((t: any) => 
+    (t.columns || []).some((c: any) => 
+      c.name.toLowerCase().includes('created') || 
+      c.name.toLowerCase().includes('modified')
+    )
+  ).length;
+  const auditScore = projectTables.length > 0 ? (tablesWithAudit / projectTables.length) * 25 : 0;
+  totalScore += auditScore;
+  if (auditScore < 25) details.push('Some tables missing audit columns');
+  
+  const healthScore = Math.round(totalScore);
+  
+  return NextResponse.json({
+    success: true,
+    healthScore,
+    maxScore,
+    breakdown: {
+      primaryKeys: Math.round(pkScore),
+      foreignKeys: Math.round(fkScore),
+      naming: Math.round(namingScore),
+      audit: Math.round(auditScore)
+    },
+    recommendations: details,
+    statistics: {
+      totalTables: projectTables.length,
+      tablesWithPK,
+      tablesWithFK,
+      tablesWithAudit
+    },
+    itemsProcessed: projectTables.length
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODULE LINKING
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function linkModules(body: { projectId?: string; tables?: any[] }) {
+  const { projectId, tables = [] } = body;
+  
+  let projectTables = tables;
+  
+  if (projectId && tables.length === 0) {
+    const { db } = await import('@/lib/db');
+    const dbTables = await db.toolkitTable.findMany({
+      where: { projectId }
+    });
+    
+    projectTables = dbTables.map(t => ({
+      tableName: t.tableName,
+      columns: JSON.parse(t.columns || '[]')
+    }));
+  }
+  
+  // Module detection patterns
+  const modulePatterns: Record<string, string[]> = {
+    'Patient': ['patient', 'appointment', 'diagnosis', 'treatment', 'medicalrecord'],
+    'Billing': ['invoice', 'payment', 'claim', 'charge', 'transaction'],
+    'Pharmacy': ['prescription', 'medication', 'drug', 'dispense', 'stock'],
+    'Laboratory': ['test', 'result', 'sample', 'specimen', 'lab'],
+    'User': ['user', 'role', 'permission', 'staff', 'employee'],
+    'Inventory': ['item', 'stock', 'purchase', 'supplier', 'warehouse'],
+    'Schedule': ['schedule', 'shift', 'calendar', 'booking', 'slot'],
+    'Report': ['report', 'analytics', 'dashboard', 'summary']
+  };
+  
+  const linkedModules: Record<string, string[]> = {};
+  
+  for (const table of projectTables) {
+    const tableName = table.tableName.toLowerCase();
+    
+    for (const [module, patterns] of Object.entries(modulePatterns)) {
+      if (patterns.some(p => tableName.includes(p))) {
+        if (!linkedModules[module]) linkedModules[module] = [];
+        linkedModules[module].push(table.tableName);
+        break;
+      }
+    }
+  }
+  
+  const totalLinked = Object.values(linkedModules).flat().length;
+  
+  return NextResponse.json({
+    success: true,
+    modules: linkedModules,
+    statistics: {
+      totalTables: projectTables.length,
+      linkedTables: totalLinked,
+      modulesFound: Object.keys(linkedModules).length
+    },
+    itemsProcessed: totalLinked
+  });
 }

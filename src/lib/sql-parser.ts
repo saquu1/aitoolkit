@@ -712,33 +712,3 @@ export function quickParseTableNames(sql: string): string[] {
 
   return tableNames;
 }
-
-// =============================================================================
-// SQLParser Class Wrapper (for compatibility)
-// =============================================================================
-
-/**
- * SQLParser class wrapper for OOP-style usage
- * Provides parse() method that delegates to parseSqlServer()
- */
-export class SQLParser {
-  private sql: string;
-
-  constructor(sql: string) {
-    this.sql = sql;
-  }
-
-  /**
-   * Parse the SQL content
-   */
-  parse(): ParseResult {
-    return parseSqlServer(this.sql);
-  }
-
-  /**
-   * Get table names only (lightweight)
-   */
-  getTableNames(): string[] {
-    return quickParseTableNames(this.sql);
-  }
-}

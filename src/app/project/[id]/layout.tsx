@@ -7,10 +7,23 @@ import { SchemaProvider } from '@/hooks/useSchema'
 import { Badge } from '@/components/ui/badge'
 import {
   Database,
+  FileCode,
+  Table2,
+  Code,
+  FileText,
+  Key,
+  Layers,
+  Settings,
   ChevronRight,
+  Upload,
+  Brain,
+  GitBranch,
+  BarChart3,
+  BookOpen,
+  Building2,
+  Play,
+  MessageSquare
 } from 'lucide-react'
-// ⭐ Use Route Registry - single source of truth
-import { PROJECT_NAV_ITEMS, PROTECTED_ROUTES } from '@/config/routes'
 
 interface ProjectInfo {
   id: string
@@ -22,15 +35,30 @@ interface ProjectInfo {
   icon: string
   status: string
   _count?: {
-    ToolkitFile: number
-    ToolkitTable: number
-    ToolkitProcedure: number
-    CSHTMLAnalysisCache: number
+    files: number
+    tables: number
+    procedures: number
+    cshtmlViews: number
   }
 }
 
-// ⭐ NAV_ITEMS come from Route Registry - no more drift!
-const NAV_ITEMS = PROJECT_NAV_ITEMS
+const NAV_ITEMS = [
+  { key: 'status', label: 'Status', icon: BarChart3, path: '' },
+  { key: 'upload', label: 'Upload Files', icon: Upload, path: '/upload' },
+  { key: 'files', label: 'Files', icon: FileCode, path: '/files' },
+  { key: 'tables', label: 'Tables', icon: Table2, path: '/tables' },
+  { key: 'procedures', label: 'Procedures', icon: Code, path: '/procedures' },
+  { key: 'views', label: 'CSHTML Views', icon: FileText, path: '/views' },
+  { key: 'fk-resolution', label: 'FK Resolution', icon: Key, path: '/fk-resolution' },
+  { key: 'schema-apply', label: 'Schema Apply', icon: Play, path: '/schema-apply' },
+  { key: 'intelligence', label: 'Intelligence', icon: Brain, path: '/intelligence' },
+  { key: 'modules', label: 'Modules', icon: GitBranch, path: '/modules' },
+  { key: 'organization', label: 'Organization', icon: Building2, path: '/organization' },
+  { key: 'prisma', label: 'Prisma Schema', icon: Layers, path: '/prisma' },
+  { key: 'learning', label: 'Learning', icon: BookOpen, path: '/learning' },
+  { key: 'prompts', label: 'Prompts', icon: MessageSquare, path: '/prompts' },
+  { key: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
+]
 
 function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
   const params = useParams()
@@ -143,11 +171,10 @@ function ProjectLayoutContent({ children }: { children: React.ReactNode }) {
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon
             const isActive = activeKey === item.key
-            // ⭐ Fixed relation names to match Prisma schema
-            const count = item.key === 'files' ? project._count?.ToolkitFile :
-                         item.key === 'tables' ? project._count?.ToolkitTable :
-                         item.key === 'procedures' ? project._count?.ToolkitProcedure :
-                         item.key === 'views' ? project._count?.CSHTMLAnalysisCache : undefined
+            const count = item.key === 'files' ? project._count?.files :
+                         item.key === 'tables' ? project._count?.tables :
+                         item.key === 'procedures' ? project._count?.procedures :
+                         item.key === 'views' ? project._count?.cshtmlViews : undefined
 
             return (
               <button

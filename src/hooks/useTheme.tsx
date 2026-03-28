@@ -461,14 +461,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext)
-  // Return default theme when used outside provider (SSR/build safety)
   if (!context) {
-    return {
-      colorScheme: 'midnight' as ColorScheme,
-      setColorScheme: () => {},
-      colors: COLOR_SCHEMES.midnight,
-      mounted: false
-    }
+    throw new Error('useTheme must be used within a ThemeProvider')
   }
   return context
 }

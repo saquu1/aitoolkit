@@ -6,7 +6,6 @@ import type { LinkedModule } from '@/types/his-modules'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { NavCard } from '@/components/CopyableLink'
 import { 
   Database, 
   Brain, 
@@ -317,30 +316,44 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-4">
-        <NavCard
-          title="Upload SQL Schema"
-          description="Parse DDL, procedures, views, and CSHTML"
-          icon={<Upload className="w-8 h-8 mb-3" style={{ color: colors.accent }} />}
-          url="/?tab=schema-toolkit"
-          color={colors.accent}
-          onClick={() => onNavigate?.('upload')}
-        />
-        <NavCard
-          title="Run Pipeline"
-          description="Execute full analysis or quick scan"
-          icon={<GitBranch className="w-8 h-8 mb-3" style={{ color: colors.primary }} />}
-          url="/?tab=pipeline"
-          color={colors.primary}
-          onClick={() => onNavigate?.('pipeline')}
-        />
-        <NavCard
-          title="View Compliance"
-          description="PII/PHI detection and data sensitivity"
-          icon={<Shield className="w-8 h-8 mb-3" style={{ color: colors.success }} />}
-          url="/?tab=intelligence"
-          color={colors.success}
-          onClick={() => onNavigate?.('intelligence')}
-        />
+        {[
+          { 
+            title: 'Upload SQL Schema', 
+            desc: 'Parse DDL, procedures, views, and CSHTML',
+            icon: Upload,
+            tab: 'upload',
+            color: colors.accent
+          },
+          { 
+            title: 'Run Pipeline', 
+            desc: 'Execute full analysis or quick scan',
+            icon: GitBranch,
+            tab: 'pipeline',
+            color: colors.primary
+          },
+          { 
+            title: 'View Compliance', 
+            desc: 'PII/PHI detection and data sensitivity',
+            icon: Shield,
+            tab: 'intelligence',
+            color: colors.success
+          },
+        ].map((action) => (
+          <div 
+            key={action.title}
+            className="rounded-xl border p-6 cursor-pointer transition-all hover:scale-[1.02]"
+            style={{ 
+              background: `linear-gradient(to bottom right, ${alpha(action.color, 20)}, ${alpha(action.color, 10)})`,
+              borderColor: alpha(action.color, 30),
+            }}
+            onClick={() => onNavigate?.(action.tab)}
+          >
+            <action.icon className="w-8 h-8 mb-3" style={{ color: action.color }} />
+            <h3 className="font-semibold" style={{ color: colors.text }}>{action.title}</h3>
+            <p className="text-sm mt-1" style={{ color: colors.textMuted }}>{action.desc}</p>
+            <ArrowRight className="w-4 h-4 mt-3" style={{ color: action.color }} />
+          </div>
+        ))}
       </div>
 
       {/* Getting Started - only show if no tables in DB */}

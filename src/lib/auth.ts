@@ -1,10 +1,8 @@
 import NextAuth from "next-auth"
+import { PrismaAdapter } from "@auth/prisma-adapter"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { prisma } from "./db"
-
-// Note: PrismaAdapter removed - not needed for Credentials + JWT strategy
-// We handle user lookup manually in the authorize function
 
 // Extend the session and user types
 declare module "next-auth" {
@@ -38,9 +36,7 @@ declare module "@auth/core/jwt" {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // Note: PrismaAdapter removed - not needed for Credentials + JWT strategy
-  trustHost: true,
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'dev-secret-key-change-in-production',
+  adapter: PrismaAdapter(prisma),
   session: { 
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -64,9 +60,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const user = await prisma.user.findUnique({
           where: { email },
           include: {
-            UserCompany: {
+            userCompanies: {
               where: { status: 'active' },
-              include: { Company: true },
+              include: { company: true },
               take: 1
             }
           }
@@ -95,7 +91,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         })
 
         // Get primary company
-        const primaryCompany = user.UserCompany[0]
+        const primaryCompany = user.userCompanies[0]
 
         return {
           id: user.id,

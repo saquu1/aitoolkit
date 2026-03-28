@@ -6,15 +6,11 @@ import dynamic from 'next/dynamic'
 import { ThemeProvider, useTheme } from '@/hooks/useTheme'
 import { SchemaProvider, useSchema } from '@/hooks/useSchema'
 import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
-import { ProjectScopeProvider } from '@/contexts/ProjectScopeContext'
-import { ProjectScopeHeader } from '@/components/project/ProjectScopeHeader'
 import { Clock } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
 import { MemoryToggleButton } from '@/components/MemoryBreakdown'
 import { ThreadStatusBadge } from '@/components/ThreadStatusBadge'
 import { ThreadBreakdown } from '@/components/ThreadBreakdown'
-import { ErrorMonitor } from '@/components/ErrorMonitor'
-import { VersionTracker } from '@/components/VersionTracker'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -57,115 +53,16 @@ import { ModulesTab } from '@/components/tabs/ModulesTab'
 import { PipelineTab } from '@/components/tabs/PipelineTab'
 import { SettingsTab } from '@/components/tabs/SettingsTab'
 import { FKResolutionTab } from '@/components/tabs/FKResolutionTab'
+import { IntelligenceTab } from '@/components/tabs/IntelligenceTab'
 import { MultiTenantTab } from '@/components/tabs/MultiTenantTab'
 import { LegacyMigrationTab } from '@/components/tabs/LegacyMigrationTab'
+import { ProjectIntelligenceTab } from '@/components/tabs/ProjectIntelligenceTab'
 import { UniversalUploadTab } from '@/components/tabs/UniversalUploadTab'
 import { IntelligenceBankTab } from '@/components/tabs/IntelligenceBankTab'
 import { LivingDataDictionaryTab } from '@/components/tabs/LivingDataDictionaryTab'
 import { ProjectManagerTab } from '@/components/tabs/ProjectManagerTab'
-import { ApiManagementTab } from '@/components/tabs/ApiManagementTab'
-import { ErrorPatternDashboardTab } from '@/components/tabs/ErrorPatternDashboardTab'
-// =============================================================================
-// HEAVY COMPONENTS - Lazy Loaded for Memory Optimization
-// These components are large (1000+ lines) and loaded on-demand only
-// =============================================================================
-
-// ContractValidatorTab - loaded on demand
-const ContractValidatorTab = dynamic(
-  () => import('@/components/tabs/ContractValidatorTab').then(m => m.ContractValidatorTab),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Contract Validator...</p>
-        </div>
-      </div>
-    ),
-  }
-)
-
-// ChatLogTab - 4,178 lines - loaded only when user navigates to chat-logs
-const ChatLogTab = dynamic(
-  () => import('@/components/tabs/ChatLogTab').then(m => m.ChatLogTab),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Chat Logs...</p>
-        </div>
-      </div>
-    ),
-  }
-)
-
-// FileManagerTab - 1,434 lines - loaded only when user navigates to file-manager
-const FileManagerTab = dynamic(
-  () => import('@/components/tabs/FileManagerTab'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading File Manager...</p>
-        </div>
-      </div>
-    ),
-  }
-)
-
-// IntelligenceTab - 1,058 lines - loaded on demand
-const IntelligenceTab = dynamic(
-  () => import('@/components/tabs/IntelligenceTab').then(m => m.IntelligenceTab),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Intelligence...</p>
-        </div>
-      </div>
-    ),
-  }
-)
-
-// ProjectIntelligenceTab - 1,234 lines - loaded on demand
-const ProjectIntelligenceTab = dynamic(
-  () => import('@/components/tabs/ProjectIntelligenceTab').then(m => m.ProjectIntelligenceTab),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Project Intelligence...</p>
-        </div>
-      </div>
-    ),
-  }
-)
-
-// AutoloadRegistryTab - loaded on demand
-const AutoloadRegistryTab = dynamic(
-  () => import('@/components/tabs/AutoloadRegistryTab').then(m => m.AutoloadRegistryTab),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading Autoload Registry...</p>
-        </div>
-      </div>
-    ),
-  }
-)
-import { Layers, BookOpen, FolderSync, Activity, MessageSquare, ToggleLeft, Bug, ScanSearch } from 'lucide-react'
+import FileManagerTab from '@/components/tabs/FileManagerTab'
+import { Layers, BookOpen, FolderSync } from 'lucide-react'
 
 // Navigation configuration with URL slugs
 const NAV_ITEMS = [
@@ -183,11 +80,6 @@ const NAV_ITEMS = [
   { id: 'project-intel', slug: 'project-intelligence', icon: ClipboardList, label: 'Project Intelligence', badge: 'Phase 5', badgeColorKey: 'primary' },
   { id: 'pipeline', slug: 'pipeline', icon: GitBranch, label: 'Pipeline' },
   { id: 'multi-tenant', slug: 'multi-tenant', icon: Shield, label: 'Multi-Tenant', badge: 'Step 5', badgeColorKey: 'warning' },
-  { id: 'api-management', slug: 'api-management', icon: Activity, label: 'API Management', badge: 'Debug', badgeColorKey: 'warning' },
-  { id: 'error-patterns', slug: 'error-patterns', icon: Bug, label: 'Error Patterns', badge: 'Analysis', badgeColorKey: 'warning' },
-  { id: 'contract-validator', slug: 'contract-validator', icon: ScanSearch, label: 'Contract Validator', badge: 'New', badgeColorKey: 'success' },
-  { id: 'chat-logs', slug: 'chat-logs', icon: MessageSquare, label: 'Chat Logs', badge: 'History', badgeColorKey: 'primary' },
-  { id: 'autoload', slug: 'autoload', icon: ToggleLeft, label: 'Autoload Config', badge: 'New', badgeColorKey: 'success' },
   { id: 'settings', slug: 'settings', icon: Settings, label: 'Settings' },
 ]
 
@@ -301,9 +193,6 @@ function AppContent() {
               </p>
             </div>
           </div>
-          {/* Project Scope Selector */}
-          <ProjectScopeHeader variant="header" showSettings />
-
           <div className="flex items-center gap-3">
             {/* Session Active Time */}
             <div 
@@ -324,8 +213,6 @@ function AppContent() {
                 System Ready
               </span>
             </div>
-            {/* Version Tracker */}
-            <VersionTracker />
             {/* Thread Status Badge */}
             <ThreadStatusBadge onClick={() => setShowThreadBreakdown(true)} />
             {/* Memory Breakdown Toggle */}
@@ -471,11 +358,6 @@ function AppContent() {
               {activeTab === 'project-intel' && <ProjectIntelligenceTab />}
               {activeTab === 'multi-tenant' && <MultiTenantTab onNavigate={handleNavigate} />}
               {activeTab === 'pipeline' && <PipelineTab />}
-              {activeTab === 'api-management' && <ApiManagementTab />}
-              {activeTab === 'chat-logs' && <ChatLogTab />}
-              {activeTab === 'autoload' && <AutoloadRegistryTab />}
-              {activeTab === 'error-patterns' && <ErrorPatternDashboardTab onNavigate={handleNavigate} />}
-              {activeTab === 'contract-validator' && <ContractValidatorTab />}
               {activeTab === 'settings' && <SettingsTab />}
               {activeTab === 'file-manager' && <FileManagerTab onNavigate={handleNavigate} />}
             </div>
@@ -498,12 +380,9 @@ export default function Home() {
   return (
     <ThemeProvider>
       <SchemaProvider>
-        <ProjectScopeProvider>
-          <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-            <AppContent />
-            <ErrorMonitor />
-          </Suspense>
-        </ProjectScopeProvider>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+          <AppContent />
+        </Suspense>
       </SchemaProvider>
     </ThemeProvider>
   )

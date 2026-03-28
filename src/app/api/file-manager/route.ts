@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       const project = await prisma.toolkitProject.findUnique({
         where: { id: projectId },
         include: {
-          ToolkitFile: true
+          files: true
         }
       })
 
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       const zip = new JSZip()
 
       // Add each file to the zip
-      for (const file of project.ToolkitFile) {
+      for (const file of project.files) {
         const folder = zip.folder(file.filePath || '')
         if (folder) {
           folder.file(file.fileName, file.content || '')
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         description: project.description,
         softwareType: project.softwareType,
         exportedAt: new Date().toISOString(),
-        fileCount: project.ToolkitFile.length
+        fileCount: project.files.length
       }, null, 2))
 
       const zipContent = await zip.generateAsync({ type: 'base64' })

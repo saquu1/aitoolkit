@@ -6,28 +6,6 @@
 import { z } from 'zod';
 
 // -----------------------------------------------------------------------------
-// Validation Helper
-// -----------------------------------------------------------------------------
-
-export function validateWithZod<T extends z.ZodType<any, any, any>>(
-  schema: T,
-  data: unknown
-): { success: true; data: z.infer<T> } | { success: false; errors: string[] } {
-  try {
-    const result = schema.parse(data);
-    return { success: true, data: result };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        success: false,
-        errors: error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
-      };
-    }
-    return { success: false, errors: ['Validation failed'] };
-  }
-}
-
-// -----------------------------------------------------------------------------
 // Building Schemas
 // -----------------------------------------------------------------------------
 
@@ -189,19 +167,3 @@ export type RoomCreate = z.infer<typeof roomCreateSchema>;
 export type RoomUpdate = z.infer<typeof roomUpdateSchema>;
 export type RoomQuery = z.infer<typeof roomQuerySchema>;
 export type RoomType = z.infer<typeof roomTypeSchema>;
-
-// -----------------------------------------------------------------------------
-// Aliases for Route Compatibility
-// -----------------------------------------------------------------------------
-
-export const CreateBuildingSchema = buildingCreateSchema;
-export const UpdateBuildingSchema = buildingUpdateSchema;
-export const QueryBuildingSchema = buildingQuerySchema;
-
-export const CreateFloorSchema = floorCreateSchema;
-export const UpdateFloorSchema = floorUpdateSchema;
-export const QueryFloorSchema = floorQuerySchema;
-
-export const CreateRoomSchema = roomCreateSchema;
-export const UpdateRoomSchema = roomUpdateSchema;
-export const QueryRoomSchema = roomQuerySchema;

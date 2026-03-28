@@ -2,7 +2,6 @@
 
 import { useTheme } from '@/hooks/useTheme'
 import { useSchema } from '@/hooks/useSchema'
-import { useUISettings } from '@/hooks/useUISettings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,19 +18,11 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
-  Info,
-  Link,
-  MousePointer,
-  Clipboard
+  Info
 } from 'lucide-react'
 
 export function SettingsTab() {
   const { colors } = useTheme()
-  const { 
-    settings: uiSettings, 
-    toggleSetting, 
-    resetSettings 
-  } = useUISettings()
   // Connect to shared schema state
   const { 
     parseResult, 
@@ -464,196 +455,81 @@ export function SettingsTab() {
 
         {/* Developer Settings */}
         <TabsContent value="developer">
-          <div className="space-y-4">
-            {/* Copyable Links Settings */}
-            <div 
-              className="rounded-lg border p-6"
-              style={{ 
-                backgroundColor: alpha(colors.card, 50),
-                borderColor: colors.border 
-              }}
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
-                  <Link className="w-5 h-5" style={{ color: colors.primary }} />
-                  Copyable Links
-                </h3>
-                <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
-                  Enable click-to-copy functionality for navigation links and cards
-                </p>
-              </div>
-              
+          <div 
+            className="rounded-lg border p-6"
+            style={{ 
+              backgroundColor: alpha(colors.card, 50),
+              borderColor: colors.border 
+            }}
+          >
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+                <Code className="w-5 h-5" style={{ color: colors.accentLight }} />
+                Developer Options
+              </h3>
+              <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
+                Advanced settings for developers
+              </p>
+            </div>
+            <div className="space-y-4">
               <div 
-                className="p-4 rounded-lg mb-4"
+                className="p-4 rounded-lg"
                 style={{ 
-                  backgroundColor: alpha(colors.primary, 10),
-                  border: `1px solid ${alpha(colors.primary, 20)}`
+                  backgroundColor: alpha(colors.accent, 10),
+                  border: `1px solid ${alpha(colors.accent, 20)}`
                 }}
               >
                 <div className="flex items-start gap-3">
-                  <MousePointer className="w-5 h-5 mt-0.5" style={{ color: colors.primary }} />
+                  <Info className="w-5 h-5 mt-0.5" style={{ color: colors.accent }} />
                   <div>
                     <span className="font-medium" style={{ color: colors.text }}>
-                      How it works
+                      API Access
                     </span>
                     <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
-                      When enabled, hovering over navigation cards and links will show a copy button. 
-                      Click it to copy the full URL to your clipboard for sharing or bookmarking.
+                      All features are available via REST API. See documentation for endpoints.
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <div 
-                  className="flex items-center justify-between p-3 rounded-lg"
-                  style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Link className="w-4 h-4" style={{ color: colors.primary }} />
+                {[
+                  { title: 'Debug mode', desc: 'Show detailed error messages and logs' },
+                  { title: 'Export API logs', desc: 'Download detailed API request/response logs' },
+                ].map((item) => (
+                  <div 
+                    key={item.title}
+                    className="flex items-center justify-between p-3 rounded-lg"
+                    style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
+                  >
                     <div>
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>
-                        Enable Copyable Links
-                      </span>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>
-                        Show copy button on hover for all navigation cards
-                      </p>
+                      <span className="text-sm font-medium" style={{ color: colors.text }}>{item.title}</span>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>{item.desc}</p>
                     </div>
+                    <Switch />
                   </div>
-                  <Switch 
-                    checked={uiSettings.copyableLinksEnabled}
-                    onCheckedChange={() => toggleSetting('copyableLinksEnabled')}
-                  />
-                </div>
-
-                <div 
-                  className="flex items-center justify-between p-3 rounded-lg"
-                  style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Clipboard className="w-4 h-4" style={{ color: colors.accent }} />
-                    <div>
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>
-                        Show URL on Hover
-                      </span>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>
-                        Display the full URL next to the copy button
-                      </p>
-                    </div>
-                  </div>
-                  <Switch 
-                    checked={uiSettings.showUrlOnHover}
-                    onCheckedChange={() => toggleSetting('showUrlOnHover')}
-                    disabled={!uiSettings.copyableLinksEnabled}
-                  />
-                </div>
-
-                <div 
-                  className="flex items-center justify-between p-3 rounded-lg"
-                  style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
-                >
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-4 h-4" style={{ color: colors.success }} />
-                    <div>
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>
-                        Copy Notification
-                      </span>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>
-                        Show "Copied!" feedback when URL is copied
-                      </p>
-                    </div>
-                  </div>
-                  <Switch 
-                    checked={uiSettings.copyToClipboardNotification}
-                    onCheckedChange={() => toggleSetting('copyToClipboardNotification')}
-                    disabled={!uiSettings.copyableLinksEnabled}
-                  />
-                </div>
+                ))}
               </div>
-            </div>
 
-            {/* Developer Options */}
-            <div 
-              className="rounded-lg border p-6"
-              style={{ 
-                backgroundColor: alpha(colors.card, 50),
-                borderColor: colors.border 
-              }}
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
-                  <Code className="w-5 h-5" style={{ color: colors.accentLight }} />
-                  Developer Options
-                </h3>
-                <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
-                  Advanced settings for developers
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div 
-                  className="p-4 rounded-lg"
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline"
                   style={{ 
-                    backgroundColor: alpha(colors.accent, 10),
-                    border: `1px solid ${alpha(colors.accent, 20)}`
+                    borderColor: colors.border,
+                    color: colors.text 
                   }}
                 >
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 mt-0.5" style={{ color: colors.accent }} />
-                    <div>
-                      <span className="font-medium" style={{ color: colors.text }}>
-                        API Access
-                      </span>
-                      <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
-                        All features are available via REST API. See documentation for endpoints.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div 
-                    className="flex items-center justify-between p-3 rounded-lg"
-                    style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
-                  >
-                    <div>
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>Debug mode</span>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>Show detailed error messages and logs</p>
-                    </div>
-                    <Switch />
-                  </div>
-                  <div 
-                    className="flex items-center justify-between p-3 rounded-lg"
-                    style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
-                  >
-                    <div>
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>Export API logs</span>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>Download detailed API request/response logs</p>
-                    </div>
-                    <Switch />
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline"
-                    style={{ 
-                      borderColor: colors.border,
-                      color: colors.text 
-                    }}
-                  >
-                    View API Docs
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    style={{ 
-                      borderColor: colors.border,
-                      color: colors.text 
-                    }}
-                    onClick={resetSettings}
-                  >
-                    Reset UI Settings
-                  </Button>
-                </div>
+                  View API Docs
+                </Button>
+                <Button 
+                  variant="outline"
+                  style={{ 
+                    borderColor: colors.border,
+                    color: colors.text 
+                  }}
+                >
+                  Export Logs
+                </Button>
               </div>
             </div>
           </div>

@@ -1,8 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
-import { useTheme } from '@/hooks/useTheme'
+import { useState, useEffect } from 'react'
 import { 
   MemoryStick, 
   RefreshCw, 
@@ -13,12 +11,7 @@ import {
   CheckCircle,
   AlertCircle,
   Info,
-  X,
-  Activity,
-  Database,
-  HardDrive,
-  Cpu,
-  Zap
+  X
 } from 'lucide-react'
 
 interface MemoryModule {
@@ -61,20 +54,12 @@ interface MemoryBreakdownProps {
 }
 
 export function MemoryBreakdown({ isOpen, onClose }: MemoryBreakdownProps) {
-  const { colors } = useTheme()
   const [stats, setStats] = useState<MemoryStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [clearing, setClearing] = useState(false)
-  const [expandedSection, setExpandedSection] = useState<string>('overview')
-  const [mounted, setMounted] = useState(false)
 
-  // Ensure we're mounted before rendering portal
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const fetchStats = useCallback(async () => {
+  const fetchStats = async () => {
     setLoading(true)
     setError(null)
     try {
@@ -90,7 +75,7 @@ export function MemoryBreakdown({ isOpen, onClose }: MemoryBreakdownProps) {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }
 
   const clearCache = async () => {
     if (!confirm('This will clear the .next cache and restart the server. Continue?')) return
@@ -105,6 +90,7 @@ export function MemoryBreakdown({ isOpen, onClose }: MemoryBreakdownProps) {
       const data = await res.json()
       if (data.success) {
         alert('Cache cleared! Server will restart...')
+        // Trigger a page reload after a short delay
         setTimeout(() => window.location.reload(), 2000)
       } else {
         alert('Failed to clear cache: ' + data.error)
@@ -120,368 +106,209 @@ export function MemoryBreakdown({ isOpen, onClose }: MemoryBreakdownProps) {
     if (isOpen) {
       fetchStats()
     }
-  }, [isOpen, fetchStats])
+  }, [isOpen])
 
-  if (!isOpen || !mounted) return null
-
-  const getStatusInfo = () => {
-    if (!stats) return { color: colors.textMuted, icon: Activity, label: 'Unknown' }
-    if (stats.isHighMemory) return { color: colors.error, icon: AlertTriangle, label: 'High Usage' }
-    if (stats.system.usagePercent > 70) return { color: colors.warning, icon: AlertCircle, label: 'Warning' }
-    return { color: colors.success, icon: CheckCircle, label: 'Healthy' }
-  }
-
-  const statusInfo = getStatusInfo()
-  const StatusIcon = statusInfo.icon
-
-  const alpha = (color: string, opacity: number) =>
-    `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+  if (!isOpen) return null
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'clean': return <CheckCircle className="w-4 h-4" style={{ color: colors.success }} />
-      case 'warning': return <AlertTriangle className="w-4 h-4" style={{ color: colors.warning }} />
-      case 'acceptable': return <Info className="w-4 h-4" style={{ color: colors.primary }} />
-      default: return <AlertCircle className="w-4 h-4" style={{ color: colors.textMuted }} />
+      case 'clean': return <CheckCircle className="w-4 h-4 text-green-500" />
+      case 'warning': return <AlertTriangle className="w-4 h-4 text-yellow-500" />
+      case 'acceptable': return <Info className="w-4 h-4 text-blue-500" />
+      default: return <AlertCircle className="w-4 h-4 text-gray-500" />
     }
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 backdrop-blur-sm"
-        style={{ backgroundColor: alpha(colors.bg, 80) }}
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div
-        className="relative w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col"
-        style={{
-          backgroundColor: colors.card,
-          border: `1px solid ${colors.border}`
-        }}
-      >
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden border border-slate-700">
         {/* Header */}
-        <div
-          className="flex items-center justify-between p-4 border-b"
-          style={{ borderColor: alpha(colors.border, 50) }}
-        >
+        <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800">
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: alpha(statusInfo.color, 20) }}
-            >
-              <StatusIcon className="w-5 h-5" style={{ color: statusInfo.color }} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold" style={{ color: colors.text }}>
-                Memory Breakdown
-              </h2>
-              <p className="text-xs" style={{ color: colors.textMuted }}>
-                {stats ? `~${stats.totalNodeMemoryMB} MB Total` : 'System memory monitoring'}
-              </p>
-            </div>
+            <MemoryStick className="w-5 h-5 text-purple-400" />
+            <h2 className="text-lg font-semibold text-white">
+              Memory Breakdown
+              {stats && <span className="text-sm font-normal text-slate-400 ml-2">
+                (~{stats.totalNodeMemoryMB} MB Total)
+              </span>}
+            </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Close button - more prominent */}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-red-600 text-slate-300 hover:text-white transition-all border border-slate-600 hover:border-red-500 flex items-center gap-2 font-medium"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+              <span className="text-sm">Close</span>
+            </button>
+            {/* Refresh button */}
             <button
               onClick={fetchStats}
               disabled={loading}
-              className="p-2 rounded-lg transition-colors"
-              style={{ color: colors.textMuted }}
+              className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg transition-colors"
-              style={{ color: colors.textMuted }}
-            >
-              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto flex-1">
-          {loading && !stats ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
+        <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
+          {loading && !stats && (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-purple-400" />
+              <span className="ml-2 text-slate-400">Loading memory stats...</span>
             </div>
-          ) : error ? (
-            <div
-              className="p-4 rounded-lg border"
-              style={{
-                backgroundColor: alpha(colors.error, 10),
-                borderColor: alpha(colors.error, 30)
-              }}
-            >
-              <p style={{ color: colors.error }}>{error}</p>
+          )}
+
+          {error && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-4">
+              <p className="text-red-400">{error}</p>
             </div>
-          ) : stats ? (
-            <div className="space-y-4">
-              {/* Overview Stats */}
-              <div
-                className="p-4 rounded-lg"
-                style={{ backgroundColor: alpha(colors.bgSecondary, 30) }}
-              >
-                <button
-                  className="w-full flex items-center justify-between"
-                  onClick={() => setExpandedSection(expandedSection === 'overview' ? '' : 'overview')}
-                >
-                  <span className="font-semibold" style={{ color: colors.text }}>
-                    System Memory Overview
-                  </span>
-                  {expandedSection === 'overview' ? (
-                    <ChevronUp className="w-4 h-4" style={{ color: colors.textMuted }} />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" style={{ color: colors.textMuted }} />
-                  )}
-                </button>
+          )}
 
-                {expandedSection === 'overview' && (
-                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-3 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 10) }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <HardDrive className="w-4 h-4" style={{ color: colors.primary }} />
-                        <span className="text-xs" style={{ color: colors.textMuted }}>Total</span>
-                      </div>
-                      <div className="text-2xl font-bold" style={{ color: colors.primary }}>
-                        {stats.system.total} MB
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-lg" style={{ backgroundColor: alpha(colors.warning, 10) }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Database className="w-4 h-4" style={{ color: colors.warning }} />
-                        <span className="text-xs" style={{ color: colors.textMuted }}>Used</span>
-                      </div>
-                      <div className="text-2xl font-bold" style={{ color: colors.warning }}>
-                        {stats.system.used} MB
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-lg" style={{ backgroundColor: alpha(colors.success, 10) }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Activity className="w-4 h-4" style={{ color: colors.success }} />
-                        <span className="text-xs" style={{ color: colors.textMuted }}>Free</span>
-                      </div>
-                      <div className="text-2xl font-bold" style={{ color: colors.success }}>
-                        {stats.system.free} MB
-                      </div>
-                    </div>
-
-                    <div className="p-3 rounded-lg" style={{ backgroundColor: alpha(statusInfo.color, 10) }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Cpu className="w-4 h-4" style={{ color: statusInfo.color }} />
-                        <span className="text-xs" style={{ color: colors.textMuted }}>Usage</span>
-                      </div>
-                      <div className="text-2xl font-bold" style={{ color: statusInfo.color }}>
-                        {stats.system.usagePercent}%
-                      </div>
-                      <div className="text-xs" style={{ color: colors.textMuted }}>
-                        {statusInfo.label}
-                      </div>
+          {stats && (
+            <>
+              {/* System Memory */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">System Memory</h3>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="bg-slate-800 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">Total</div>
+                    <div className="text-xl font-bold text-white">{stats.system.total} MB</div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">Used</div>
+                    <div className="text-xl font-bold text-orange-400">{stats.system.used} MB</div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">Free</div>
+                    <div className="text-xl font-bold text-green-400">{stats.system.free} MB</div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3">
+                    <div className="text-xs text-slate-400">Usage</div>
+                    <div className={`text-xl font-bold ${stats.system.usagePercent > 70 ? 'text-red-400' : 'text-blue-400'}`}>
+                      {stats.system.usagePercent}%
                     </div>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Module Breakdown */}
-              <div
-                className="p-4 rounded-lg"
-                style={{ backgroundColor: alpha(colors.bgSecondary, 30) }}
-              >
-                <button
-                  className="w-full flex items-center justify-between"
-                  onClick={() => setExpandedSection(expandedSection === 'modules' ? '' : 'modules')}
-                >
-                  <span className="font-semibold" style={{ color: colors.text }}>
-                    Module Breakdown
-                  </span>
-                  {expandedSection === 'modules' ? (
-                    <ChevronUp className="w-4 h-4" style={{ color: colors.textMuted }} />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" style={{ color: colors.textMuted }} />
-                  )}
-                </button>
-
-                {expandedSection === 'modules' && (
-                  <div className="mt-4 font-mono text-sm">
-                    <div
-                      className="border rounded-lg p-3 space-y-2"
-                      style={{ borderColor: alpha(colors.border, 50) }}
-                    >
-                      {stats.modules.map((mod, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <div 
-                            className="h-3 rounded"
-                            style={{ 
-                              width: `${Math.min(mod.percentage * 2.5, 100)}%`,
-                              backgroundColor: mod.color,
-                              minWidth: '10px'
-                            }}
-                          />
-                          <span style={{ color: colors.textMuted }}>
-                            └── {mod.name} ({mod.size})
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+              {/* Memory Breakdown Visual */}
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Module Breakdown</h3>
+                <div className="bg-slate-800 rounded-lg p-4 font-mono text-sm">
+                  <div className="border border-slate-600 rounded p-3 space-y-2">
+                    {stats.modules.map((mod, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <div 
+                          className="h-3 rounded"
+                          style={{ 
+                            width: `${mod.percentage * 2.5}%`,
+                            backgroundColor: mod.color,
+                            minWidth: '10px'
+                          }}
+                        />
+                        <span className="text-slate-400">
+                          └── {mod.name} ({mod.size})
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Leak Detection */}
-              <div
-                className="p-4 rounded-lg"
-                style={{ backgroundColor: alpha(colors.bgSecondary, 30) }}
-              >
-                <button
-                  className="w-full flex items-center justify-between"
-                  onClick={() => setExpandedSection(expandedSection === 'leaks' ? '' : 'leaks')}
-                >
-                  <span className="font-semibold" style={{ color: colors.text }}>
-                    Memory Leak Detection
-                  </span>
-                  {expandedSection === 'leaks' ? (
-                    <ChevronUp className="w-4 h-4" style={{ color: colors.textMuted }} />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" style={{ color: colors.textMuted }} />
-                  )}
-                </button>
-
-                {expandedSection === 'leaks' && (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ color: colors.textMuted }}>
-                          <th className="text-left p-2">Pattern</th>
-                          <th className="text-center p-2">Status</th>
-                          <th className="text-left p-2">Notes</th>
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Memory Leak Detection</h3>
+                <div className="bg-slate-800 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-700">
+                        <th className="text-left p-3 text-slate-400 font-medium">Pattern</th>
+                        <th className="text-center p-3 text-slate-400 font-medium">Status</th>
+                        <th className="text-left p-3 text-slate-400 font-medium">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.leakPatterns.map((pattern, i) => (
+                        <tr key={i} className="border-b border-slate-700/50">
+                          <td className="p-3 text-white">{pattern.pattern}</td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {getStatusIcon(pattern.status)}
+                              <span className="capitalize text-xs text-slate-400">{pattern.status}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-slate-400 text-xs">{pattern.notes}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {stats.leakPatterns.map((pattern, i) => (
-                          <tr
-                            key={i}
-                            className="border-t"
-                            style={{ borderColor: alpha(colors.border, 30) }}
-                          >
-                            <td className="p-2" style={{ color: colors.text }}>{pattern.pattern}</td>
-                            <td className="p-2 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                {getStatusIcon(pattern.status)}
-                                <span className="capitalize text-xs" style={{ color: colors.textMuted }}>
-                                  {pattern.status}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-2 text-xs" style={{ color: colors.textMuted }}>{pattern.notes}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Recommendations */}
               {stats.recommendations.length > 0 && (
-                <div
-                  className="p-4 rounded-lg"
-                  style={{ backgroundColor: alpha(colors.bgSecondary, 30) }}
-                >
-                  <button
-                    className="w-full flex items-center justify-between"
-                    onClick={() => setExpandedSection(expandedSection === 'recommendations' ? '' : 'recommendations')}
-                  >
-                    <span className="font-semibold" style={{ color: colors.text }}>
-                      Recommendations
-                    </span>
-                    {expandedSection === 'recommendations' ? (
-                      <ChevronUp className="w-4 h-4" style={{ color: colors.textMuted }} />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" style={{ color: colors.textMuted }} />
-                    )}
-                  </button>
-
-                  {expandedSection === 'recommendations' && (
-                    <ul className="mt-4 space-y-2">
-                      {stats.recommendations.map((rec, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: colors.textMuted }}>
-                          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: colors.primary }} />
-                          {rec}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium text-slate-300 mb-2">Recommendations</h3>
+                  <ul className="space-y-1">
+                    {stats.recommendations.map((rec, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
+                        <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                        {rec}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
-              {/* High Memory Warning & Actions */}
-              {stats.isHighMemory && (
-                <div
-                  className="p-4 rounded-lg border"
-                  style={{
-                    backgroundColor: alpha(colors.warning, 5),
-                    borderColor: alpha(colors.warning, 30)
-                  }}
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                {stats.isHighMemory && (
+                  <button
+                    onClick={clearCache}
+                    disabled={clearing}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    {clearing ? 'Clearing Cache...' : 'Clear Cache & Restart (~3 GB saved)'}
+                  </button>
+                )}
+                <button
+                  onClick={fetchStats}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Zap className="w-5 h-5" style={{ color: colors.warning }} />
-                      <div>
-                        <p className="font-medium" style={{ color: colors.text }}>
-                          High Memory Usage Detected
-                        </p>
-                        <p className="text-xs" style={{ color: colors.textMuted }}>
-                          .next cache is {stats.nextCacheSizeMB} MB - Clearing can save ~3 GB
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={clearCache}
-                      disabled={clearing}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium"
-                      style={{ backgroundColor: colors.warning, color: '#fff' }}
-                    >
-                      {clearing ? (
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                      Clear Cache
-                    </button>
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh Stats
+                </button>
+              </div>
+
+              {/* Cache Size Warning */}
+              {stats.nextCacheSizeMB > 500 && (
+                <div className="mt-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-yellow-400">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-sm">
+                      .next cache is {stats.nextCacheSizeMB} MB - Consider clearing to save memory
+                    </span>
                   </div>
                 </div>
               )}
 
-              {/* Cache Warning */}
-              {stats.nextCacheSizeMB > 500 && !stats.isHighMemory && (
-                <div
-                  className="p-3 rounded-lg flex items-center gap-2"
-                  style={{ backgroundColor: alpha(colors.warning, 10) }}
-                >
-                  <AlertTriangle className="w-4 h-4" style={{ color: colors.warning }} />
-                  <span className="text-sm" style={{ color: colors.warning }}>
-                    .next cache is {stats.nextCacheSizeMB} MB - Consider clearing to save memory
-                  </span>
-                </div>
-              )}
-
               {/* Timestamp */}
-              <div className="text-center text-xs" style={{ color: colors.textMuted }}>
+              <div className="mt-4 text-center text-xs text-slate-500">
                 Last updated: {new Date(stats.timestamp).toLocaleTimeString()}
               </div>
-            </div>
-          ) : null}
+            </>
+          )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   )
 }
 
@@ -492,7 +319,7 @@ export function MemoryToggleButton() {
   const [isHigh, setIsHigh] = useState(false)
 
   useEffect(() => {
-    // Fetch memory once on mount - no interval
+    // Fetch memory on mount
     const fetchMemory = async () => {
       try {
         const res = await fetch('/api/memory-stats?action=stats')
@@ -506,6 +333,10 @@ export function MemoryToggleButton() {
       }
     }
     fetchMemory()
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchMemory, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   return (

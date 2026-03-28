@@ -49,8 +49,9 @@ export function SessionStatusIndicator({ compact = false, showDetails = true }: 
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    // Fetch once on mount - no interval
     fetchStatus()
+    const interval = setInterval(fetchStatus, 60000)
+    return () => clearInterval(interval)
   }, [])
 
   const fetchStatus = async () => {
@@ -409,8 +410,9 @@ export function SessionStatusBadge() {
         console.error('Failed to fetch session status:', error)
       }
     }
-    // Fetch once on mount - no interval
     fetchStatus()
+    const interval = setInterval(fetchStatus, 60000)
+    return () => clearInterval(interval)
   }, [])
 
   if (!status) return null

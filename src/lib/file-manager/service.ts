@@ -3,9 +3,6 @@
  * =======================
  * Centralized file management for AI Enterprise Architect
  * 
- * SERVER-ONLY: This module must only run on the server side
- * as it performs file system operations.
- * 
  * FOLDER STRUCTURE:
  * 
  * /storage/
@@ -75,80 +72,12 @@
  *     └── {sessionId}/
  */
 
-// This module is server-only - file system operations cannot run in browser
-import 'server-only';
-
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 
-// =============================================================================
-// SECURITY: Safe Path Handling
-// =============================================================================
-
-/**
- * Base storage path - configurable via STORAGE_ROOT environment variable
- * Defaults to 'storage' directory in project root
- */
-const STORAGE_ROOT = process.env.STORAGE_ROOT || process.env.STORAGE_PATH || path.join(process.cwd(), 'storage');
-
-/**
- * SECURITY: Validates and resolves paths to prevent directory traversal attacks
- * 
- * This function ensures that all file operations stay within the designated
- * storage root directory, preventing path traversal attacks like:
- * - ../../../etc/passwd
- * - ../../.env
- * 
- * @param segments - Path segments to join and validate
- * @returns Resolved absolute path within STORAGE_ROOT
- * @throws Error if path attempts to escape storage root
- */
-function safePath(...segments: string[]): string {
-  // Normalize and resolve the path
-  const resolved = path.resolve(STORAGE_ROOT, ...segments);
-  
-  // Security check: ensure the resolved path is within STORAGE_ROOT
-  if (!resolved.startsWith(STORAGE_ROOT)) {
-    // Log the attack attempt for security monitoring
-    console.error(`[SECURITY] Path traversal attempt blocked: ${segments.join('/')}`);
-    throw new Error(`Path traversal attempt blocked: path escapes storage root`);
-  }
-  
-  return resolved;
-}
-
-/**
- * Validates that a relative path doesn't contain directory traversal patterns
- * Use this for user-provided paths that should stay within a parent directory
- * 
- * @param relativePath - User-provided relative path
- * @param parentDir - Parent directory the path should stay within
- * @returns Sanitized relative path
- * @throws Error if path contains traversal patterns
- */
-function validateRelativePath(relativePath: string, parentDir?: string): string {
-  // Check for obvious traversal patterns
-  const traversalPatterns = ['../', '..\\', '/../', '/..\\'];
-  const normalizedPath = path.normalize(relativePath);
-  
-  for (const pattern of traversalPatterns) {
-    if (normalizedPath.includes(pattern) || normalizedPath.startsWith('..')) {
-      console.error(`[SECURITY] Directory traversal detected in path: ${relativePath}`);
-      throw new Error(`Invalid path: directory traversal not allowed`);
-    }
-  }
-  
-  // If parentDir provided, verify the final path stays within it
-  if (parentDir) {
-    const fullPath = path.resolve(parentDir, normalizedPath);
-    if (!fullPath.startsWith(parentDir)) {
-      throw new Error(`Invalid path: escapes allowed directory`);
-    }
-  }
-  
-  return normalizedPath;
-}
+// Base storage path
+const STORAGE_ROOT = process.env.STORAGE_PATH || path.join(process.cwd(), 'storage');
 
 // Storage categories
 export const STORAGE_CATEGORIES = {
@@ -242,62 +171,35 @@ export interface ProjectFileStructure {
 /**
  * FILE MANAGER CLASS
  * Handles all file operations for the AI Enterprise Architect
- * 
- * SECURITY: All file operations use safePath() to prevent directory traversal
  */
 export class FileManager {
   private rootPath: string;
 
   constructor(customRoot?: string) {
-    // Validate custom root if provided
-    if (customRoot) {
-      const resolved = path.resolve(customRoot);
-      // Only allow custom roots that are absolute paths or within cwd
-      if (!path.isAbsolute(customRoot) && !resolved.startsWith(process.cwd())) {
-        console.warn(`[SECURITY] Custom root validation: ${customRoot}`);
-      }
-    }
     this.rootPath = customRoot || STORAGE_ROOT;
-  }
-
-  /**
-   * Internal safe path builder - wraps global safePath with instance rootPath
-   */
-  private safePath(...segments: string[]): string {
-    const resolved = path.resolve(this.rootPath, ...segments);
-    if (!resolved.startsWith(this.rootPath)) {
-      console.error(`[SECURITY] Path traversal attempt blocked: ${segments.join('/')}`);
-      throw new Error(`Path traversal attempt blocked: path escapes storage root`);
-    }
-    return resolved;
   }
 
   /**
    * Initialize storage directories for a project
    */
   async initializeProject(projectId: string): Promise<void> {
-    // Validate projectId to prevent injection
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId: contains forbidden characters');
-    }
-    
     const categories = Object.values(STORAGE_CATEGORIES);
     
     for (const category of categories) {
       if (category === STORAGE_CATEGORIES.RAW) {
         for (const subType of Object.values(RAW_FILE_TYPES)) {
-          await this.ensureDir(this.safePath(category, subType, projectId));
+          await this.ensureDir(path.join(this.rootPath, category, subType, projectId));
         }
       } else if (category === STORAGE_CATEGORIES.PROCESSED) {
         for (const subType of Object.values(PROCESSED_TYPES)) {
-          await this.ensureDir(this.safePath(category, subType, projectId));
+          await this.ensureDir(path.join(this.rootPath, category, subType, projectId));
         }
       } else if (category === STORAGE_CATEGORIES.GENERATED) {
         for (const subType of Object.values(GENERATED_TYPES)) {
-          await this.ensureDir(this.safePath(category, subType, projectId));
+          await this.ensureDir(path.join(this.rootPath, category, subType, projectId));
         }
       } else {
-        await this.ensureDir(this.safePath(category, projectId));
+        await this.ensureDir(path.join(this.rootPath, category, projectId));
       }
     }
   }
@@ -311,24 +213,16 @@ export class FileManager {
     content: string | Buffer,
     fileType: keyof typeof RAW_FILE_TYPES = 'SQL'
   ): Promise<FileMetadata> {
-    // Validate inputs
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    
-    // Sanitize filename - remove path separators
-    const sanitizedName = path.basename(fileName).replace(/[<>:"|?*]/g, '_');
-    
     const subCategory = RAW_FILE_TYPES[fileType];
-    const targetDir = this.safePath(STORAGE_CATEGORIES.RAW, subCategory, projectId);
+    const targetDir = path.join(this.rootPath, STORAGE_CATEGORIES.RAW, subCategory, projectId);
     await this.ensureDir(targetDir);
 
     // Generate unique stored name
     const timestamp = Date.now();
-    const ext = path.extname(sanitizedName);
-    const baseName = path.basename(sanitizedName, ext);
+    const ext = path.extname(fileName);
+    const baseName = path.basename(fileName, ext);
     const storedName = `${baseName}_${timestamp}${ext}`;
-    const storedPath = this.safePath(STORAGE_CATEGORIES.RAW, subCategory, projectId, storedName);
+    const storedPath = path.join(targetDir, storedName);
 
     // Calculate content hash
     const contentBuffer = typeof content === 'string' ? Buffer.from(content) : content;
@@ -362,17 +256,11 @@ export class FileManager {
     content: object,
     processedType: keyof typeof PROCESSED_TYPES = 'PARSED'
   ): Promise<string> {
-    // Validate inputs
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    const sanitizedName = path.basename(fileName).replace(/[<>:"|?*]/g, '_');
-    
     const subCategory = PROCESSED_TYPES[processedType];
-    const targetDir = this.safePath(STORAGE_CATEGORIES.PROCESSED, subCategory, projectId);
+    const targetDir = path.join(this.rootPath, STORAGE_CATEGORIES.PROCESSED, subCategory, projectId);
     await this.ensureDir(targetDir);
 
-    const storedPath = this.safePath(STORAGE_CATEGORIES.PROCESSED, subCategory, projectId, sanitizedName);
+    const storedPath = path.join(targetDir, fileName);
     await fs.writeFile(storedPath, JSON.stringify(content, null, 2));
 
     return storedPath;
@@ -388,26 +276,13 @@ export class FileManager {
     generatedType: keyof typeof GENERATED_TYPES = 'PAGES',
     subPath?: string
   ): Promise<string> {
-    // Validate inputs
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    const sanitizedName = path.basename(fileName).replace(/[<>:"|?*]/g, '_');
-    
-    // Validate subPath if provided - prevent traversal
-    if (subPath) {
-      validateRelativePath(subPath);
-    }
-    
     const subCategory = GENERATED_TYPES[generatedType];
     const targetDir = subPath
-      ? this.safePath(STORAGE_CATEGORIES.GENERATED, subCategory, projectId, subPath)
-      : this.safePath(STORAGE_CATEGORIES.GENERATED, subCategory, projectId);
+      ? path.join(this.rootPath, STORAGE_CATEGORIES.GENERATED, subCategory, projectId, subPath)
+      : path.join(this.rootPath, STORAGE_CATEGORIES.GENERATED, subCategory, projectId);
     await this.ensureDir(targetDir);
 
-    const storedPath = subPath
-      ? this.safePath(STORAGE_CATEGORIES.GENERATED, subCategory, projectId, subPath, sanitizedName)
-      : this.safePath(STORAGE_CATEGORIES.GENERATED, subCategory, projectId, sanitizedName);
+    const storedPath = path.join(targetDir, fileName);
     await fs.writeFile(storedPath, content);
 
     return storedPath;
@@ -415,34 +290,19 @@ export class FileManager {
 
   /**
    * Create export package
-   * SECURITY: Validates all file paths to prevent directory traversal
    */
   async createExport(
     projectId: string,
     files: { path: string; content: string }[],
     exportName: string = 'export'
   ): Promise<string> {
-    // Validate projectId
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const exportDir = this.safePath(STORAGE_CATEGORIES.EXPORTS, projectId, timestamp);
+    const exportDir = path.join(this.rootPath, STORAGE_CATEGORIES.EXPORTS, projectId, timestamp);
     await this.ensureDir(exportDir);
 
-    // Save individual files - with path validation
+    // Save individual files
     for (const file of files) {
-      // SECURITY: Validate each file path to prevent traversal
-      const safeFilePath = validateRelativePath(file.path);
-      const filePath = path.join(exportDir, safeFilePath);
-      
-      // Double-check the resolved path is within exportDir
-      const resolved = path.resolve(filePath);
-      if (!resolved.startsWith(exportDir)) {
-        throw new Error(`Invalid file path in export: ${file.path}`);
-      }
-      
+      const filePath = path.join(exportDir, file.path);
       await this.ensureDir(path.dirname(filePath));
       await fs.writeFile(filePath, file.content);
     }
@@ -455,11 +315,10 @@ export class FileManager {
       files: files.map(f => f.path),
       totalFiles: files.length
     };
-    const manifestPath = this.safePath(STORAGE_CATEGORIES.EXPORTS, projectId, timestamp, 'manifest.json');
-    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+    await fs.writeFile(path.join(exportDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
     // Update latest symlink
-    const latestDir = this.safePath(STORAGE_CATEGORIES.EXPORTS, projectId, 'latest');
+    const latestDir = path.join(this.rootPath, STORAGE_CATEGORIES.EXPORTS, projectId, 'latest');
     try {
       await fs.rm(latestDir, { recursive: true });
     } catch {}
@@ -472,13 +331,7 @@ export class FileManager {
    * Read raw file
    */
   async readRawFile(projectId: string, fileName: string, fileType: keyof typeof RAW_FILE_TYPES): Promise<string> {
-    // Validate inputs
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    const sanitizedName = path.basename(fileName).replace(/[<>:"|?*]/g, '_');
-    
-    const filePath = this.safePath(STORAGE_CATEGORIES.RAW, RAW_FILE_TYPES[fileType], projectId, sanitizedName);
+    const filePath = path.join(this.rootPath, STORAGE_CATEGORIES.RAW, RAW_FILE_TYPES[fileType], projectId, fileName);
     return fs.readFile(filePath, 'utf-8');
   }
 
@@ -486,13 +339,7 @@ export class FileManager {
    * Read processed file
    */
   async readProcessedFile(projectId: string, fileName: string, processedType: keyof typeof PROCESSED_TYPES): Promise<object> {
-    // Validate inputs
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    const sanitizedName = path.basename(fileName).replace(/[<>:"|?*]/g, '_');
-    
-    const filePath = this.safePath(STORAGE_CATEGORIES.PROCESSED, PROCESSED_TYPES[processedType], projectId, sanitizedName);
+    const filePath = path.join(this.rootPath, STORAGE_CATEGORIES.PROCESSED, PROCESSED_TYPES[processedType], projectId, fileName);
     const content = await fs.readFile(filePath, 'utf-8');
     return JSON.parse(content);
   }
@@ -501,11 +348,6 @@ export class FileManager {
    * List project files
    */
   async listProjectFiles(projectId: string): Promise<ProjectFileStructure> {
-    // Validate projectId
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    
     const structure: ProjectFileStructure = {
       projectId,
       projectName: '',
@@ -519,7 +361,7 @@ export class FileManager {
 
     // List raw files
     for (const [key, subType] of Object.entries(RAW_FILE_TYPES)) {
-      const dir = this.safePath(STORAGE_CATEGORIES.RAW, subType, projectId);
+      const dir = path.join(this.rootPath, STORAGE_CATEGORIES.RAW, subType, projectId);
       try {
         const files = await fs.readdir(dir);
         structure.raw[key.toLowerCase() as keyof typeof structure.raw] = files;
@@ -528,7 +370,7 @@ export class FileManager {
 
     // List processed files
     for (const [key, subType] of Object.entries(PROCESSED_TYPES)) {
-      const dir = this.safePath(STORAGE_CATEGORIES.PROCESSED, subType, projectId);
+      const dir = path.join(this.rootPath, STORAGE_CATEGORIES.PROCESSED, subType, projectId);
       try {
         const files = await fs.readdir(dir);
         structure.processed[key.toLowerCase() as keyof typeof structure.processed] = files;
@@ -537,7 +379,7 @@ export class FileManager {
 
     // List generated files
     for (const [key, subType] of Object.entries(GENERATED_TYPES)) {
-      const dir = this.safePath(STORAGE_CATEGORIES.GENERATED, subType, projectId);
+      const dir = path.join(this.rootPath, STORAGE_CATEGORIES.GENERATED, subType, projectId);
       try {
         const files = await this.listFilesRecursively(dir);
         structure.generated[key.toLowerCase() as keyof typeof structure.generated] = files;
@@ -545,7 +387,7 @@ export class FileManager {
     }
 
     // List exports
-    const exportsDir = this.safePath(STORAGE_CATEGORIES.EXPORTS, projectId);
+    const exportsDir = path.join(this.rootPath, STORAGE_CATEGORIES.EXPORTS, projectId);
     try {
       const exports = await fs.readdir(exportsDir);
       structure.exports = exports.filter(e => e !== 'latest');
@@ -558,26 +400,20 @@ export class FileManager {
    * Archive project files
    */
   async archiveProject(projectId: string, reason: string = 'deleted'): Promise<string> {
-    // Validate projectId
-    if (!projectId || /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const archiveDir = this.safePath(STORAGE_CATEGORIES.ARCHIVES, projectId, timestamp);
+    const archiveDir = path.join(this.rootPath, STORAGE_CATEGORIES.ARCHIVES, projectId, timestamp);
     await this.ensureDir(archiveDir);
 
     // Move all project files to archive
     for (const category of [STORAGE_CATEGORIES.RAW, STORAGE_CATEGORIES.PROCESSED, STORAGE_CATEGORIES.GENERATED]) {
-      const categoryPath = this.safePath(category);
+      const categoryPath = path.join(this.rootPath, category);
       try {
         const subDirs = await fs.readdir(categoryPath);
         for (const subDir of subDirs) {
           const projectPath = path.join(categoryPath, subDir, projectId);
           try {
             await fs.access(projectPath);
-            const archiveTarget = path.join(archiveDir, category, subDir);
-            await fs.cp(projectPath, archiveTarget, { recursive: true });
+            await fs.cp(projectPath, path.join(archiveDir, category, subDir), { recursive: true });
             await fs.rm(projectPath, { recursive: true });
           } catch {}
         }
@@ -591,8 +427,7 @@ export class FileManager {
       reason,
       archivePath: archiveDir
     };
-    const metadataPath = this.safePath(STORAGE_CATEGORIES.ARCHIVES, projectId, timestamp, 'archive-metadata.json');
-    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+    await fs.writeFile(path.join(archiveDir, 'archive-metadata.json'), JSON.stringify(metadata, null, 2));
 
     return archiveDir;
   }
@@ -601,7 +436,7 @@ export class FileManager {
    * Clean temp files older than specified hours
    */
   async cleanTempFiles(hoursOld: number = 24): Promise<number> {
-    const tempDir = this.safePath(STORAGE_CATEGORIES.TEMP);
+    const tempDir = path.join(this.rootPath, STORAGE_CATEGORIES.TEMP);
     let cleaned = 0;
 
     try {
@@ -609,9 +444,6 @@ export class FileManager {
       const cutoff = Date.now() - hoursOld * 60 * 60 * 1000;
 
       for (const session of sessions) {
-        // Validate session name to prevent traversal
-        if (/[.\/\\]/.test(session)) continue;
-        
         const sessionPath = path.join(tempDir, session);
         const stat = await fs.stat(sessionPath);
         
@@ -637,15 +469,10 @@ export class FileManager {
       categories: {} as Record<string, { size: number; fileCount: number }>
     };
 
-    // Validate projectId if provided
-    if (projectId && /[.\/\\]/.test(projectId)) {
-      throw new Error('Invalid projectId');
-    }
-    
     for (const category of Object.values(STORAGE_CATEGORIES)) {
       const categoryPath = projectId
-        ? this.safePath(category, projectId)
-        : this.safePath(category);
+        ? path.join(this.rootPath, category, projectId)
+        : path.join(this.rootPath, category);
 
       try {
         const { size, fileCount } = await this.getDirectoryStats(categoryPath);

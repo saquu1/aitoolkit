@@ -9,8 +9,6 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/hooks/useTheme'
 import { useSchema } from '@/hooks/useSchema'
-import { useAutoload } from '@/hooks/useAutoload'
-import { AutoloadToggle } from '@/components/AutoloadToggle'
 import { 
   Search, 
   Puzzle, 
@@ -28,8 +26,7 @@ import {
   AlertCircle,
   Zap,
   Building2,
-  Activity,
-  Download
+  Activity
 } from 'lucide-react'
 
 interface Module {
@@ -101,10 +98,6 @@ const LAYER_COLORS: Record<number, string> = {
 
 export function ModulesTab() {
   const { colors } = useTheme()
-  
-  // Autoload configuration - controls automatic data fetching
-  const { enabled: autoloadEnabled, loading: autoloadLoading } = useAutoload('modules')
-  
   // Connect to shared schema state
   const { 
     linkedModules, 
@@ -123,16 +116,10 @@ export function ModulesTab() {
   const [expandedModule, setExpandedModule] = useState<string | null>(null)
   const [isSeeding, setIsSeeding] = useState(false)
 
-  // Fetch modules and statistics - only if autoload is enabled
+  // Fetch modules and statistics
   useEffect(() => {
-    if (autoloadLoading) return // Wait for autoload status
-    if (autoloadEnabled) {
-      fetchData()
-    } else {
-      // If autoload disabled, stop loading state
-      setIsLoading(false)
-    }
-  }, [autoloadEnabled, autoloadLoading])
+    fetchData()
+  }, [])
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -263,22 +250,6 @@ export function ModulesTab() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Autoload Toggle */}
-          <AutoloadToggle pageKey="modules" variant="badge" />
-          
-          {/* Manual Load Button (shown when autoload disabled) */}
-          {!autoloadEnabled && !isLoading && (
-            <Button 
-              onClick={fetchData}
-              variant="outline"
-              size="sm"
-              style={{ borderColor: colors.primary, color: colors.primary }}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Load Data
-            </Button>
-          )}
-          
           <Badge 
             className="text-sm py-1.5"
             style={{
@@ -451,23 +422,11 @@ export function ModulesTab() {
               <Puzzle className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg mb-2">No modules found</p>
               <p className="text-sm mb-4">
-                {!autoloadEnabled 
-                  ? 'Auto-load is disabled. Click "Load Data" to fetch modules, or enable auto-load.'
-                  : modules.length === 0 
-                    ? 'Click "Seed 460+ Modules" to load the complete HIS module registry'
-                    : 'Try adjusting your search or filters'
+                {modules.length === 0 
+                  ? 'Click "Seed 460+ Modules" to load the complete HIS module registry'
+                  : 'Try adjusting your search or filters'
                 }
               </p>
-              {!autoloadEnabled && (
-                <Button 
-                  onClick={fetchData}
-                  variant="outline"
-                  style={{ borderColor: colors.primary, color: colors.primary }}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Load Modules Now
-                </Button>
-              )}
             </div>
           ) : (
             <div className="space-y-3 max-h-[600px] overflow-auto">

@@ -936,27 +936,3 @@ export function use${typeName}Mutations() {
 
 // Export singleton instance
 export const reactPageGenerator = new ReactPageGenerator();
-
-// Convenience exports for route compatibility
-export function generatePages(
-  spResult: SPDrivenGenerationResult,
-  config?: Partial<PageGenerationConfig>
-): ReactPageGenerationResult {
-  return reactPageGenerator.generatePages(spResult, config);
-}
-
-export function generateFullCRUD(
-  spResult: SPDrivenGenerationResult,
-  config?: Partial<PageGenerationConfig>
-): {
-  pages: ReactPageGenerationResult;
-  files: { path: string; content: string }[];
-} {
-  const pages = reactPageGenerator.generatePages(spResult, config);
-  const files = [
-    { path: pages.listPage.path, content: pages.listPage.component },
-    { path: pages.formPage.path, content: pages.formPage.component },
-    { path: pages.detailPage.path, content: pages.detailPage.component },
-  ];
-  return { pages, files };
-}

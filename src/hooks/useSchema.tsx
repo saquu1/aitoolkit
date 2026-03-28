@@ -263,31 +263,8 @@ export function SchemaProvider({ children }: { children: ReactNode }) {
 
 export function useSchema() {
   const context = useContext(SchemaContext)
-  // Return default context when used outside provider (SSR/build safety)
   if (!context) {
-    return {
-      activeProject: null,
-      setActiveProject: () => {},
-      parseResult: null,
-      setParseResult: () => {},
-      sqlInput: '',
-      setSqlInput: () => {},
-      uploadedFiles: [],
-      setUploadedFiles: () => {},
-      dbStats: null,
-      dbStatsLoading: false,
-      refreshDbStats: async () => {},
-      totalTables: 0,
-      totalColumns: 0,
-      fkRelationships: 0,
-      fkResolved: 0,
-      fkResolvedPercent: 0,
-      missingTables: [],
-      modulesLinked: 0,
-      linkedModules: [],
-      moduleSummary: null,
-      clearAll: () => {},
-    }
+    throw new Error('useSchema must be used within a SchemaProvider')
   }
   return context
 }

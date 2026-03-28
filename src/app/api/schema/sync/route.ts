@@ -1,36 +1,10 @@
 // =============================================================================
 // Schema Sync API Route
 // Handles loading persisted schema data from database
-// 
-// Uses:
-// - Principle 2: `satisfies Prisma.*Include` for type safety
-// - Principle 3: Centralized error handling
 // =============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { handleApiError, ApiError } from '@/lib/errors';
-import { Prisma } from '@prisma/client';
-
-// =============================================================================
-// TYPE-SAFE INCLUDE DEFINITIONS
-// =============================================================================
-
-const projectWithCounts = {
-  _count: {
-    select: {
-      ToolkitTable: true,
-      ToolkitProcedure: true,
-      ToolkitFile: true,
-    },
-  },
-} satisfies Prisma.ToolkitProjectInclude
-
-const projectWithRelations = {
-  ToolkitTable: true,
-  ToolkitProcedure: true,
-  ToolkitFile: true,
-} satisfies Prisma.ToolkitProjectInclude
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GET - Load persisted schema data
@@ -56,7 +30,9 @@ export async function GET(req: NextRequest) {
         return await getFullSchemaSync();
     }
   } catch (error: unknown) {
-    return handleApiError(error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Schema sync API error:', error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -89,10 +65,12 @@ export async function POST(req: NextRequest) {
         return await clearAllData(body);
       
       default:
-        throw ApiError.badRequest('Unknown action');
+        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
     }
   } catch (error: unknown) {
-    return handleApiError(error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Schema sync API error:', error);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -101,10 +79,14 @@ export async function POST(req: NextRequest) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function getFullSchemaSync() {
-  // Get all projects with type-safe includes
+  // Get all projects
   const projects = await db.toolkitProject.findMany({
     orderBy: { updatedAt: 'desc' },
-    include: projectWithCounts
+    include: {
+      _count: {
+        select: { tables: true, procedures: true, files: true }
+      }
+    }
   });
 
   // Get the most recent project as active
@@ -180,9 +162,9 @@ async function getFullSchemaSync() {
       color: activeProject.color,
       icon: activeProject.icon,
       status: activeProject.status,
-      fileCount: activeProject._count?.ToolkitFile || 0,
-      tableCount: activeProject._count?.ToolkitTable || 0,
-      procedureCount: activeProject._count?.ToolkitProcedure || 0,
+      fileCount: activeProject._count?.files || 0,
+      tableCount: activeProject._count?.tables || 0,
+      procedureCount: activeProject._count?.procedures || 0,
     } : null,
     projects: projects.map(p => ({
       id: p.id,
@@ -191,7 +173,7 @@ async function getFullSchemaSync() {
       color: p.color,
       icon: p.icon,
       status: p.status,
-      tableCount: p._count?.ToolkitTable || 0,
+      tableCount: p._count?.tables || 0,
     })),
     tables: tables.map(t => ({
       id: t.id,
@@ -230,20 +212,24 @@ async function getFullSchemaSync() {
 
 async function loadProjectData(projectId: string | null) {
   if (!projectId) {
-    throw ApiError.badRequest('projectId is required');
+    return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
   }
 
   const project = await db.toolkitProject.findUnique({
     where: { id: projectId },
-    include: projectWithRelations
+    include: {
+      tables: true,
+      procedures: true,
+      files: true,
+    }
   });
 
   if (!project) {
-    throw ApiError.notFound('Project not found');
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 });
   }
 
   // Calculate stats
-  const tables = project.ToolkitTable;
+  const tables = project.tables;
   const totalTables = tables.length;
   const totalColumns = tables.reduce((sum, t) => {
     try {
@@ -303,7 +289,7 @@ async function loadProjectData(projectId: string | null) {
       status: t.status,
       linkedModule: t.linkedModule,
     })),
-    procedures: project.ToolkitProcedure.map(p => ({
+    procedures: project.procedures.map(p => ({
       id: p.id,
       schemaName: p.schemaName,
       procedureName: p.procedureName,
@@ -315,7 +301,7 @@ async function loadProjectData(projectId: string | null) {
       tablesModified: JSON.parse(p.tablesModified || '[]'),
       complexity: p.complexity,
     })),
-    files: project.ToolkitFile.map(f => ({
+    files: project.files.map(f => ({
       id: f.id,
       fileName: f.fileName,
       fileType: f.fileType,
@@ -329,7 +315,7 @@ async function loadProjectData(projectId: string | null) {
       totalTables,
       totalColumns,
       totalForeignKeys: totalFKs,
-      totalStoredProcedures: project.ToolkitProcedure.length,
+      totalStoredProcedures: project.procedures.length,
       fkResolved: resolvedFKs,
       fkResolvedPercent,
     }
@@ -339,7 +325,11 @@ async function loadProjectData(projectId: string | null) {
 async function listProjects() {
   const projects = await db.toolkitProject.findMany({
     orderBy: { updatedAt: 'desc' },
-    include: projectWithCounts
+    include: {
+      _count: {
+        select: { tables: true, procedures: true, files: true }
+      }
+    }
   });
 
   return NextResponse.json({
@@ -354,9 +344,9 @@ async function listProjects() {
       status: p.status,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
-      tableCount: p._count?.ToolkitTable || 0,
-      procedureCount: p._count?.ToolkitProcedure || 0,
-      fileCount: p._count?.ToolkitFile || 0,
+      tableCount: p._count?.tables || 0,
+      procedureCount: p._count?.procedures || 0,
+      fileCount: p._count?.files || 0,
     }))
   });
 }
@@ -365,7 +355,11 @@ async function getActiveProject() {
   // Get the most recently updated project as active
   const project = await db.toolkitProject.findFirst({
     orderBy: { updatedAt: 'desc' },
-    include: projectWithCounts
+    include: {
+      _count: {
+        select: { tables: true, procedures: true, files: true }
+      }
+    }
   });
 
   if (!project) {
@@ -385,9 +379,9 @@ async function getActiveProject() {
       color: project.color,
       icon: project.icon,
       status: project.status,
-      tableCount: project._count?.ToolkitTable || 0,
-      procedureCount: project._count?.ToolkitProcedure || 0,
-      fileCount: project._count?.ToolkitFile || 0,
+      tableCount: project._count?.tables || 0,
+      procedureCount: project._count?.procedures || 0,
+      fileCount: project._count?.files || 0,
     }
   });
 }
@@ -401,13 +395,8 @@ async function createProject(body: {
 }) {
   const { name, description, softwareType = 'Custom', color = '#3b82f6', icon = 'Database' } = body;
 
-  if (!name?.trim()) {
-    throw ApiError.badRequest('Project name is required');
-  }
-
   const project = await db.toolkitProject.create({
     data: {
-      id: `proj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name,
       description,
       softwareType,
@@ -467,15 +456,18 @@ async function setActiveProject(body: { projectId: string }) {
   // Just return the project data - the concept of "active" is handled by the client
   const project = await db.toolkitProject.findUnique({
     where: { id: projectId },
-    include: projectWithRelations
+    include: {
+      tables: true,
+      procedures: true,
+    }
   });
 
   if (!project) {
-    throw ApiError.notFound('Project not found');
+    return NextResponse.json({ error: 'Project not found' }, { status: 404 });
   }
 
   // Calculate stats
-  const tables = project.ToolkitTable;
+  const tables = project.tables;
   const totalTables = tables.length;
   const totalColumns = tables.reduce((sum, t) => {
     try {
@@ -535,7 +527,7 @@ async function setActiveProject(body: { projectId: string }) {
       status: t.status,
       linkedModule: t.linkedModule,
     })),
-    procedures: project.ToolkitProcedure.map(p => ({
+    procedures: project.procedures.map(p => ({
       id: p.id,
       schemaName: p.schemaName,
       procedureName: p.procedureName,
@@ -551,7 +543,7 @@ async function setActiveProject(body: { projectId: string }) {
       totalTables,
       totalColumns,
       totalForeignKeys: totalFKs,
-      totalStoredProcedures: project.ToolkitProcedure.length,
+      totalStoredProcedures: project.procedures.length,
       fkResolved: resolvedFKs,
       fkResolvedPercent,
     }
@@ -570,7 +562,6 @@ async function saveTables(body: {
   if (!projectId && createProjectIfNotExists) {
     const project = await db.toolkitProject.create({
       data: {
-        id: `proj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: projectName || `Project ${new Date().toISOString().slice(0, 10)}`,
         softwareType: 'Custom',
         status: 'active',
@@ -580,7 +571,7 @@ async function saveTables(body: {
   }
 
   if (!projectId) {
-    throw ApiError.badRequest('projectId is required');
+    return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
   }
 
   let created = 0;

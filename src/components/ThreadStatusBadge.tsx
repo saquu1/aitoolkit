@@ -37,8 +37,10 @@ export function ThreadStatusBadge({ onClick }: ThreadStatusBadgeProps) {
   }, [])
 
   useEffect(() => {
-    // Fetch once on mount - no interval
     fetchStats()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchStats, 30000)
+    return () => clearInterval(interval)
   }, [fetchStats])
 
   if (isLoading || !stats) {

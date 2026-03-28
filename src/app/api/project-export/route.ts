@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       }
       const project = await prisma.toolkitProject.findUnique({
         where: { id: projectId },
-        include: { ToolkitFile: true, ToolkitTable: true }
+        include: { files: true, tables: true }
       });
       return NextResponse.json({ project });
 
@@ -92,7 +92,7 @@ async function handleValidate(body: any) {
 
   const project = await prisma.toolkitProject.findUnique({
     where: { id: projectId },
-    include: { ToolkitTable: true, ToolkitProcedure: true }
+    include: { tables: true, procedures: true }
   });
 
   if (!project) {
@@ -138,7 +138,7 @@ async function handleExport(body: any) {
 
   const project = await prisma.toolkitProject.findUnique({
     where: { id: projectId },
-    include: { ToolkitTable: true, ToolkitProcedure: true, ToolkitFile: true }
+    include: { tables: true, procedures: true, files: true }
   });
 
   if (!project) {
@@ -197,7 +197,7 @@ async function handleExport(body: any) {
  * Build generated content from project data
  */
 async function buildGeneratedContent(project: any): Promise<GeneratedContent> {
-  const tables = project.ToolkitTable || [];
+  const tables = project.tables || [];
   const projectName = project.name;
 
   // Generate Prisma models

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
 import { useTheme } from '@/hooks/useTheme'
 import {
   X,
@@ -52,16 +51,9 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isCleaning, setIsCleaning] = useState(false)
   const [lastCleanup, setLastCleanup] = useState<{ killedCount: number; message: string } | null>(null)
-  const [isCleaningIdle, setIsCleaningIdle] = useState(false)
   const [expandedSection, setExpandedSection] = useState<string>('overview')
   const [sortField, setSortField] = useState<'threads' | 'memory' | 'cpu'>('threads')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [mounted, setMounted] = useState(false)
-
-  // Ensure we're mounted before rendering portal
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -104,27 +96,6 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
     }
   }
 
-  const handleCleanupIdle = async () => {
-    setIsCleaningIdle(true)
-    setLastCleanup(null)
-    try {
-      const response = await fetch('/api/system/threads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cleanup-idle' })
-      })
-      const data = await response.json()
-      if (data.success) {
-        setLastCleanup({ killedCount: data.killedCount, message: data.message })
-        setStats(data.stats)
-      }
-    } catch (error) {
-      console.error('Idle cleanup failed:', error)
-    } finally {
-      setIsCleaningIdle(false)
-    }
-  }
-
   const handleKillProcess = async (pid: number) => {
     try {
       const response = await fetch('/api/system/threads', {
@@ -141,7 +112,7 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
     }
   }
 
-  if (!isOpen || !mounted) return null
+  if (!isOpen) return null
 
   const getStatusInfo = () => {
     if (!stats) return { color: colors.textMuted, icon: Activity, label: 'Unknown' }
@@ -163,18 +134,18 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
       })
     : []
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 backdrop-blur-sm"
+        className="absolute inset-0 backdrop-blur-sm"
         style={{ backgroundColor: alpha(colors.bg, 80) }}
         onClick={onClose}
       />
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-4xl max-h-[90vh] rounded-xl shadow-2xl overflow-hidden"
         style={{
           backgroundColor: colors.card,
           border: `1px solid ${colors.border}`
@@ -221,7 +192,7 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto flex-1">
+        <div className="p-4 overflow-y-auto max-h-[calc(90vh-80px)]">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
@@ -304,68 +275,53 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
                 )}
               </div>
 
-              {/* Cleanup Section - Always Visible */}
-              <div
-                className="p-4 rounded-lg border"
-                style={{
-                  backgroundColor: alpha(colors.primary, 5),
-                  borderColor: alpha(colors.primary, 30)
-                }}
-              >
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-3">
-                    <Zap className="w-5 h-5" style={{ color: colors.primary }} />
-                    <div>
-                      <p className="font-medium" style={{ color: colors.text }}>
-                        Thread & Memory Cleanup
-                      </p>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>
-                        Free memory by terminating idle shell sessions
-                      </p>
+              {/* Cleanup Section */}
+              {stats.orphanedCount > 0 && (
+                <div
+                  className="p-4 rounded-lg border"
+                  style={{
+                    backgroundColor: alpha(colors.warning, 5),
+                    borderColor: alpha(colors.warning, 30)
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Zap className="w-5 h-5" style={{ color: colors.warning }} />
+                      <div>
+                        <p className="font-medium" style={{ color: colors.text }}>
+                          Orphaned Shell Sessions Detected
+                        </p>
+                        <p className="text-xs" style={{ color: colors.textMuted }}>
+                          {stats.orphanedCount} shell sessions are consuming resources unnecessarily
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {stats.orphanedCount > 0 && (
-                      <button
-                        onClick={handleCleanup}
-                        disabled={isCleaning}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm"
-                        style={{ backgroundColor: colors.warning, color: '#fff' }}
-                      >
-                        {isCleaning ? (
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                        Cleanup Orphaned ({stats.orphanedCount})
-                      </button>
-                    )}
                     <button
-                      onClick={handleCleanupIdle}
-                      disabled={isCleaningIdle}
+                      onClick={handleCleanup}
+                      disabled={isCleaning}
                       className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium"
-                      style={{ backgroundColor: colors.primary, color: '#fff' }}
+                      style={{ backgroundColor: colors.warning, color: '#fff' }}
                     >
-                      {isCleaningIdle ? (
+                      {isCleaning ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Zap className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       )}
-                      Free Memory & Threads
+                      Cleanup
                     </button>
                   </div>
-                </div>
 
-                {lastCleanup && (
-                  <div
-                    className="mt-3 p-3 rounded-lg flex items-center gap-2"
-                    style={{ backgroundColor: alpha(colors.success, 10) }}
-                  >
-                    <CheckCircle className="w-4 h-4" style={{ color: colors.success }} />
-                    <span style={{ color: colors.success }}>{lastCleanup.message}</span>
-                  </div>
-                )}
-              </div>
+                  {lastCleanup && (
+                    <div
+                      className="mt-3 p-3 rounded-lg flex items-center gap-2"
+                      style={{ backgroundColor: alpha(colors.success, 10) }}
+                    >
+                      <CheckCircle className="w-4 h-4" style={{ color: colors.success }} />
+                      <span style={{ color: colors.success }}>{lastCleanup.message}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Top Consumers */}
               <div
@@ -532,7 +488,6 @@ export function ThreadBreakdown({ isOpen, onClose }: ThreadBreakdownProps) {
           )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   )
 }
