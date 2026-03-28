@@ -712,3 +712,20 @@ export function quickParseTableNames(sql: string): string[] {
 
   return tableNames;
 }
+
+/**
+ * SQLParser class for object-oriented usage
+ */
+export class SQLParser {
+  parse(sql: string): ParseResult {
+    return parseSqlServer(sql);
+  }
+
+  quickParseTableNames(sql: string): string[] {
+    return quickParseTableNames(sql);
+  }
+
+  analyzeFKDependencies(tables: TableDef[]) {
+    return analyzeFKDependencies(tables);
+  }
+}

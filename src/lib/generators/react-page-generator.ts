@@ -936,3 +936,12 @@ export function use${typeName}Mutations() {
 
 // Export singleton instance
 export const reactPageGenerator = new ReactPageGenerator();
+
+// Export convenience functions for direct import
+export function generatePages(spResult: any, config?: Partial<PageGenerationConfig>) {
+  return reactPageGenerator.generatePages(spResult, config);
+}
+
+export function generateFullCRUD(spResult: any, config?: Partial<PageGenerationConfig>) {
+  return reactPageGenerator.generatePages(spResult, config);
+}

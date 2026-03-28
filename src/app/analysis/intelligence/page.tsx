@@ -4,6 +4,9 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { IntelligenceTab } from '@/components/tabs/IntelligenceTab'
 import { useRouter } from 'next/navigation'
 
+// Force dynamic rendering to avoid ThemeProvider issues during build
+export const dynamic = 'force-dynamic'
+
 export default function IntelligencePage() {
   const router = useRouter()
   
