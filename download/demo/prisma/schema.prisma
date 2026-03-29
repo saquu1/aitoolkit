@@ -1,0 +1,20 @@
+// Prisma Schema - Generated from SQL DDL
+// Table: Organizations
+
+model Organization {
+  id        String   @id @default(cuid())
+  name  String?
+  organizationTypeId  String
+  email  String?
+  isActive  Int
+  uAN  String?
+  telNo  String?
+  cellNoOne  String?
+  countryId  String?
+  provinceId  String?
+  cityId  String?
+  address  String?
+  code  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

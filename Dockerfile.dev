@@ -1,0 +1,33 @@
+# Development Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+RUN apk add --no-cache libc6-compat
+
+# Install bun for faster package management
+RUN npm install -g bun
+
+# Copy package files
+COPY package.json bun.lock* package-lock.json* ./
+
+# Install dependencies
+RUN bun install
+
+# Copy Prisma schema
+COPY prisma ./prisma/
+RUN bun run db:generate
+
+# Copy source
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Set environment
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Start development server
+CMD ["bun", "run", "dev"]

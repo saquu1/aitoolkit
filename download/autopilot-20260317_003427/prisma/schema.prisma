@@ -1,0 +1,165 @@
+// =============================================================================
+// Generated Prisma Schema
+// =============================================================================
+// Source: SQL Server DDL + SP Intelligence
+// Generated: 2024-01-15T00:00:00.000Z
+// Tables: 6 | Indexes: 7 | Foreign Keys: 11
+// =============================================================================
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =============================================================================
+// Patient Management Module
+// =============================================================================
+
+model Patient {
+  id           String   @id @default(uuid()) @map("PatientID")
+  mrn          String   @unique @db.VarChar(20) @map("MRN")
+  firstName    String   @db.NVarChar(100) @map("FirstName")
+  lastName     String   @db.NVarChar(100) @map("LastName")
+  dateOfBirth  DateTime @db.Date @map("DateOfBirth")
+  gender       String   @db.Char(1) @map("Gender")
+  phone        String?  @db.VarChar(20) @map("Phone")
+  email        String?  @db.VarChar(100) @map("Email")
+  address     String?  @db.NVarChar(500) @map("Address")
+  city         String?  @db.NVarChar(100) @map("City")
+  state        String?  @db.NVarChar(50) @map("State")
+  zipCode      String?  @db.VarChar(20) @map("ZipCode")
+  country      String   @default("USA") @db.NVarChar(50) @map("Country")
+  branchId     String   @map("BranchID")
+  isActive     Boolean  @default(true) @map("IsActive")
+  isDeleted    Boolean  @default(false) @map("IsDeleted") // Soft delete from SP
+  createdById  String?  @map("CreatedBy")
+  createdOn    DateTime @default(now()) @map("CreatedOn")
+  modifiedById String?  @map("ModifiedBy")
+  modifiedOn   DateTime? @map("ModifiedOn")
+
+  // Relations
+  branch   Branch   @relation(fields: [branchId], references: [id])
+  visits   Visit[]
+  prescriptions Prescription[]
+  labOrders LabOrder[]
+
+  @@index([mrn])
+  @@index([branchId])
+  @@index([isDeleted])
+  @@map("Patients")
+}
+
+model Visit {
+  id             String   @id @default(uuid()) @map("VisitID")
+  patientId      String   @map("PatientID")
+  doctorId       String?  @map("DoctorID")
+  visitDate      DateTime @map("VisitDate")
+  visitType      String   @db.VarChar(20) @map("VisitType") // OPD, IPD, EMERGENCY, DAYCARE
+  status         String   @default("Scheduled") @db.VarChar(20) @map("Status")
+  chiefComplaint String?  @db.NVarChar(Max) @map("ChiefComplaint")
+  diagnosis      String?  @db.NVarChar(Max) @map("Diagnosis")
+  notes          String?  @db.NVarChar(Max) @map("Notes")
+  branchId       String   @map("BranchID")
+  createdById    String?  @map("CreatedBy")
+  createdOn      DateTime @default(now()) @map("CreatedOn")
+  modifiedById   String?  @map("ModifiedBy")
+  modifiedOn     DateTime? @map("ModifiedOn")
+  isDeleted      Boolean  @default(false) @map("IsDeleted")
+
+  // Relations
+  patient       Patient      @relation(fields: [patientId], references: [id])
+  doctor        Doctor?      @relation(fields: [doctorId], references: [id])
+  branch        Branch       @relation(fields: [branchId], references: [id])
+  prescriptions Prescription[]
+  labOrders     LabOrder[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([visitDate])
+  @@index([status])
+  @@map("Visits")
+}
+
+model Prescription {
+  id               String   @id @default(uuid()) @map("PrescriptionID")
+  visitId          String   @map("VisitID")
+  patientId        String   @map("PatientID")
+  doctorId         String   @map("DoctorID")
+  prescriptionDate DateTime @default(now()) @map("PrescriptionDate")
+  status           String   @default("Pending") @db.VarChar(20) @map("Status")
+  notes            String?  @db.NVarChar(Max) @map("Notes")
+  createdById      String?  @map("CreatedBy")
+  createdOn        DateTime @default(now()) @map("CreatedOn")
+  isDeleted        Boolean  @default(false) @map("IsDeleted")
+
+  // Relations
+  visit   Visit   @relation(fields: [visitId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  doctor  Doctor  @relation(fields: [doctorId], references: [id])
+
+  @@map("Prescriptions")
+}
+
+model LabOrder {
+  id          String   @id @default(uuid()) @map("LabOrderID")
+  visitId     String   @map("VisitID")
+  patientId   String   @map("PatientID")
+  doctorId    String   @map("DoctorID")
+  orderDate   DateTime @default(now()) @map("OrderDate")
+  status      String   @default("Ordered") @db.VarChar(20) @map("Status")
+  priority    String   @default("Routine") @db.VarChar(20) @map("Priority")
+  notes       String?  @db.NVarChar(Max) @map("Notes")
+  createdById String?  @map("CreatedBy")
+  createdOn   DateTime @default(now()) @map("CreatedOn")
+  isDeleted   Boolean  @default(false) @map("IsDeleted")
+
+  // Relations
+  visit   Visit   @relation(fields: [visitId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  doctor  Doctor  @relation(fields: [doctorId], references: [id])
+
+  @@map("LabOrders")
+}
+
+model Branch {
+  id         String   @id @default(uuid()) @map("BranchID")
+  code       String   @unique @db.VarChar(20) @map("BranchCode")
+  name       String   @db.NVarChar(200) @map("BranchName")
+  address    String?  @db.NVarChar(500) @map("Address")
+  phone      String?  @db.VarChar(20) @map("Phone")
+  email      String?  @db.VarChar(100) @map("Email")
+  isActive   Boolean  @default(true) @map("IsActive")
+  createdOn  DateTime @default(now()) @map("CreatedOn")
+
+  // Relations
+  patients Patient[]
+  visits   Visit[]
+  doctors  Doctor[]
+
+  @@map("Branches")
+}
+
+model Doctor {
+  id              String   @id @default(uuid()) @map("DoctorID")
+  code            String   @unique @db.VarChar(20) @map("DoctorCode")
+  firstName       String   @db.NVarChar(100) @map("FirstName")
+  lastName        String   @db.NVarChar(100) @map("LastName")
+  specialization  String?  @db.NVarChar(100) @map("Specialization")
+  phone           String?  @db.VarChar(20) @map("Phone")
+  email           String?  @db.VarChar(100) @map("Email")
+  branchId        String?  @map("BranchID")
+  isActive        Boolean  @default(true) @map("IsActive")
+  createdOn       DateTime @default(now()) @map("CreatedOn")
+
+  // Relations
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  visits        Visit[]
+  prescriptions Prescription[]
+  labOrders     LabOrder[]
+
+  @@map("Doctors")
+}
