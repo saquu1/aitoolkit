@@ -1,0 +1,2 @@
+#!/bin/bash
+cd /home/z/my-project/aitoolkit && rm -rf .next && npx next build 2>&1 && echo "--- Copying static files to standalone ---" && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public 2>/dev/null && echo "--- Copying Prisma client ---" && cp -r node_modules/.prisma/client/* .next/standalone/node_modules/.prisma/client/ 2>/dev/null && mkdir -p .next/standalone/node_modules/@prisma/client && cp -r node_modules/@prisma/client/* .next/standalone/node_modules/@prisma/client/ 2>/dev/null && echo "Build + copy complete"

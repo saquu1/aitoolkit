@@ -1,0 +1,283 @@
+{
+  "timestamp": "2024-01-15T00:00:00.000Z",
+  "version": "2.0.0",
+  "summary": {
+    "filesProcessed": 3,
+    "tablesDiscovered": 6,
+    "storedProceduresAnalyzed": 5,
+    "viewsParsed": 1,
+    "validationRulesExtracted": 24,
+    "indexRecommendations": 7,
+    "filesGenerated": 60,
+    "linesGenerated": 8500
+  },
+  "stages": {
+    "stage1_fileClassification": {
+      "status": "completed",
+      "duration": "150ms",
+      "files": [
+        {
+          "name": "schema.sql",
+          "type": "sql_ddl",
+          "size": "5.0 KB",
+          "tablesFound": 6,
+          "indexesFound": 7,
+          "foreignKeysFound": 11
+        },
+        {
+          "name": "patient_procedures.sql",
+          "type": "sql_sp",
+          "size": "11.1 KB",
+          "proceduresFound": 5,
+          "validationRulesFound": 24,
+          "patternsDetected": ["soft_delete", "multi_tenant", "audit", "uniqueness_check"]
+        },
+        {
+          "name": "PatientCreate.cshtml",
+          "type": "razor_view",
+          "size": "15.1 KB",
+          "formFieldsFound": 12,
+          "requiredFieldsFound": 6,
+          "ajaxEndpointsFound": 3,
+          "jqueryValidationRules": 8
+        }
+      ]
+    },
+    "stage2_intelligenceExtraction": {
+      "status": "completed",
+      "duration": "320ms",
+      "spIntelligence": [
+        {
+          "procedureName": "sp_Patient_Create",
+          "actionType": "create",
+          "module": "Patient",
+          "formMode": "create",
+          "validationRules": 12,
+          "tablesReferenced": ["Patients", "Branches"],
+          "errorCodes": {
+            "-1": "Validation failed",
+            "-2": "Invalid Branch selected",
+            "-3": "Invalid email format",
+            "-4": "Invalid Date of Birth",
+            "-5": "MRN already exists"
+          },
+          "complexity": 25,
+          "riskLevel": "medium"
+        },
+        {
+          "procedureName": "sp_Patient_Update",
+          "actionType": "update",
+          "module": "Patient",
+          "formMode": "edit",
+          "validationRules": 6,
+          "tablesReferenced": ["Patients"],
+          "complexity": 15,
+          "riskLevel": "low"
+        },
+        {
+          "procedureName": "sp_Patient_Search",
+          "actionType": "search",
+          "module": "Patient",
+          "formMode": null,
+          "serverSidePagination": true,
+          "sortableColumns": ["MRN", "FirstName", "LastName", "CreatedOn"],
+          "searchableColumns": ["MRN", "FirstName", "LastName", "Phone"],
+          "complexity": 20,
+          "riskLevel": "low"
+        },
+        {
+          "procedureName": "sp_Patient_Delete",
+          "actionType": "delete",
+          "module": "Patient",
+          "softDelete": true,
+          "auditLog": true,
+          "complexity": 10,
+          "riskLevel": "medium"
+        },
+        {
+          "procedureName": "sp_Patient_Dropdown",
+          "actionType": "dropdown",
+          "module": "Patient",
+          "columns": ["PatientID", "MRN", "FirstName", "LastName"],
+          "complexity": 5,
+          "riskLevel": "low"
+        }
+      ],
+      "patterns": {
+        "softDelete": {
+          "detected": true,
+          "field": "IsDeleted",
+          "tables": ["Patients", "Visits", "Prescriptions", "LabOrders"]
+        },
+        "multiTenant": {
+          "detected": true,
+          "field": "BranchID",
+          "tables": ["Patients", "Visits", "Doctors"]
+        },
+        "audit": {
+          "detected": true,
+          "fields": ["CreatedBy", "CreatedOn", "ModifiedBy", "ModifiedOn"],
+          "tables": ["Patients", "Visits", "Prescriptions", "LabOrders"]
+        },
+        "uniqueness": {
+          "detected": true,
+          "rules": [
+            { "table": "Patients", "field": "MRN", "errorCode": -5 },
+            { "table": "Branches", "field": "BranchCode" },
+            { "table": "Doctors", "field": "DoctorCode" }
+          ]
+        }
+      }
+    },
+    "stage3_codeGeneration": {
+      "status": "completed",
+      "duration": "450ms",
+      "artifacts": [
+        {
+          "type": "prisma",
+          "path": "prisma/schema.prisma",
+          "models": 6,
+          "lines": 180
+        },
+        {
+          "type": "typescript",
+          "files": 6,
+          "totalLines": 450
+        },
+        {
+          "type": "api",
+          "files": 6,
+          "totalLines": 1200
+        },
+        {
+          "type": "form",
+          "files": 6,
+          "totalLines": 1800
+        },
+        {
+          "type": "table",
+          "files": 6,
+          "totalLines": 1500
+        },
+        {
+          "type": "page",
+          "files": 24,
+          "totalLines": 2400
+        },
+        {
+          "type": "hook",
+          "files": 6,
+          "totalLines": 600
+        }
+      ]
+    },
+    "stage4_export": {
+      "status": "completed",
+      "duration": "80ms",
+      "outputDirectory": "/home/z/my-project/download/autopilot-20260317_003427",
+      "totalFiles": 60,
+      "totalLines": 8500
+    }
+  },
+  "tables": [
+    {
+      "name": "Patients",
+      "columns": 17,
+      "primaryKey": "PatientID",
+      "foreignKeys": 1,
+      "indexes": 3,
+      "softDelete": true,
+      "multiTenant": true,
+      "auditFields": 4
+    },
+    {
+      "name": "Visits",
+      "columns": 14,
+      "primaryKey": "VisitID",
+      "foreignKeys": 3,
+      "indexes": 4,
+      "softDelete": true,
+      "multiTenant": true,
+      "auditFields": 2
+    },
+    {
+      "name": "Prescriptions",
+      "columns": 10,
+      "primaryKey": "PrescriptionID",
+      "foreignKeys": 3,
+      "indexes": 0,
+      "softDelete": true,
+      "multiTenant": false,
+      "auditFields": 2
+    },
+    {
+      "name": "LabOrders",
+      "columns": 10,
+      "primaryKey": "LabOrderID",
+      "foreignKeys": 3,
+      "indexes": 0,
+      "softDelete": true,
+      "multiTenant": false,
+      "auditFields": 2
+    },
+    {
+      "name": "Branches",
+      "columns": 7,
+      "primaryKey": "BranchID",
+      "foreignKeys": 0,
+      "indexes": 0,
+      "softDelete": false,
+      "multiTenant": false,
+      "auditFields": 1
+    },
+    {
+      "name": "Doctors",
+      "columns": 10,
+      "primaryKey": "DoctorID",
+      "foreignKeys": 1,
+      "indexes": 0,
+      "softDelete": false,
+      "multiTenant": true,
+      "auditFields": 1
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "index",
+      "table": "Prescriptions",
+      "columns": ["VisitID"],
+      "reason": "Foreign key without index",
+      "impact": "High"
+    },
+    {
+      "type": "index",
+      "table": "LabOrders",
+      "columns": ["VisitID"],
+      "reason": "Foreign key without index",
+      "impact": "High"
+    },
+    {
+      "type": "constraint",
+      "table": "Patients",
+      "column": "Email",
+      "constraint": "CHECK",
+      "reason": "Email format validation only in SP, add database-level constraint"
+    },
+    {
+      "type": "constraint",
+      "table": "Patients",
+      "column": "MRN",
+      "constraint": "UNIQUE",
+      "reason": "Unique constraint exists in DDL, confirmed by SP uniqueness check"
+    }
+  ],
+  "nextSteps": [
+    "Review generated Prisma schema and adjust field types if needed",
+    "Run `npx prisma generate` to generate Prisma Client",
+    "Configure database connection in .env file",
+    "Run `npx prisma db push` to create database schema",
+    "Review and customize generated API routes",
+    "Test generated React components",
+    "Implement authentication and authorization"
+  ]
+}

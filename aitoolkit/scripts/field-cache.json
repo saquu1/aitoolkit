@@ -1,0 +1,41 @@
+{
+  "computedColumnModel": [
+    {
+      "name": "id",
+      "type": "String @id @default(cuid())",
+      "source": "standard"
+    },
+    {
+      "name": "createdAt",
+      "type": "DateTime @default(now())",
+      "source": "standard"
+    },
+    {
+      "name": "updatedAt",
+      "type": "DateTime",
+      "source": "standard"
+    }
+  ],
+  "moduleResolution": [
+    {
+      "name": "lastChecked",
+      "type": "String",
+      "source": "aitoolkit/src/app/api/import-analyzer/route.ts"
+    },
+    {
+      "name": "id",
+      "type": "String @id @default(cuid())",
+      "source": "standard"
+    },
+    {
+      "name": "createdAt",
+      "type": "DateTime @default(now())",
+      "source": "standard"
+    },
+    {
+      "name": "updatedAt",
+      "type": "DateTime",
+      "source": "standard"
+    }
+  ]
+}

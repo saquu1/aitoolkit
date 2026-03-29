@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Next.js cache
+.next/cache/
+
+# Environment files
+.env
+.env.local
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Logs
+*.log
+*.pid
+
+# Upload & temp
+upload/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Prisma generated (regenerated on build)
+**/node_modules/.prisma/**
