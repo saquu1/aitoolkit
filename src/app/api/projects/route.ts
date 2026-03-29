@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 const prisma = new PrismaClient()
 
@@ -90,15 +91,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Generate a unique ID for the project
+    const projectId = randomUUID()
+
     const project = await prisma.toolkitProject.create({
       data: {
+        id: projectId,
         name: name.trim(),
         description: description?.trim() || null,
         softwareType: softwareType || 'Custom',
         targetTemplate: targetTemplate || 'nextjs-react',
         color: color || '#3b82f6',
         icon: icon || 'Database',
-        rawSql: ''
+        rawSql: '',
+        updatedAt: new Date()
       }
     })
 

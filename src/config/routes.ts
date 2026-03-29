@@ -89,6 +89,7 @@ export const PUBLIC_API_ROUTES = [
   '/api/contract-validator',  // Contract validator - detect frontend/API mismatches
   '/api/download',          // Public download endpoint for files
   '/api/autoload',          // Autoload configuration - public for testing mode
+  '/api/version',
 ] as const
 
 export const PROTECTED_API_ROUTES = [
