@@ -1,9 +1,9 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useTheme } from '@/hooks/useTheme'
 import { useSchema } from '@/hooks/useSchema'
 import type { LinkedModule } from '@/types/his-modules'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { 
@@ -14,22 +14,45 @@ import {
   FileCode, 
   Zap, 
   TrendingUp,
-  AlertTriangle,
   CheckCircle2,
   Clock,
   ArrowRight,
   Shield,
   BarChart3,
   Activity,
-  Upload
+  Upload,
+  Cpu,
+  HardDrive,
+  Wifi,
+  Layers,
+  Sparkles,
+  RefreshCw,
+  Terminal
 } from 'lucide-react'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
 }
 
+interface ActivityItem {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  message: string
+  time: string
+  icon: typeof Database
+}
+
+// Simulated activity feed data
+const initialActivities: ActivityItem[] = [
+  { id: '1', type: 'success', message: 'System initialized successfully', time: '0s ago', icon: CheckCircle2 },
+  { id: '2', type: 'info', message: 'Schema Intelligence Engine loaded', time: '1s ago', icon: Brain },
+  { id: '3', type: 'info', message: '35 agent modules registered', time: '2s ago', icon: Layers },
+  { id: '4', type: 'info', message: 'Theme engine initialized (Midnight)', time: '3s ago', icon: Sparkles },
+  { id: '5', type: 'success', message: 'Database connection established', time: '4s ago', icon: Database },
+]
+
 export function DashboardTab({ onNavigate }: DashboardTabProps) {
-  const { colors } = useTheme()
+  const { colors, colorScheme } = useTheme()
   const { 
     totalTables, 
     totalColumns, 
@@ -44,6 +67,28 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     dbStatsLoading,
     refreshDbStats
   } = useSchema()
+
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [activities, setActivities] = useState<ActivityItem[]>(initialActivities)
+  const [systemMetrics, setSystemMetrics] = useState({ cpu: 12, memory: 45, uptime: 0 })
+
+  // Real-time clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // System metrics simulation
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSystemMetrics(prev => ({
+        cpu: Math.max(5, Math.min(95, prev.cpu + (Math.random() - 0.5) * 8)),
+        memory: Math.max(30, Math.min(85, prev.memory + (Math.random() - 0.5) * 4)),
+        uptime: prev.uptime + 1,
+      }))
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Helper function to create semi-transparent colors
   const alpha = (color: string, opacity: number) => 
@@ -74,6 +119,13 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     return date.toLocaleDateString()
+  }
+
+  const formatUptime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = seconds % 60
+    return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`
   }
 
   const agentLayers = [
@@ -135,15 +187,46 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     },
   ]
 
+  const getActivityColor = (type: ActivityItem['type']) => {
+    switch (type) {
+      case 'success': return colors.success
+      case 'warning': return colors.warning
+      case 'error': return colors.error
+      default: return colors.primary
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Page Header with Live Clock */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Dashboard</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Dashboard</h2>
+            <div 
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ 
+                backgroundColor: alpha(colors.success, 15),
+                color: colors.success,
+              }}
+            >
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.success }} />
+              Live
+            </div>
+          </div>
           <p className="mt-1" style={{ color: colors.textMuted }}>Multi-Agent Schema Intelligence Platform</p>
         </div>
         <div className="flex items-center gap-3">
+          <div 
+            className="text-sm font-mono px-3 py-1.5 rounded-lg border"
+            style={{ 
+              backgroundColor: alpha(colors.bgTertiary, 30),
+              borderColor: colors.border,
+              color: colors.textSecondary
+            }}
+          >
+            {currentTime.toLocaleTimeString()}
+          </div>
           <Badge 
             variant="outline" 
             style={{
@@ -165,161 +248,349 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         </div>
       </div>
 
-      {/* Health Score Card */}
-      <div 
-        className="rounded-xl border p-6"
-        style={{ 
-          background: `linear-gradient(to right, ${colors.bgSecondary}, ${alpha(colors.bgSecondary, 50)})`,
-          borderColor: colors.border 
-        }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="relative">
-              <svg className="w-24 h-24 transform -rotate-90">
-                <circle
-                  cx="48"
-                  cy="48"
-                  r="40"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  fill="transparent"
-                  style={{ color: colors.border }}
-                />
-                <circle
-                  cx="48"
-                  cy="48"
-                  r="40"
-                  stroke="currentColor"
-                  strokeWidth="8"
-                  fill="transparent"
-                  strokeDasharray={`${stats.healthScore * 2.51} 251`}
-                  style={{ color: colors.primary }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-bold" style={{ color: colors.text }}>{stats.healthScore}</span>
+      {/* Health Score + System Metrics Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Health Score Card - spans 2 columns */}
+        <div 
+          className="lg:col-span-2 rounded-xl border p-6"
+          style={{ 
+            background: `linear-gradient(135deg, ${colors.bgSecondary}, ${alpha(colors.bgSecondary, 50)})`,
+            borderColor: colors.border 
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <svg className="w-28 h-28 transform -rotate-90">
+                  <circle
+                    cx="56"
+                    cy="56"
+                    r="48"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="transparent"
+                    style={{ color: alpha(colors.border, 80) }}
+                  />
+                  <circle
+                    cx="56"
+                    cy="56"
+                    r="48"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="transparent"
+                    strokeLinecap="round"
+                    strokeDasharray={`${stats.healthScore * 3.016} 301.6`}
+                    style={{ 
+                      color: stats.healthScore > 70 ? colors.success : stats.healthScore > 40 ? colors.warning : colors.error,
+                      transition: 'stroke-dasharray 0.5s ease'
+                    }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold" style={{ color: colors.text }}>{stats.healthScore}</span>
+                  <span className="text-[10px]" style={{ color: colors.textMuted }}>SCORE</span>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Schema Health Score</h3>
+                <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
+                  {totalTables === 0 ? 'Upload SQL files to begin analysis' : `${totalTables} tables analyzed across ${modulesLinked} modules`}
+                </p>
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.accent }} />
+                    <span className="text-xs" style={{ color: colors.textMuted }}>FK Resolution: {stats.fkResolved}%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.success }} />
+                    <span className="text-xs" style={{ color: colors.textMuted }}>Module Coverage: {stats.modulesLinked}/35</span>
+                  </div>
+                  {missingTables.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.warning }} />
+                      <span className="text-xs" style={{ color: colors.textMuted }}>Missing: {missingTables.length}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Schema Health Score</h3>
-              <p className="text-sm mt-1" style={{ color: colors.textMuted }}>Upload SQL files to begin analysis</p>
-              <div className="flex items-center gap-4 mt-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.accent }} />
-                  <span className="text-xs" style={{ color: colors.textMuted }}>FK Resolution: {stats.fkResolved}%</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.success }} />
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Module Coverage: {stats.modulesLinked}/35</span>
-                </div>
+            <div className="text-right space-y-1">
+              <div className="text-5xl font-bold" style={{ color: colors.text }}>{stats.tablesParsed}</div>
+              <div className="text-sm font-medium" style={{ color: colors.textMuted }}>Tables Parsed</div>
+              <div className="text-xs mt-2" style={{ color: colors.textMuted }}>
+                {stats.totalColumns} columns • {stats.fkRelationships} FKs
               </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold" style={{ color: colors.text }}>{stats.tablesParsed}</div>
-            <div className="text-sm" style={{ color: colors.textMuted }}>Tables Parsed</div>
+        </div>
+
+        {/* System Monitor */}
+        <div 
+          className="rounded-xl border p-5"
+          style={{ 
+            backgroundColor: alpha(colors.card, 50),
+            borderColor: colors.border 
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+              <Cpu className="w-4 h-4" style={{ color: colors.primary }} />
+              System Monitor
+            </h3>
+            <span 
+              className="text-xs px-2 py-0.5 rounded-full font-mono"
+              style={{ backgroundColor: alpha(colors.success, 15), color: colors.success }}
+            >
+              {formatUptime(systemMetrics.uptime)}
+            </span>
+          </div>
+          <div className="space-y-4">
+            {/* CPU */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Cpu className="w-3.5 h-3.5" style={{ color: colors.textMuted }} />
+                  <span className="text-xs font-medium" style={{ color: colors.textMuted }}>CPU</span>
+                </div>
+                <span className="text-xs font-bold" style={{ color: systemMetrics.cpu > 80 ? colors.error : colors.text }}>
+                  {Math.round(systemMetrics.cpu)}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                <div 
+                  className="h-full rounded-full transition-all duration-1000"
+                  style={{ 
+                    width: `${systemMetrics.cpu}%`,
+                    backgroundColor: systemMetrics.cpu > 80 ? colors.error : systemMetrics.cpu > 60 ? colors.warning : colors.success 
+                  }}
+                />
+              </div>
+            </div>
+            {/* Memory */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-3.5 h-3.5" style={{ color: colors.textMuted }} />
+                  <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Memory</span>
+                </div>
+                <span className="text-xs font-bold" style={{ color: systemMetrics.memory > 80 ? colors.error : colors.text }}>
+                  {Math.round(systemMetrics.memory)}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                <div 
+                  className="h-full rounded-full transition-all duration-1000"
+                  style={{ 
+                    width: `${systemMetrics.memory}%`,
+                    backgroundColor: systemMetrics.memory > 80 ? colors.error : systemMetrics.memory > 60 ? colors.warning : colors.primary 
+                  }}
+                />
+              </div>
+            </div>
+            {/* Network */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Wifi className="w-3.5 h-3.5" style={{ color: colors.textMuted }} />
+                  <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Network</span>
+                </div>
+                <span className="text-xs font-bold" style={{ color: colors.success }}>Active</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                <div className="h-full rounded-full" style={{ width: '15%', backgroundColor: colors.success }} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Stats Grid - 4 columns */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.accent },
-          { label: 'Columns Analyzed', value: stats.totalColumns, icon: FileCode, iconColor: colors.primary },
-          { label: 'FK Relationships', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success },
-          { label: 'Modules Linked', value: stats.modulesLinked, icon: Puzzle, iconColor: colors.warning },
+          { label: 'Total Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.accent, change: null },
+          { label: 'Columns Analyzed', value: stats.totalColumns, icon: FileCode, iconColor: colors.primary, change: null },
+          { label: 'FK Relationships', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success, change: null },
+          { label: 'Modules Linked', value: stats.modulesLinked, icon: Puzzle, iconColor: colors.warning, change: null },
         ].map((stat) => (
           <div 
             key={stat.label}
-            className="rounded-xl border p-4"
+            className="rounded-xl border p-4 group transition-all duration-200 hover:scale-[1.02]"
             style={{ 
               backgroundColor: alpha(colors.card, 50),
-              borderColor: colors.border 
+              borderColor: alpha(colors.border, 80) 
             }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm" style={{ color: colors.textMuted }}>{stat.label}</p>
+                <p className="text-xs font-medium" style={{ color: colors.textMuted }}>{stat.label}</p>
                 <p className="text-2xl font-bold mt-1" style={{ color: colors.text }}>{stat.value}</p>
               </div>
-              <stat.icon className="w-8 h-8 opacity-50" style={{ color: stat.iconColor }} />
+              <div 
+                className="p-2.5 rounded-lg transition-colors"
+                style={{ backgroundColor: alpha(stat.iconColor, 12) }}
+              >
+                <stat.icon className="w-5 h-5" style={{ color: stat.iconColor }} />
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Agent Layers Status */}
-      <div 
-        className="rounded-xl border p-6"
-        style={{ 
-          backgroundColor: alpha(colors.card, 50),
-          borderColor: colors.border 
-        }}
-      >
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
-            <Brain className="w-5 h-5" style={{ color: colors.primary }} />
-            Agent System Status
-          </h3>
-          <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
-            35 sub-agents across 7 layers ready for execution
-          </p>
-        </div>
-        <div className="space-y-3">
-          {agentLayers.map((layer) => (
-            <div 
-              key={layer.name}
-              className="flex items-center justify-between p-4 rounded-lg transition-colors cursor-pointer"
+      {/* Main Content Grid: Agent Layers + Activity Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Agent Layers Status - 2 cols */}
+        <div 
+          className="lg:col-span-2 rounded-xl border p-5"
+          style={{ 
+            backgroundColor: alpha(colors.card, 50),
+            borderColor: colors.border 
+          }}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+                <Brain className="w-5 h-5" style={{ color: colors.primary }} />
+                Agent System Status
+              </h3>
+              <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                35 sub-agents across 7 layers ready for execution
+              </p>
+            </div>
+            <Badge 
               style={{ 
-                backgroundColor: alpha(colors.bgTertiary, 30),
+                backgroundColor: alpha(colors.success, 15),
+                color: colors.success,
+                border: `1px solid ${alpha(colors.success, 30)}`
               }}
             >
-              <div className="flex items-center gap-4">
+              All Systems Operational
+            </Badge>
+          </div>
+          <div className="space-y-2">
+            {agentLayers.map((layer, index) => {
+              const LayerIcon = layer.icon
+              return (
+              <div 
+                key={layer.name}
+                className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 cursor-pointer"
+                style={{ 
+                  backgroundColor: alpha(colors.bgTertiary, 20),
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div 
+                      className="p-2 rounded-lg"
+                      style={{ backgroundColor: alpha(layer.iconColor, 15) }}
+                    >
+                      <LayerIcon className="w-4 h-4" style={{ color: layer.iconColor }} />
+                    </div>
+                    <span 
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                      style={{ backgroundColor: layer.iconColor }}
+                    >
+                      {index + 1}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium" style={{ color: colors.text }}>{layer.name}</h4>
+                    <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>{layer.description}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-1">
+                    {Array.from({ length: Math.min(layer.agents, 3) }, (_, i) => (
+                      <div 
+                        key={i} 
+                        className="w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px]"
+                        style={{ 
+                          borderColor: colors.bgTertiary,
+                          backgroundColor: alpha(layer.iconColor, 30 + i * 15),
+                          color: layer.iconColor
+                        }}
+                      >
+                        {String.fromCharCode(65 + i)}
+                      </div>
+                    ))}
+                    {layer.agents > 3 && (
+                      <div 
+                        className="w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px]"
+                        style={{ 
+                          borderColor: colors.bgTertiary,
+                          backgroundColor: alpha(colors.textMuted, 20),
+                          color: colors.textMuted
+                        }}
+                      >
+                        +{layer.agents - 3}
+                      </div>
+                    )}
+                  </div>
+                  <Badge 
+                    variant="secondary"
+                    className="text-[10px]"
+                    style={{ 
+                      backgroundColor: alpha(colors.bgTertiary, 40),
+                      color: colors.textMuted 
+                    }}
+                  >
+                    {layer.agents}
+                  </Badge>
+                </div>
+              </div>
+            )})}
+          </div>
+        </div>
+
+        {/* Activity Feed - 1 col */}
+        <div 
+          className="rounded-xl border p-5"
+          style={{ 
+            backgroundColor: alpha(colors.card, 50),
+            borderColor: colors.border 
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+              <Terminal className="w-4 h-4" style={{ color: colors.primary }} />
+              Activity Feed
+            </h3>
+            <button 
+              className="p-1 rounded-md transition-colors"
+              style={{ color: colors.textMuted }}
+              onClick={() => refreshDbStats()}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+            {activities.map((activity) => (
+              <div 
+                key={activity.id}
+                className="flex items-start gap-3 p-2 rounded-lg transition-colors"
+                style={{ backgroundColor: alpha(getActivityColor(activity.type), 5) }}
+              >
                 <div 
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: alpha(layer.iconColor, 20) }}
+                  className="p-1.5 rounded-md mt-0.5 flex-shrink-0"
+                  style={{ backgroundColor: alpha(getActivityColor(activity.type), 15) }}
                 >
-                  <layer.icon className="w-5 h-5" style={{ color: layer.iconColor }} />
+                  <activity.icon className="w-3.5 h-3.5" style={{ color: getActivityColor(activity.type) }} />
                 </div>
-                <div>
-                  <h4 className="font-medium" style={{ color: colors.text }}>{layer.name}</h4>
-                  <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>{layer.description}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs" style={{ color: colors.textSecondary }}>{activity.message}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: colors.textMuted }}>{activity.time}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <Badge 
-                  variant="secondary"
-                  style={{ 
-                    backgroundColor: alpha(colors.bgTertiary, 50),
-                    color: colors.textMuted 
-                  }}
-                >
-                  {layer.agents} agents
-                </Badge>
-                <Badge 
-                  style={{ 
-                    backgroundColor: alpha(colors.success, 20),
-                    color: colors.success,
-                    border: `1px solid ${alpha(colors.success, 30)}`
-                  }}
-                >
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Ready
-                </Badge>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Quick Actions - 4 columns */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { 
             title: 'Upload SQL Schema', 
-            desc: 'Parse DDL, procedures, views, and CSHTML',
+            desc: 'Parse DDL, procedures, views, and CSHTML files',
             icon: Upload,
             tab: 'upload',
             color: colors.accent
@@ -338,20 +609,34 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
             tab: 'intelligence',
             color: colors.success
           },
+          { 
+            title: 'Generate Code', 
+            desc: 'Prisma schemas, APIs, React components',
+            icon: Sparkles,
+            tab: 'smart-upload',
+            color: colors.warning
+          },
         ].map((action) => (
           <div 
             key={action.title}
-            className="rounded-xl border p-6 cursor-pointer transition-all hover:scale-[1.02]"
+            className="rounded-xl border p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02] group"
             style={{ 
-              background: `linear-gradient(to bottom right, ${alpha(action.color, 20)}, ${alpha(action.color, 10)})`,
-              borderColor: alpha(action.color, 30),
+              background: `linear-gradient(135deg, ${alpha(action.color, 15)}, ${alpha(action.color, 5)})`,
+              borderColor: alpha(action.color, 25),
             }}
             onClick={() => onNavigate?.(action.tab)}
           >
-            <action.icon className="w-8 h-8 mb-3" style={{ color: action.color }} />
-            <h3 className="font-semibold" style={{ color: colors.text }}>{action.title}</h3>
-            <p className="text-sm mt-1" style={{ color: colors.textMuted }}>{action.desc}</p>
-            <ArrowRight className="w-4 h-4 mt-3" style={{ color: action.color }} />
+            <div className="flex items-start justify-between">
+              <div 
+                className="p-2.5 rounded-lg mb-3 transition-transform group-hover:scale-110"
+                style={{ backgroundColor: alpha(action.color, 15) }}
+              >
+                <action.icon className="w-5 h-5" style={{ color: action.color }} />
+              </div>
+              <ArrowRight className="w-4 h-4 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: action.color }} />
+            </div>
+            <h3 className="text-sm font-semibold" style={{ color: colors.text }}>{action.title}</h3>
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.textMuted }}>{action.desc}</p>
           </div>
         ))}
       </div>
@@ -361,7 +646,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         <div 
           className="rounded-xl border p-6"
           style={{ 
-            background: `linear-gradient(to right, ${alpha(colors.primary, 30)}, ${alpha(colors.accent, 30)})`,
+            background: `linear-gradient(135deg, ${alpha(colors.primary, 25)}, ${alpha(colors.accent, 25)})`,
             borderColor: alpha(colors.primary, 30)
           }}
         >
@@ -387,7 +672,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
                   'Generate Prisma schemas and API specifications',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm" style={{ color: colors.textSecondary }}>
-                    <CheckCircle2 className="w-4 h-4" style={{ color: colors.success }} />
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: colors.success }} />
                     {item}
                   </li>
                 ))}

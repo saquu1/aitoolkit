@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { ThemeProvider, useTheme } from '@/hooks/useTheme'
 import { SchemaProvider, useSchema } from '@/hooks/useSchema'
 import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
-import { Clock } from 'lucide-react'
+import { Clock, Search, Command } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
 import { MemoryToggleButton } from '@/components/MemoryBreakdown'
 import { ThreadStatusBadge } from '@/components/ThreadStatusBadge'
@@ -197,21 +197,13 @@ function AppContent() {
     return 'dashboard'
   }, [pathname, searchParams])
 
-  const [activeTab, setActiveTab] = useState(getActiveTabFromUrl)
-
-  // Sync activeTab with URL changes
-  useEffect(() => {
-    const tabFromUrl = getActiveTabFromUrl()
-    if (tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl)
-    }
-  }, [getActiveTabFromUrl, activeTab])
+  // Derive active tab from URL directly (no state sync needed)
+  const activeTab = getActiveTabFromUrl()
 
   // Navigation handler - updates URL
   const handleNavigate = useCallback((tabId: string) => {
     const navItem = NAV_ITEMS.find(item => item.id === tabId)
     if (navItem) {
-      setActiveTab(tabId)
       if (navItem.slug) {
         router.push(`/?tab=${navItem.slug}`, { scroll: false })
       } else {
@@ -270,13 +262,13 @@ function AppContent() {
           {/* Project Scope Selector */}
           <ProjectScopeHeader variant="header" showSettings />
 
-          <div className="flex items-center gap-3">
-            {/* Session Active Time */}
+          <div className="flex items-center gap-2">
+            {/* Uptime Display */}
             <div 
-              className="flex items-center gap-2 px-3 py-1.5 border rounded-full"
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 border rounded-full"
               style={{ 
-                backgroundColor: `color-mix(in srgb, ${colors.success} 10%, transparent)`,
-                borderColor: `color-mix(in srgb, ${colors.success} 20%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${colors.success} 8%, transparent)`,
+                borderColor: `color-mix(in srgb, ${colors.success} 15%, transparent)`,
               }}
             >
               <div 
@@ -287,7 +279,7 @@ function AppContent() {
                 className="text-xs font-medium"
                 style={{ color: colors.success }}
               >
-                System Ready
+                {formatUptime(uptime)}
               </span>
             </div>
             {/* Version Tracker */}
@@ -299,8 +291,9 @@ function AppContent() {
             {/* Session Status Badge (shows uptime + warnings) */}
             <SessionStatusBadge />
             <ColorSchemeSelector />
+            {/* AI Mode Badge */}
             <div 
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg"
               style={{ backgroundColor: `color-mix(in srgb, ${colors.primary} 10%, transparent)` }}
             >
               <Brain className="w-4 h-4" style={{ color: colors.primary }} />
@@ -320,31 +313,56 @@ function AppContent() {
             backgroundColor: `color-mix(in srgb, ${colors.bgSecondary} 30%, transparent)`,
           }}
         >
-          <nav className="p-4 space-y-2">
+          {/* Search */}
+          <div className="px-4 pb-3">
+            <div 
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-text"
+              style={{ 
+                backgroundColor: `color-mix(in srgb, ${colors.bgTertiary} 30%, transparent)`,
+                borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)`,
+              }}
+            >
+              <Search className="w-4 h-4" style={{ color: colors.textMuted }} />
+              <span className="text-sm" style={{ color: colors.textMuted }}>Search...</span>
+              <kbd 
+                className="ml-auto text-[10px] px-1.5 py-0.5 rounded border font-mono"
+                style={{ 
+                  backgroundColor: `color-mix(in srgb, ${colors.bgTertiary} 40%, transparent)`,
+                  borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+                  color: colors.textMuted
+                }}
+              >
+                Ctrl+K
+              </kbd>
+            </div>
+          </div>
+
+          <nav className="px-4 space-y-1">
             {NAV_ITEMS.map((item) => {
               const badgeColor = item.badgeColorKey ? getBadgeColor(item.badgeColorKey) : undefined
+              const isActive = activeTab === item.id
               return (
                 <button
                   key={item.id}
                   onClick={() => handleNavigate(item.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 text-left"
                   style={{
-                    backgroundColor: activeTab === item.id 
+                    backgroundColor: isActive 
                       ? `color-mix(in srgb, ${colors.primary} 15%, transparent)` 
                       : 'transparent',
-                    color: activeTab === item.id 
+                    color: isActive 
                       ? colors.primaryLight 
                       : colors.textMuted,
-                    border: activeTab === item.id 
+                    border: isActive 
                       ? `1px solid color-mix(in srgb, ${colors.primary} 30%, transparent)` 
                       : '1px solid transparent',
                   }}
                 >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm font-medium truncate">{item.label}</span>
                   {item.badge && badgeColor && (
                     <span 
-                      className="ml-auto text-xs px-2 py-0.5 rounded-full"
+                      className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
                       style={{ 
                         backgroundColor: `color-mix(in srgb, ${badgeColor} 20%, transparent)`,
                         color: badgeColor,
@@ -358,37 +376,38 @@ function AppContent() {
             })}
           </nav>
 
-          {/* Agent Status */}
+          {/* Agent Layers */}
           <div 
-            className="p-4 border-t"
+            className="px-4 pt-4 pb-2 border-t"
             style={{ borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)` }}
           >
             <h3 
-              className="text-xs font-semibold uppercase tracking-wider mb-3"
+              className="text-[10px] font-semibold uppercase tracking-wider mb-2"
               style={{ color: colors.textMuted }}
             >
               Agent Layers
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {[
-                { name: 'Schema', icon: Database, count: 5, color: colors.accent },
-                { name: 'Intelligence', icon: Brain, count: 5, color: colors.primary },
-                { name: 'Module', icon: Puzzle, count: 5, color: colors.success },
-                { name: 'Requirements', icon: FileCode, count: 5, color: colors.warning },
-                { name: 'Generation', icon: Zap, count: 6, color: '#eab308' },
-                { name: 'Migration', icon: GitBranch, count: 4, color: '#ec4899' },
-                { name: 'Management', icon: BarChart3, count: 5, color: '#06b6d4' },
+                { name: 'Schema', icon: Database, count: 5, total: 5, color: colors.accent },
+                { name: 'Intelligence', icon: Brain, count: 5, total: 5, color: colors.primary },
+                { name: 'Module', icon: Puzzle, count: 5, total: 5, color: colors.success },
+                { name: 'Requirements', icon: FileCode, count: 5, total: 5, color: colors.warning },
+                { name: 'Generation', icon: Zap, count: 6, total: 6, color: '#eab308' },
+                { name: 'Migration', icon: GitBranch, count: 4, total: 4, color: '#ec4899' },
+                { name: 'Management', icon: BarChart3, count: 5, total: 5, color: '#06b6d4' },
               ].map((layer) => (
                 <div 
                   key={layer.name} 
-                  className="flex items-center justify-between px-3 py-2 rounded-lg"
-                  style={{ backgroundColor: `color-mix(in srgb, ${colors.card} 50%, transparent)` }}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-md"
+                  style={{ backgroundColor: `color-mix(in srgb, ${colors.card} 30%, transparent)` }}
                 >
-                  <div className="flex items-center gap-2">
-                    <layer.icon className="w-4 h-4" style={{ color: layer.color }} />
-                    <span className="text-sm" style={{ color: colors.text }}>{layer.name}</span>
+                  <layer.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: layer.color }} />
+                  <span className="text-xs flex-1 truncate" style={{ color: colors.text }}>{layer.name}</span>
+                  <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${colors.border} 60%, transparent)` }}>
+                    <div className="h-full rounded-full" style={{ width: `${(layer.count/layer.total)*100}%`, backgroundColor: layer.color }} />
                   </div>
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{layer.count}</span>
+                  <span className="text-[10px] w-5 text-right" style={{ color: colors.textMuted }}>{layer.count}</span>
                 </div>
               ))}
             </div>
@@ -396,24 +415,28 @@ function AppContent() {
 
           {/* Quick Stats */}
           <div 
-            className="p-4 border-t"
+            className="px-4 pt-3 pb-4 border-t"
             style={{ borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)` }}
           >
             <h3 
-              className="text-xs font-semibold uppercase tracking-wider mb-3"
+              className="text-[10px] font-semibold uppercase tracking-wider mb-2"
               style={{ color: colors.textMuted }}
             >
               Quick Stats
             </h3>
-            <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'Tables Parsed', value: totalTables.toString() },
-                { label: 'FK Resolved', value: `${fkResolvedPercent}%` },
-                { label: 'Modules Covered', value: `${modulesLinked}/35` },
+                { label: 'Tables', value: totalTables, color: colors.accent },
+                { label: 'FK %', value: fkResolvedPercent, color: colors.success },
+                { label: 'Modules', value: `${modulesLinked}/35`, color: colors.primary },
               ].map((stat) => (
-                <div key={stat.label} className="flex justify-between" style={{ color: colors.textMuted }}>
-                  <span>{stat.label}</span>
-                  <span style={{ color: colors.text }} className="font-medium">{stat.value}</span>
+                <div 
+                  key={stat.label}
+                  className="text-center px-2 py-1.5 rounded-md"
+                  style={{ backgroundColor: `color-mix(in srgb, ${stat.color} 8%, transparent)` }}
+                >
+                  <div className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}</div>
+                  <div className="text-[10px]" style={{ color: colors.textMuted }}>{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -466,12 +489,35 @@ function AppContent() {
   )
 }
 
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+      <div className="text-center">
+        <div className="relative w-16 h-16 mx-auto mb-6">
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 animate-pulse opacity-75" />
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 animate-spin" style={{ animationDuration: '3s' }} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Database className="w-8 h-8 text-white" />
+          </div>
+        </div>
+        <h2 className="text-xl font-semibold text-white mb-2">AI Enterprise Architect</h2>
+        <p className="text-sm text-slate-400">Initializing Multi-Agent System...</p>
+        <div className="mt-4 flex items-center justify-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <div className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
   return (
     <ThemeProvider>
       <SchemaProvider>
         <ProjectScopeProvider>
-          <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+          <Suspense fallback={<LoadingScreen />}>
             <AppContent />
             <ErrorMonitor />
           </Suspense>
