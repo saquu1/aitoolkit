@@ -10,7 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useTheme } from '@/hooks/useTheme'
+import { useActionToast } from '@/hooks/useActionToast'
 import { useSchema, ActiveProject } from '@/hooks/useSchema'
+import { DataTable, ColumnDef } from '@/components/DataTable'
+import { StatusBadge } from '@/components/StatusBadge'
 import { 
   AlertTriangle,
   CheckCircle2,
@@ -29,8 +33,36 @@ import {
   Zap,
   FileCode,
   Sparkles,
-  FolderKanban
+  FolderKanban,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react'
+
+interface FKDashboardStats {
+  totalFKs: number
+  resolvedFKs: number
+  unresolvedFKs: number
+  resolutionPercent: number
+  totalTables: number
+  tablesWithFKs: number
+}
+
+interface FKDetail {
+  table: string
+  column: string
+  referencesTable: string
+  status: 'resolved' | 'unresolved'
+  project: string
+}
+
+interface AgentRunItem {
+  id: string
+  agentName: string
+  status: string
+  startedAt: string
+  completedAt: string | null
+  itemsProcessed: number
+}
 
 interface MissingTableItem {
   tableName: string
@@ -68,6 +100,15 @@ interface FKResolutionTabProps {
 
 export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionComplete }: FKResolutionTabProps) {
   const router = useRouter()
+  const { colors } = useTheme()
+  const toast = useActionToast()
+  const alpha = (color: string, opacity: number) => `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+
+  // FK Dashboard state
+  const [fkStats, setFkStats] = useState<FKDashboardStats | null>(null)
+  const [fkDetails, setFkDetails] = useState<FKDetail[]>([])
+  const [fkAgentRuns, setFkAgentRuns] = useState<AgentRunItem[]>([])
+  const [fkDashLoading, setFkDashLoading] = useState(true)
   
   // Connect to shared schema state
   const { 
@@ -98,7 +139,25 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
   // Load available projects on mount
   useEffect(() => {
     loadAvailableProjects()
+    // Fetch FK dashboard stats
+    fetchFKDashboard()
   }, [])
+
+  const fetchFKDashboard = async () => {
+    try {
+      const res = await fetch('/api/fk-resolution/stats')
+      const data = await res.json()
+      if (data.success) {
+        setFkStats(data.stats)
+        setFkDetails(data.fkDetails || [])
+        setFkAgentRuns(data.recentAgentRuns || [])
+      }
+    } catch {
+      console.error('Failed to fetch FK dashboard stats')
+    } finally {
+      setFkDashLoading(false)
+    }
+  }
   
   // Load FK data when project changes
   useEffect(() => {
@@ -339,8 +398,130 @@ export function FKResolutionTab({ projectId, sqlContent, tables, onResolutionCom
     )
   }
 
+  // FK DataTable columns
+  const fkColumns: ColumnDef<FKDetail>[] = [
+    {
+      key: 'table',
+      label: 'Table',
+      sortable: true,
+      render: (val) => (
+        <span className="font-medium text-sm" style={{ color: colors.text }}>{String(val)}</span>
+      ),
+    },
+    {
+      key: 'column',
+      label: 'Column',
+      sortable: true,
+      render: (val) => <span className="text-sm" style={{ color: colors.textSecondary }}>{String(val)}</span>,
+    },
+    {
+      key: 'referencesTable',
+      label: 'References',
+      sortable: true,
+      render: (val) => (
+        <span className="text-sm flex items-center gap-1" style={{ color: colors.textSecondary }}>
+          <ArrowRight className="w-3 h-3" style={{ color: colors.textMuted }} />
+          {String(val)}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (val) => (
+        <StatusBadge
+          status={val === 'resolved' ? 'success' : 'warning'}
+          label={String(val)}
+          size="sm"
+        />
+      ),
+    },
+    {
+      key: 'project',
+      label: 'Project',
+      sortable: true,
+      render: (val) => <span className="text-xs" style={{ color: colors.textMuted }}>{String(val)}</span>,
+    },
+  ]
+
   return (
     <div className="space-y-6">
+      {/* FK Resolution Dashboard */}
+      {!isLoading && (
+        <div
+          className="rounded-xl border overflow-hidden"
+          style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}
+        >
+          <div className="px-5 py-3 border-b" style={{ borderColor: colors.border }}>
+            <h3 className="text-sm font-semibold" style={{ color: colors.text }}>FK Resolution Dashboard</h3>
+            <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
+              Cross-project foreign key analysis from database
+            </p>
+          </div>
+
+          {/* 4 stat cards */}
+          <div className="grid grid-cols-4 gap-3 p-4">
+            {[
+              { label: 'Total FKs', value: fkStats?.totalFKs ?? 0, icon: GitBranch, color: colors.accent },
+              { label: 'Resolved', value: fkStats?.resolvedFKs ?? 0, icon: CheckCircle2, color: colors.success },
+              { label: 'Unresolved', value: fkStats?.unresolvedFKs ?? 0, icon: XCircle, color: colors.error },
+              { label: 'Resolution %', value: `${fkStats?.resolutionPercent ?? 0}%`, icon: TrendingUp, color: colors.warning },
+            ].map((stat) => (
+              <div key={stat.label} className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: alpha(stat.color, 8) }}>
+                <stat.icon className="w-4 h-4" style={{ color: stat.color }} />
+                <div>
+                  <div className="text-lg font-bold" style={{ color: colors.text }}>{stat.value}</div>
+                  <div className="text-[10px]" style={{ color: colors.textMuted }}>{stat.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* DataTable */}
+          <div className="px-4 pb-4">
+            <DataTable
+              columns={fkColumns}
+              data={fkDetails}
+              loading={fkDashLoading}
+              emptyMessage="No foreign keys found in database"
+              pageSize={10}
+              maxHeight="max-h-72"
+            />
+          </div>
+
+          {/* Recent Agent Runs */}
+          {fkAgentRuns.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="text-xs font-medium mb-2" style={{ color: colors.textMuted }}>Recent FK Agent Runs</div>
+              <div className="space-y-1.5">
+                {fkAgentRuns.map((run) => (
+                  <div
+                    key={run.id}
+                    className="flex items-center justify-between px-3 py-2 rounded-lg"
+                    style={{ backgroundColor: alpha(colors.bg, 30) }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <StatusBadge
+                        status={run.status === 'completed' ? 'success' : run.status === 'running' ? 'running' : run.status === 'failed' ? 'error' : 'pending'}
+                        label={run.agentName}
+                        size="sm"
+                      />
+                      <span className="text-xs" style={{ color: colors.textMuted }}>
+                        {run.itemsProcessed} items
+                      </span>
+                    </div>
+                    <span className="text-xs" style={{ color: colors.textMuted }}>
+                      {run.startedAt ? new Date(run.startedAt).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header with Project Selector */}
       <div className="flex items-center justify-between">
         <div>

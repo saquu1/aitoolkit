@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTheme } from '@/hooks/useTheme'
+import { useActionToast } from '@/hooks/useActionToast'
 import { useSchema } from '@/hooks/useSchema'
+import { DataTable, ColumnDef } from '@/components/DataTable'
+import { StatusBadge } from '@/components/StatusBadge'
 import { 
   Search, 
   Puzzle, 
@@ -96,8 +99,32 @@ const LAYER_COLORS: Record<number, string> = {
   7: 'accentLight',
 }
 
+interface RegistryModule {
+  id: string
+  moduleKey: string
+  moduleName: string
+  description: string
+  layer: number
+  layerName: string
+  priority: string
+  estimatedDays: number
+  status: string
+  progress: number
+  assignedTo: string
+  revenue: boolean
+  notes: string
+  createdAt: string
+}
+
 export function ModulesTab() {
   const { colors } = useTheme()
+  const toast = useActionToast()
+  const alpha = (color: string, opacity: number) => `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+
+  // Registry overview state
+  const [registryModules, setRegistryModules] = useState<RegistryModule[]>([])
+  const [registryLoading, setRegistryLoading] = useState(true)
+
   // Connect to shared schema state
   const { 
     linkedModules, 
@@ -119,7 +146,23 @@ export function ModulesTab() {
   // Fetch modules and statistics
   useEffect(() => {
     fetchData()
+    // Also fetch registry modules from /api/modules/list
+    fetchRegistryModules()
   }, [])
+
+  const fetchRegistryModules = async () => {
+    try {
+      const res = await fetch('/api/modules/list')
+      const data = await res.json()
+      if (data.success) {
+        setRegistryModules(data.modules)
+      }
+    } catch {
+      console.error('Failed to fetch registry modules')
+    } finally {
+      setRegistryLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -239,8 +282,153 @@ export function ModulesTab() {
     )
   }
 
+  // Registry DataTable columns
+  const registryColumns: ColumnDef<RegistryModule>[] = [
+    {
+      key: 'moduleName',
+      label: 'Module Name',
+      sortable: true,
+      render: (_val, row) => (
+        <div className="flex items-center gap-2">
+          <Puzzle className="w-3.5 h-3.5 shrink-0" style={{ color: colors.primary }} />
+          <div>
+            <span className="font-medium text-sm" style={{ color: colors.text }}>{row.moduleName}</span>
+            <span className="text-xs ml-2" style={{ color: colors.textMuted }}>{row.moduleKey}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'layer',
+      label: 'Layer',
+      sortable: true,
+      align: 'center',
+      render: (val) => (
+        <span className="text-xs px-2 py-0.5 rounded-full" style={{
+          backgroundColor: alpha(getLayerColor(Number(val)), 15),
+          color: getLayerColor(Number(val)),
+        }}>
+          L{val}
+        </span>
+      ),
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      sortable: true,
+      render: (val) => {
+        const pColors: Record<string, string> = {
+          critical: colors.error, high: colors.warning, medium: colors.accent, low: colors.textMuted,
+        }
+        const c = pColors[String(val)] || colors.textMuted
+        return (
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{
+            backgroundColor: alpha(c, 15), color: c, border: `1px solid ${alpha(c, 25)}`,
+          }}>
+            {String(val).charAt(0).toUpperCase() + String(val).slice(1)}
+          </span>
+        )
+      },
+    },
+    {
+      key: 'progress',
+      label: 'Progress',
+      sortable: true,
+      render: (val) => {
+        const pct = Number(val) || 0
+        const barColor = pct >= 80 ? colors.success : pct >= 40 ? colors.warning : colors.textMuted
+        return (
+          <div className="flex items-center gap-2 min-w-[100px]">
+            <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: alpha(colors.border, 50) }}>
+              <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: barColor }} />
+            </div>
+            <span className="text-xs w-8 text-right" style={{ color: colors.textMuted }}>{pct}%</span>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (val) => {
+        const sMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'pending' | 'idle' | 'running'> = {
+          linked: 'success', completed: 'success', in_progress: 'running',
+          blocked: 'error', planned: 'pending', pending: 'pending',
+        }
+        return <StatusBadge status={sMap[String(val)] || 'pending'} label={String(val).split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')} size="sm" />
+      },
+    },
+    {
+      key: 'assignedTo',
+      label: 'Assigned To',
+      sortable: true,
+      render: (val) => val ? (
+        <span className="text-xs" style={{ color: colors.textSecondary }}>{String(val)}</span>
+      ) : <span className="text-xs" style={{ color: colors.textMuted }}>—</span>,
+    },
+    {
+      key: 'estimatedDays',
+      label: 'Est. Days',
+      sortable: true,
+      align: 'right',
+      render: (val) => <span className="text-sm" style={{ color: colors.textSecondary }}>{val || 0}d</span>,
+    },
+  ]
+
+  // Registry summary stats
+  const registryStats = {
+    total: registryModules.length,
+    linked: registryModules.filter(m => m.status === 'linked').length,
+    inProgress: registryModules.filter(m => m.status === 'in_progress').length,
+    pending: registryModules.filter(m => m.status === 'pending' || m.status === 'planned').length,
+  }
+
   return (
     <div className="space-y-6">
+      {/* Module Registry Overview */}
+      {!isLoading && (
+        <div
+          className="rounded-xl border overflow-hidden"
+          style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}
+        >
+          <div className="px-5 py-3 border-b" style={{ borderColor: colors.border }}>
+            <h3 className="text-sm font-semibold" style={{ color: colors.text }}>Module Registry Overview</h3>
+            <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>Live data from database • {registryStats.total} modules registered</p>
+          </div>
+
+          {/* Summary stat cards */}
+          <div className="grid grid-cols-4 gap-3 p-4">
+            {[
+              { label: 'Total Modules', value: registryStats.total, icon: Puzzle, color: colors.accent },
+              { label: 'Linked', value: registryStats.linked, icon: CheckCircle2, color: colors.success },
+              { label: 'In Progress', value: registryStats.inProgress, icon: RefreshCw, color: colors.warning },
+              { label: 'Pending', value: registryStats.pending, icon: Clock, color: colors.textMuted },
+            ].map((stat) => (
+              <div key={stat.label} className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ backgroundColor: alpha(stat.color, 8) }}>
+                <stat.icon className="w-4 h-4" style={{ color: stat.color }} />
+                <div>
+                  <div className="text-lg font-bold" style={{ color: colors.text }}>{stat.value}</div>
+                  <div className="text-[10px]" style={{ color: colors.textMuted }}>{stat.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* DataTable */}
+          <div className="px-4 pb-4">
+            <DataTable
+              columns={registryColumns}
+              data={registryModules}
+              loading={registryLoading}
+              emptyMessage="No modules registered in database"
+              pageSize={8}
+              maxHeight="max-h-80"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

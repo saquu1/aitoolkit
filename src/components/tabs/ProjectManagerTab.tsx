@@ -3,9 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '@/hooks/useTheme'
+import { useActionToast } from '@/hooks/useActionToast'
 import { useSchema, ActiveProject } from '@/hooks/useSchema'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { DataTable, ColumnDef } from '@/components/DataTable'
+import { StatusBadge } from '@/components/StatusBadge'
 import {
   Database,
   FolderPlus,
@@ -78,13 +81,41 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   FolderOpen,
   Layers,
   FileCode,
-  Table2
+  Table2,
+  Building2,
+  Microscope,
+}
+
+// Also map string icon names to lucide-react components for seeded data
+const ICON_NAME_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Hospital: Building2,
+  Microscope: Microscope,
+}
+
+interface DbProject {
+  id: string
+  name: string
+  description: string
+  softwareType: string
+  status: string
+  color: string
+  icon: string
+  tableCount: number
+  procedureCount: number
+  lastUpdated: string
+  createdAt: string
 }
 
 export function ProjectManagerTab({ onNavigate }: ProjectManagerTabProps) {
   const { colors } = useTheme()
+  const toast = useActionToast()
   const { activeProject, setActiveProject } = useSchema()
   const router = useRouter()
+  const alpha = (color: string, opacity: number) => `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+
+  // Database Projects DataTable state
+  const [dbProjects, setDbProjects] = useState<DbProject[]>([])
+  const [dbLoading, setDbLoading] = useState(true)
 
   // State
   const [projects, setProjects] = useState<ProjectWithCounts[]>([])
@@ -138,6 +169,86 @@ export function ProjectManagerTab({ onNavigate }: ProjectManagerTabProps) {
   useEffect(() => {
     fetchProjects()
   }, [fetchProjects])
+
+  // Fetch database projects for DataTable
+  useEffect(() => {
+    const fetchDbProjects = async () => {
+      try {
+        const res = await fetch('/api/projects/list')
+        const data = await res.json()
+        if (data.success) {
+          setDbProjects(data.projects)
+        }
+      } catch {
+        console.error('Failed to fetch database projects')
+      } finally {
+        setDbLoading(false)
+      }
+    }
+    fetchDbProjects()
+  }, [])
+
+  // Project table columns
+  const projectColumns: ColumnDef<DbProject>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      sortable: true,
+      render: (_val, row) => {
+        const IconComponent = ICONS[row.icon] || Database
+        return (
+          <div className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+              style={{ backgroundColor: row.color }}
+            >
+              <IconComponent className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="font-medium" style={{ color: colors.text }}>{row.name}</span>
+          </div>
+        )
+      },
+    },
+    {
+      key: 'softwareType',
+      label: 'Type',
+      sortable: true,
+      render: (val) => (
+        <span className="text-xs px-2 py-0.5 rounded-full" style={{
+          backgroundColor: alpha(colors.primary, 12),
+          color: colors.primary,
+          border: `1px solid ${alpha(colors.primary, 20)}`,
+        }}>
+          {val || '—'}
+        </span>
+      ),
+    },
+    { key: 'tableCount', label: 'Tables', sortable: true, align: 'center' },
+    { key: 'procedureCount', label: 'Procedures', sortable: true, align: 'center' },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (val) => {
+        const statusMap: Record<string, 'success' | 'warning' | 'error' | 'info' | 'pending' | 'idle'> = {
+          active: 'success', completed: 'success', archived: 'pending',
+          inactive: 'idle', unknown: 'pending',
+        }
+        return <StatusBadge status={statusMap[val] || 'pending'} label={String(val)} size="sm" />
+      },
+    },
+    {
+      key: 'lastUpdated',
+      label: 'Last Updated',
+      sortable: true,
+      render: (val) => (
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: colors.textMuted }}>
+          <Clock className="w-3 h-3" />
+          {val ? new Date(val).toLocaleDateString() : '—'}
+        </span>
+      ),
+    },
+  ]
 
   // Create project
   const handleCreateProject = async () => {
@@ -350,6 +461,96 @@ export function ProjectManagerTab({ onNavigate }: ProjectManagerTabProps) {
           <Plus className="w-4 h-4" />
           New Project
         </button>
+      </div>
+
+      {/* Database Projects DataTable */}
+      <div
+        className="rounded-xl border overflow-hidden"
+        style={{
+          backgroundColor: alpha(colors.card, 50),
+          borderColor: colors.border,
+        }}
+      >
+        <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: colors.border }}>
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: colors.text }}>Database Projects</h3>
+            <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
+              {dbProjects.length} project{dbProjects.length !== 1 ? 's' : ''} from the database
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: colors.textMuted }}>
+            <Database className="w-3.5 h-3.5" />
+            {dbProjects.reduce((sum, p) => sum + p.tableCount, 0)} tables total
+          </div>
+        </div>
+        <div>
+          {dbProjects.map((proj) => (
+            <div
+              key={proj.id}
+              className="flex items-center gap-4 px-5 py-3 border-b transition-colors"
+              style={{
+                borderColor: alpha(colors.border, 30),
+                borderLeft: `3px solid ${proj.color}`,
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = alpha(proj.color, 6) }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            >
+              <div className="flex items-center gap-2 min-w-[180px]">
+                <div
+                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: proj.color }}
+                >
+                  {(() => {
+                    const IconComp = ICONS[proj.icon] || ICON_NAME_MAP[proj.icon] || Database
+                    return <IconComp className="w-3.5 h-3.5 text-white" />
+                  })()}
+                </div>
+                <span className="font-medium text-sm" style={{ color: colors.text }}>{proj.name}</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full min-w-[100px]" style={{
+                backgroundColor: alpha(colors.primary, 12),
+                color: colors.primary,
+                border: `1px solid ${alpha(colors.primary, 20)}`,
+              }}>
+                {proj.softwareType || '—'}
+              </span>
+              <span className="text-sm text-center min-w-[60px]" style={{ color: colors.textSecondary }}>
+                {proj.tableCount}
+              </span>
+              <span className="text-sm text-center min-w-[80px]" style={{ color: colors.textSecondary }}>
+                {proj.procedureCount}
+              </span>
+              <div className="min-w-[90px]">
+                <StatusBadge
+                  status={
+                    proj.status === 'active' ? 'success' :
+                    proj.status === 'completed' ? 'success' :
+                    proj.status === 'archived' ? 'pending' :
+                    proj.status === 'inactive' ? 'idle' : 'pending'
+                  }
+                  label={proj.status}
+                  size="sm"
+                />
+              </div>
+              <span className="flex items-center gap-1.5 text-xs min-w-[100px]" style={{ color: colors.textMuted }}>
+                <Clock className="w-3 h-3" />
+                {proj.lastUpdated ? new Date(proj.lastUpdated).toLocaleDateString() : '—'}
+              </span>
+            </div>
+          ))}
+          {dbLoading && (
+            <div className="px-5 py-8 text-center" style={{ color: colors.textMuted }}>
+              <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" style={{ color: colors.primary }} />
+              <span className="text-sm">Loading database projects...</span>
+            </div>
+          )}
+          {!dbLoading && dbProjects.length === 0 && (
+            <div className="px-5 py-8 text-center" style={{ color: colors.textMuted }}>
+              <p className="text-sm">No database projects found</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Active Project Banner */}

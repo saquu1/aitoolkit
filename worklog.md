@@ -187,3 +187,98 @@ Stage Summary:
 5. **MEDIUM**: Enhance the loading screen with real initialization progress from API
 6. **LOW**: Fix remaining lib/ lint errors (require imports, module assignments)
 7. **LOW**: Add more AreaChart/DonutChart instances to analytics tabs
+
+---
+Task ID: 8b
+Agent: frontend-styling-expert subagent
+Task: Create MiniHeatmap component + enhance globals.css with 10 dashboard utility classes
+
+Work Log:
+- Created `/src/components/MiniHeatmap.tsx` — a compact heatmap grid component
+  - 'use client' directive with useTheme hook for theme-aware success color
+  - Props: data (2D number[][]), cellSize (default 12), gap (default 2), colorScale, showLabels, maxValue, tooltip, title, className
+  - Renders CSS grid of rounded squares, color intensity mapped to value/maxValue ratio
+  - 0 values render as transparent
+  - CSS-only tooltip on hover (no JS tooltip library) showing cell value
+  - Hover outline for active cell focus
+  - Optional legend (Less → More) with color scale preview
+  - Optional day/hour labels with smart sub-sampling for large column counts
+  - SSR skeleton fallback when not mounted
+  - ARIA labels for accessibility
+- Appended ~310 lines of CSS to `/src/app/globals.css` (no existing lines modified)
+  - MiniHeatmap tooltip styles (.mini-heatmap-tooltip, .mini-heatmap-cell:hover)
+  - `.section-header` — flex header with gradient bottom border via ::after
+  - `.stat-card-stack` — vertical flex stack with styled children (hover state)
+  - `.data-badge` — compact rounded-full badge with font-mono support
+  - `.progress-bar-animated` — 6px rounded bar with gradient fill + shimmer ::after overlay
+  - `.content-fade-in` — 0.5s fade+slide animation via @keyframes contentFadeIn
+  - `.card-grid-pattern` — 45° diagonal stripe repeating pattern at 2.5% opacity
+  - `.number-highlight` — font-mono, bold, tabular-nums, tight letter-spacing, optional gradient
+  - `.divider-gradient` — centered gradient divider line
+  - `.badge-soft` — borderless rounded-full badge at 12% opacity background + .success/.warning/.error variants
+  - `.info-chip` — rounded-lg info chip at 8% bg / 12% border with hover state
+  - All new animations respect prefers-reduced-motion
+  - All CSS uses custom properties (--color-primary, --color-border, etc.)
+
+Stage Summary:
+- 1 new component: MiniHeatmap.tsx (compact activity heatmap for dashboards)
+- 10 new CSS utility classes appended to globals.css
+- Server verified HTTP 200 — no regressions
+
+---
+## Task ID: 8a
+Agent: full-stack-developer subagent
+Task: Enhance 3 existing tab components with real data from database and DataTable integration
+
+### Work Task
+Create 3 new API endpoints and enhance ProjectManagerTab, ModulesTab, and FKResolutionTab with DataTable-driven sections showing real database data.
+
+### Work Summary
+
+#### API Endpoints Created:
+1. **`/src/app/api/projects/list/route.ts`** (GET)
+   - Queries `toolkitProject` with `_count` on `ToolkitTable` and `ToolkitProcedure` relations
+   - Returns project list with name, type, status, color, icon, table/procedure counts, timestamps
+   - Also returns total HIS module count
+
+2. **`/src/app/api/modules/list/route.ts`** (GET)
+   - Queries all `hISModule` records ordered by priority
+   - Returns module data with key, name, description, layer, priority, progress, status, assignedTo, etc.
+
+3. **`/src/app/api/fk-resolution/stats/route.ts`** (GET)
+   - Parses `foreignKeys` JSON from all `toolkitTable` records
+   - Analyzes FK resolution by checking if referenced tables exist
+   - Returns stats (totalFKs, resolved, unresolved, resolutionPercent), FK details (table/column/references/status/project), and recent agent runs
+
+#### Tab Enhancements:
+
+1. **ProjectManagerTab** — Added "Database Projects" section at top
+   - Custom table rows (not DataTable component) with colored left border per project
+   - Icon + name column, type badge, table/procedure counts, StatusBadge for status, last updated
+   - Loading spinner skeleton, empty state
+   - Shows total tables count in header
+
+2. **ModulesTab** — Added "Module Registry Overview" section at top
+   - 4 summary stat cards: Total Modules, Linked, In Progress, Pending
+   - Full DataTable with columns: Module Name (icon + key), Layer (colored badge), Priority (colored badge), Progress (progress bar), Status (StatusBadge), Assigned To, Est. Days
+   - Uses DataTable component with sorting, pagination, and loading skeleton
+
+3. **FKResolutionTab** — Added "FK Resolution Dashboard" section at top
+   - 4 stat cards: Total FKs, Resolved, Unresolved, Resolution %
+   - DataTable with columns: Table, Column, References (with arrow icon), Status (resolved=green, unresolved=amber StatusBadge), Project
+   - Recent FK Agent Runs section with StatusBadge and date
+   - Uses DataTable component with sorting, pagination, and loading skeleton
+
+#### Technical Details:
+- All components use `useTheme()` for consistent theming with `alpha()` color helper
+- All components import `useActionToast` for future toast integration
+- `StatusBadge` component used throughout for consistent status display
+- Existing tab content preserved — new sections added at TOP only
+- Fixed Prisma relation names: `ToolkitTable` (not `tables`), `ToolkitProcedure` (not `procedures`)
+- Zero ESLint errors on all 6 files
+- All 3 API endpoints return real data (2 projects, 9 modules, 29 FKs)
+
+#### Verification:
+- `curl http://localhost:3000` → HTTP 200
+- All 3 API endpoints tested and returning valid JSON with real data
+- ESLint clean on all created/modified files
