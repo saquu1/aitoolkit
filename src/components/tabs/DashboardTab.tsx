@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '@/hooks/useTheme'
 import { useSchema } from '@/hooks/useSchema'
 import type { LinkedModule } from '@/types/his-modules'
@@ -37,6 +37,7 @@ import {
 import { Sparkline, MiniBarChart, AnimatedCounter } from '@/components/Sparkline'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { ActivityTimeline } from '@/components/ActivityTimeline'
+import { DataTable, type ColumnDef } from '@/components/DataTable'
 import { useActionToast } from '@/hooks/useActionToast'
 
 interface DashboardTabProps {
@@ -85,7 +86,29 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activities, setActivities] = useState<ActivityItem[]>(initialActivities)
   const [systemMetrics, setSystemMetrics] = useState({ cpu: 12, memory: 45, uptime: 0 })
+  const [apiStats, setApiStats] = useState<any>(null)
+  const [apiStatsLoading, setApiStatsLoading] = useState(false)
   const actionToast = useActionToast()
+
+  // Fetch real API stats on mount and refresh
+  const fetchApiStats = useCallback(async () => {
+    setApiStatsLoading(true)
+    try {
+      const res = await fetch('/api/schema/stats')
+      const json = await res.json()
+      if (json.success) setApiStats(json)
+    } catch {
+      // Silently fail - dashboard shows simulated data
+    } finally {
+      setApiStatsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchApiStats()
+    const interval = setInterval(fetchApiStats, 30000) // Refresh every 30s
+    return () => clearInterval(interval)
+  }, [fetchApiStats])
 
   // Real-time clock
   useEffect(() => {
@@ -181,6 +204,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
   const refreshData = () => {
     refreshDbStats()
+    fetchApiStats()
     const newActivity: ActivityItem = {
       id: `refresh-${Date.now()}`,
       type: 'info' as const,
@@ -821,6 +845,51 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           </div>
         </div>
       </div>
+
+      {/* API Data Table - Recent Schema Activity */}
+      <DataTable
+        title="Database Activity"
+        subtitle={apiStats ? `Last sync: ${formatLastSync(apiStats.data?.lastSync || null)}` : 'Real-time schema statistics'}
+        columns={[
+          { key: 'label', label: 'Metric', sortable: true, width: '40%' },
+          { key: 'value', label: 'Value', sortable: true, width: '25%', align: 'right' as const,
+            render: (val: any) => <span className="font-mono font-semibold">{val}</span>
+          },
+          { key: 'status', label: 'Status', width: '35%',
+            render: (val: any, row: any) => {
+              const numVal = typeof row.value === 'number' ? row.value : 0
+              const isActive = numVal > 0
+              return (
+                <span
+                  className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: alpha(isActive ? colors.success : colors.textMuted, 15),
+                    color: isActive ? colors.success : colors.textMuted,
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isActive ? colors.success : colors.textMuted }} />
+                  {isActive ? 'Active' : 'Empty'}
+                </span>
+              )
+            }
+          },
+        ]}
+        data={apiStats ? [
+          { label: 'Total Projects', value: apiStats.stats?.totalProjects ?? 0, status: 'info' },
+          { label: 'Parsed Tables', value: apiStats.stats?.totalTables ?? 0, status: 'info' },
+          { label: 'Total Columns', value: apiStats.stats?.totalColumns ?? 0, status: 'info' },
+          { label: 'Stored Procedures', value: apiStats.stats?.totalProcedures ?? 0, status: 'info' },
+          { label: 'FK Relationships', value: apiStats.stats?.fkRelationships ?? 0, status: 'info' },
+          { label: 'Resolved FKs', value: apiStats.stats?.fkResolved ?? 0, status: 'info' },
+          { label: 'FK Resolution %', value: `${apiStats.stats?.fkResolvedPercent ?? 0}%`, status: 'info' },
+          { label: 'HIS Modules', value: apiStats.data?.modules ?? 0, status: 'info' },
+          { label: 'Linked Modules', value: apiStats.data?.linkedModules ?? 0, status: 'info' },
+        ] : []}
+        loading={apiStatsLoading}
+        emptyMessage="No schema data yet. Upload SQL files to see statistics here."
+        maxHeight="max-h-80"
+        pageSize={5}
+      />
     </div>
   )
 }

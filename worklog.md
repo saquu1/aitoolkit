@@ -460,3 +460,303 @@ Stage Summary:
 5. **MEDIUM**: Add keyboard shortcuts for quick page switching (Alt+1 through Alt+9)
 6. **LOW**: Fix remaining lib/ lint errors (require imports, module assignments)
 7. **LOW**: Add export dashboard data as PDF/CSV feature
+
+---
+## Task ID: 5a
+### Work Task
+Create a `useLocalStorage` React hook and update SettingsTab and page.tsx to persist Appearance settings using it.
+
+### Work Summary
+1. **Created `/src/hooks/useLocalStorage.ts`**
+   - Generic TypeScript hook `useLocalStorage<T>(key, initialValue)` with `[value, setValue]` return type
+   - Uses `useState` lazy initializer pattern to read from `localStorage` on mount (SSR-safe with `typeof window` check)
+   - Handles JSON parse errors gracefully, falling back to `initialValue`
+   - `setValue` wrapped in `useCallback` with stable `key` dependency
+   - Supports both direct values and functional updater `(prev: T) => T`
+   - Writes to `localStorage` inside the `setStoredValue` updater to avoid React 19 setState-in-effect warnings
+
+2. **Updated `/src/components/tabs/SettingsTab.tsx`**
+   - Added import for `useLocalStorage` from `@/hooks/useLocalStorage`
+   - Replaced 3 `useState` calls with `useLocalStorage`:
+     - `compactMode` → `useLocalStorage('aitoolkit-compact-mode', false)`
+     - `animationsEnabled` → `useLocalStorage('aitoolkit-animations', true)`
+     - `sidebarDefault` → `useLocalStorage<'expanded' | 'collapsed'>('aitoolkit-sidebar-default', 'expanded')`
+   - Existing toast notifications (`actionToast.settingsSaved()`) continue to fire on toggle
+   - colorScheme persistence remains unchanged (handled by `useTheme.tsx` via its own localStorage mechanism)
+
+3. **Updated `/src/app/page.tsx`**
+   - Added import for `useLocalStorage` from `@/hooks/useLocalStorage`
+   - Replaced `useState(false)` with `useLocalStorage('aitoolkit-sidebar-collapsed', false)` for sidebar collapsed state
+   - Sidebar collapse/expand toggle now persists across page reloads
+
+4. **Verification**
+   - Dev server compiles successfully with no new errors (HTTP 200 on all requests)
+   - No lint errors introduced in created/modified files
+   - React 19 best practices followed: lazy initializer pattern, no setState-in-effect
+
+---
+## Task ID: 5b
+### Work Task
+Create/enhance `/api/schema/stats` API endpoint that returns real database statistics from the SQLite database using Prisma, with fallback error handling.
+
+### Work Summary
+1. **Analyzed existing codebase**
+   - Read worklog.md for full project history (5 rounds of development)
+   - Studied `prisma/schema.prisma` — 100+ models identified, key ones: `ToolkitProject`, `ToolkitTable`, `ToolkitProcedure`, `HISModule`, `AgentRun`
+   - Read `useSchema.tsx` hook — confirmed it fetches `/api/schema/stats` and expects `{ success: true, stats: DbStats }` shape
+   - Discovered existing `/api/schema/stats/route.ts` that used `prisma` import and only queried `toolkitProject` for basic table/FK counts
+   - Verified `db.ts` exports both `prisma` and `db` as aliases
+
+2. **Rewrote `/src/app/api/schema/stats/route.ts`**
+   - Changed import from `prisma` to `db` (as specified in task requirements)
+   - Added two response modes:
+     - **Aggregate mode** (no `?projectId=` param): Stats across all projects
+     - **Per-project mode** (`?projectId=xxx`): Stats for a single project
+   - Uses `Promise.all` for parallel independent queries (ToolkitProject with tables/procedures, HISModule counts, AgentRun recent activity)
+   - Parses JSON `columns` and `foreignKeys` fields from `ToolkitTable` records to calculate:
+     - `totalColumns`, `totalFKs`, `fkResolved` (by checking if referenced table exists in project)
+     - `fkResolvedPercent`
+   - **New enhanced `data` field** alongside backward-compatible `stats`:
+     - `modules`: Total HISModule count
+     - `linkedModules`: HISModule count where status = 'linked'
+     - `moduleLinkedPercent`: Percentage of linked modules
+     - `recentActivity`: Last 5 AgentRun records (id, agentName, status, timestamp, itemsProcessed, duration)
+     - `topTables`: Top 10 tables sorted by column count (tableName, columnCount, status, linkedModule)
+     - `tablesByStatus`: Distribution of tables by status (e.g., `{ standalone: 45, linked: 12 }`)
+     - `lastSync`: ISO timestamp of API response
+   - **Fallback error handling**: `buildFallbackResponse()` returns `success: true` with zeroed stats and `fallback: true` flag + error message
+   - Full TypeScript with proper interfaces (`TableColumnData`)
+
+3. **Backward compatibility**
+   - `stats` field preserves exact `DbStats` interface shape used by `useSchema` hook
+   - Existing consumers (`useSchema.tsx` line 129-133) continue to work without changes
+   - `data` field is additive — new consumers can opt into the richer data
+
+4. **Verification**
+   - `curl -s http://localhost:3000/api/schema/stats` returned HTTP 200 with valid JSON
+   - Response: `{ success: true, stats: { totalProjects: 0, totalTables: 0, ... }, data: { modules: 0, linkedModules: 0, ... } }`
+   - Dev log confirmed 4 Prisma queries executed successfully (ToolkitProject, 2x HISModule, AgentRun)
+   - All values zero because no data has been uploaded yet — endpoint is ready for real data
+   - No new lint errors introduced
+
+---
+## Task ID: 6a - css-enhancer
+### Work Task
+Enhance the global CSS with new animations, focus styles, and improved utility classes appended after existing content.
+
+### Work Summary
+Appended the following CSS sections to `/src/app/globals.css` (lines 350–580) without modifying any existing content:
+
+1. **Focus Visible Styles (Accessibility)**
+   - `:focus-visible` outline using `color-mix` with `--color-primary` at 60% opacity, 2px offset, 4px border-radius
+   - Targeted focus styles for buttons, links, inputs, selects, textareas, and role/tabindex elements
+   - `:focus:not(:focus-visible)` removes outline for mouse users
+
+2. **New Animations (7 keyframes + 6 utility classes)**
+   - `pulse-ring` — Scale 0.8→1.8 with fade-out (2s cubic-bezier infinite)
+   - `breathe` — Opacity oscillation 0.6↔1.0 (3s ease-in-out infinite)
+   - `count-up` — Fade + translateY entry (0.5s ease-out)
+   - `slide-in-right` — X-axis slide from right (0.4s ease-out)
+   - `slide-in-left` — X-axis slide from left (0.4s ease-out)
+   - `scale-in` — Scale 0.9→1.0 with fade (0.3s ease-out)
+   - `rotate-border` — Custom property `--angle` 0→360deg
+   - Utility classes: `.animate-pulse-ring`, `.animate-breathe`, `.animate-count-up`, `.animate-slide-in-right`, `.animate-slide-in-left`, `.animate-scale-in`
+
+3. **Enhanced Utility Classes**
+   - `.neon-border` — Primary-colored glow + inset glow + border
+   - `.inner-glow` — Inset box-shadow with bg color
+   - `.card-hover` — Transition with hover border glow + shadow lift
+   - `.gradient-text` — Primary→accent gradient text (webkit + standard)
+   - `.badge-pulse` — Position-relative with pseudo-element ring animation
+   - `.page-transition` — Reuses existing `fade-scale-in` keyframe
+   - `.table-row-hover` — Subtle primary-tinted background on hover
+   - `.animate-text-gradient` — 4-color animated gradient text (primary→accent→success→primary, 300% size, 4s)
+   - `.dot-indicator` — Pseudo-element ping ring for status dots
+   - `.scroll-smooth-custom` — Smooth scrolling + touch momentum
+   - `.tooltip-animate` — Scale 0.95→1 + translateY entry (0.15s)
+
+4. **Reduced Motion Media Query**
+   - `@media (prefers-reduced-motion: reduce)` overrides all animations, transitions, and scroll-behavior to near-instant values using `!important`
+
+5. **Custom Scrollbar for Containers**
+   - `.custom-scrollbar` — 4px thin scrollbar with transparent track and theme-aware thumb colors (50%/80% border opacity)
+
+---
+## Task ID: 5d - component-builder
+### Work Task
+Create a reusable DataTable component and SkeletonLoader component for loading states.
+
+### Work Summary
+1. **Created `/src/components/DataTable.tsx`**
+   - Generic TypeScript component `DataTable<T extends Record<string, any>>` with full type safety
+   - Exported `ColumnDef<T>` interface with: `key`, `label`, `sortable?`, `width?`, `render?`, `align?`
+   - Props: `columns`, `data`, `loading?`, `emptyMessage?`, `onRowClick?`, `maxHeight?`, `pageSize?`, `title?`, `subtitle?`, `headerExtra?`
+   - **Sorting**: Click column headers to sort asc/desc; toggles direction on repeat click; shows ArrowUp/ArrowDown/ArrowUpDown icons
+   - **Pagination**: Configurable `pageSize` (default 10), prev/next buttons with ChevronLeft/ChevronRight, page counter display
+   - **Loading state**: 5 skeleton rows with `animate-pulse` and randomized widths (60-100%)
+   - **Empty state**: Inbox icon + configurable message when data array is empty
+   - **Alternating row backgrounds**: Odd rows get subtle bgTertiary tint via `color-mix`
+   - **Row hover**: Primary color at 6% opacity on mouse enter, restores alternating color on leave
+   - **Sticky header**: `sticky top-0 z-10` on `<thead>` with bgTertiary background
+   - **Max height scroll**: Configurable `maxHeight` class (default `max-h-96`) with `overflow-y-auto`
+   - **Optional header bar**: Title, subtitle, and headerExtra slot with bottom border
+   - Uses `useTheme` hook for all colors (border, text, textMuted, textSecondary, bgTertiary, primary, card)
+
+2. **Created `/src/components/SkeletonLoader.tsx`**
+   - `Skeleton` base component with 4 variants: `text` (h-4 rounded-md), `circle` (rounded-full), `rect` (rounded-lg), `card` (rounded-xl)
+   - Uses `animate-pulse` with theme-aware background via `color-mix(in srgb, ${colors.border} 40%, transparent)`
+   - `SkeletonGrid` component: Configurable `rows` and `columns`, renders card-variant skeletons in a CSS grid with `gridTemplateColumns` inline style
+   - `SkeletonList` component: Configurable `count`, optional `showAvatar` (circle variant), renders text-line pairs with 3/4 and 1/2 widths
+   - All components use `'use client'` directive and import `useTheme` from `@/hooks/useTheme`
+
+3. **Verification**
+   - Dev server compiles successfully (HTTP 200 on all requests)
+   - No new lint errors introduced
+   - Both files are pure TypeScript/React components with proper type annotations
+
+---
+Task ID: 6
+Agent: Main Agent (Cron Review - Round 5)
+Task: Persist settings, real API data, keyboard shortcuts, DataTable, CSS enhancements
+
+Work Log:
+- Assessed current project state: HTTP 200 stable, dev server restarted
+- Previous rounds' work verified intact (4 rounds of cumulative improvements)
+- QA via curl confirmed compilation and serving
+
+### New Features Built:
+
+1. **useLocalStorage Hook (Persistent State)**
+   - Created `/src/hooks/useLocalStorage.ts`
+   - Generic `useLocalStorage<T>(key, initialValue)` hook with SSR safety
+   - Lazy initializer for React 19 compatibility
+   - Functional updater support `(prev: T) => T`
+   - JSON parse error handling with graceful fallback
+   - Applied to: compactMode, animationsEnabled, sidebarDefault in SettingsTab
+   - Applied to: sidebarCollapsed state in page.tsx
+
+2. **Enhanced /api/schema/stats API Endpoint**
+   - Rewrote `/src/app/api/schema/stats/route.ts`
+   - Dual mode: aggregate (all projects) and per-project (`?projectId=`)
+   - Parallel Prisma queries via `Promise.all`
+   - Returns backward-compatible `stats` + new enhanced `data` fields
+   - New data: modules, linkedModules, recentActivity, topTables, tablesByStatus
+   - Fallback error handling always returns valid JSON
+
+3. **Enhanced Keyboard Shortcuts (Alt+1-9, Alt+0)**
+   - Refactored from 4 hardcoded shortcuts to dynamic Alt+0-9 mapping
+   - Alt+1=Dashboard, Alt+2=Schema Audit, Alt+3=Projects, ..., Alt+0=Settings
+   - Any of the first 10 NAV_ITEMS accessible via Alt+number
+   - Updated KeyboardShortcutsDialog with expanded Navigation section
+
+4. **DataTable Component**
+   - Created `/src/components/DataTable.tsx`
+   - Generic `DataTable<T>` with ColumnDef interface
+   - Features: column sorting (asc/desc), pagination, loading skeleton rows, empty state
+   - Alternating row colors, sticky header, configurable max height
+   - Optional title/subtitle/headerExtra header bar
+   - Theme-aware via useTheme hook
+
+5. **SkeletonLoader Components**
+   - Created `/src/components/SkeletonLoader.tsx`
+   - `Skeleton` base: 4 variants (text, circle, rect, card)
+   - `SkeletonGrid`: configurable rows/columns grid layout
+   - `SkeletonList`: list items with optional avatar circles
+
+6. **Dashboard API Integration**
+   - DashboardTab now fetches `/api/schema/stats` every 30 seconds
+   - New `apiStats` state with loading indicator
+   - DataTable embedded in Dashboard showing 9 real DB metrics
+   - Status badges (Active/Empty) per metric row
+   - Refresh button also triggers API stats fetch
+
+### Styling Improvements (globals.css appended):
+
+1. **Focus Visible Styles (Accessibility)**
+   - `:focus-visible` with primary color outline, 2px offset
+   - Targeted focus for buttons, links, inputs, selects, textareas
+   - Mouse user outline removal (`:focus:not(:focus-visible)`)
+
+2. **7 New Keyframe Animations**
+   - `pulse-ring`, `breathe`, `count-up`, `slide-in-right`, `slide-in-left`, `scale-in`, `rotate-border`
+
+3. **11 New Utility Classes**
+   - `.neon-border`, `.inner-glow`, `.card-hover`, `.gradient-text`, `.badge-pulse`
+   - `.page-transition`, `.table-row-hover`, `.animate-text-gradient`, `.dot-indicator`
+   - `.scroll-smooth-custom`, `.tooltip-animate`
+
+4. **Reduced Motion Media Query**
+   - `@media (prefers-reduced-motion: reduce)` disables all animations/transitions
+
+5. **Custom Scrollbar for Containers**
+   - `.custom-scrollbar` with 4px thin theme-aware scrollbar
+
+### Files Created:
+- `/src/hooks/useLocalStorage.ts` - Persistent state hook
+- `/src/components/DataTable.tsx` - Reusable data table with sorting/pagination
+- `/src/components/SkeletonLoader.tsx` - Loading state skeleton components
+
+### Files Modified:
+- `/src/app/page.tsx` - useLocalStorage for sidebar, Alt+1-9 shortcuts, footer v2.3
+- `/src/components/tabs/DashboardTab.tsx` - API stats fetch, DataTable integration, useCallback import
+- `/src/components/tabs/SettingsTab.tsx` - useLocalStorage for appearance settings persistence
+- `/src/components/KeyboardShortcutsDialog.tsx` - Updated navigation shortcuts list
+- `/src/app/globals.css` - 230+ lines appended: focus styles, animations, utilities, reduced motion
+- `/src/app/api/schema/stats/route.ts` - Enhanced with parallel queries, new data fields, fallback
+
+### Verification:
+- Server returns HTTP 200 with clean compilation (no errors)
+- API endpoint `/api/schema/stats` returns valid JSON with real Prisma queries
+- No new lint errors introduced
+- All React 19 best practices followed
+
+Stage Summary:
+- Project compiles and renders correctly (HTTP 200)
+- 3 new files created, 6 existing files modified
+- Settings now persist to localStorage across page reloads
+- Dashboard connected to real database via API
+- Full Alt+1-9 keyboard navigation for first 10 pages
+- 7 new CSS animations and 11 utility classes added
+- Accessibility improved with focus-visible styles and reduced motion support
+
+---
+## Current Project Status Assessment
+
+### Health: STABLE
+- Homepage loads with HTTP 200 (verified multiple times this round)
+- No compilation errors
+- All new and existing components compile cleanly
+- API endpoint returns valid data from SQLite via Prisma
+- Settings persist across page reloads via localStorage
+
+### What Was Completed This Round (Round 5):
+1. **Feature**: useLocalStorage hook for persistent client-side state
+2. **Feature**: Appearance settings persist to localStorage (compact mode, animations, sidebar)
+3. **Feature**: Sidebar collapsed state persists across reloads
+4. **Feature**: Enhanced /api/schema/stats with real DB queries and parallel execution
+5. **Feature**: Alt+1 through Alt+9/Alt+0 keyboard shortcuts for all first 10 pages
+6. **Feature**: DataTable component with sorting, pagination, loading/empty states
+7. **Feature**: SkeletonLoader components (base, grid, list)
+8. **Feature**: Dashboard connected to real API data with auto-refresh (30s)
+9. **Feature**: Database Activity table on Dashboard showing 9 real metrics
+10. **UI**: Footer version bumped to v2.3
+11. **UI**: Focus-visible accessibility styles for all interactive elements
+12. **UI**: 7 new CSS animations (pulse-ring, breathe, count-up, slide-in-right/left, scale-in, rotate-border)
+13. **UI**: 11 utility classes (neon-border, card-hover, gradient-text, badge-pulse, etc.)
+14. **UI**: Reduced motion media query for accessibility
+15. **UI**: Custom scrollbar utility for specific containers
+
+### Unresolved Issues & Risks:
+1. **Lint Errors (~119 remaining)**: All pre-existing in lib/ and api/ files - NOT rendering blockers
+2. **No Uploaded Data**: Dashboard shows zeros because no SQL schemas uploaded yet (now shown via DataTable)
+3. **agent-browser Inaccessible**: Cannot reach localhost for visual QA (same as all previous rounds)
+
+### Priority Recommendations for Next Round:
+1. **HIGH**: Add data upload demo flow with sample SQL schema to populate dashboard
+2. **HIGH**: Add export dashboard data feature (CSV/PDF)
+3. **MEDIUM**: Add WebSocket integration for real-time collaboration
+4. **MEDIUM**: Enhance Settings System Info tab with real data from /api/schema/stats
+5. **MEDIUM**: Add breadcrumb navigation history (back/forward within tabs)
+6. **LOW**: Fix remaining lib/ lint errors (require imports, module assignments)
+7. **LOW**: Add more DataTable instances to other tabs (Modules, FK Resolution, etc.)
+

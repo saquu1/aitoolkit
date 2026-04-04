@@ -20,6 +20,7 @@ import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog'
 import { NotificationCenter } from '@/components/NotificationCenter'
 import { TabTransition } from '@/components/TabTransition'
 import { useActionToast } from '@/hooks/useActionToast'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -195,7 +196,7 @@ function AppContent() {
   const [showThreadBreakdown, setShowThreadBreakdown] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('aitoolkit-sidebar-collapsed', false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [sidebarSearch, setSidebarSearch] = useState('')
@@ -252,25 +253,13 @@ function AppContent() {
           setShortcutsDialogOpen(true)
         }
       }
-      // Alt+1: Dashboard
-      if (e.altKey && e.key === '1') {
+      // Alt+1 through Alt+9, Alt+0: Quick page navigation
+      if (e.altKey && e.key >= '0' && e.key <= '9') {
         e.preventDefault()
-        handleNavigate('dashboard')
-      }
-      // Alt+2: Schema Audit
-      if (e.altKey && e.key === '2') {
-        e.preventDefault()
-        handleNavigate('schema-audit')
-      }
-      // Alt+3: Projects
-      if (e.altKey && e.key === '3') {
-        e.preventDefault()
-        handleNavigate('projects')
-      }
-      // Alt+Z: Settings
-      if (e.altKey && e.key === 'z') {
-        e.preventDefault()
-        handleNavigate('settings')
+        const index = e.key === '0' ? 9 : parseInt(e.key) - 1
+        if (index < NAV_ITEMS.length) {
+          handleNavigate(NAV_ITEMS[index].id)
+        }
       }
     }
 
@@ -756,7 +745,7 @@ function AppContent() {
       >
         <div className="flex items-center gap-3">
           <span className="font-medium" style={{ color: colors.text }}>AI Enterprise Architect</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.2</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.3</span>
           <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
           <span className="hidden sm:flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.success }} />

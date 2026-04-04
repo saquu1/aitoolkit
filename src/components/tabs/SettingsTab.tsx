@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from '@/hooks/useTheme'
 import { useSchema } from '@/hooks/useSchema'
 import { useAuth } from '@/components/AuthProvider'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,9 +40,9 @@ export function SettingsTab() {
   const [loginToggle, setLoginToggle] = useState(loginEnabled)
   const [toggleLoading, setToggleLoading] = useState(false)
   const [authMsg, setAuthMsg] = useState<string | null>(null)
-  const [compactMode, setCompactMode] = useState(false)
-  const [animationsEnabled, setAnimationsEnabled] = useState(true)
-  const [sidebarDefault, setSidebarDefault] = useState<'expanded' | 'collapsed'>('expanded')
+  const [compactMode, setCompactMode] = useLocalStorage('aitoolkit-compact-mode', false)
+  const [animationsEnabled, setAnimationsEnabled] = useLocalStorage('aitoolkit-animations', true)
+  const [sidebarDefault, setSidebarDefault] = useLocalStorage<'expanded' | 'collapsed'>('aitoolkit-sidebar-default', 'expanded')
 
   // Sync toggle state with auth status
   useEffect(() => {
