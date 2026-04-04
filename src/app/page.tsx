@@ -342,7 +342,7 @@ function AppContent() {
     >
       {/* Header */}
       <header
-        className="border-b backdrop-blur-sm sticky top-0 z-50"
+        className="border-b backdrop-blur-md sticky top-0 z-50 glass-card-enhanced"
         style={{
           borderColor: alpha(colors.border, 50),
           backgroundColor: alpha(colors.bg, 85),
@@ -380,7 +380,7 @@ function AppContent() {
               </div>
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg md:text-xl font-bold" style={{ color: colors.text }}>
+              <h1 className="text-lg md:text-xl font-bold text-gradient-primary">
                 AI Enterprise Architect
               </h1>
               <p className="text-[10px] md:text-xs" style={{ color: colors.textMuted }}>
@@ -798,7 +798,7 @@ function AppContent() {
 
       {/* Sticky Footer */}
       <footer
-        className="border-t py-2.5 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0 glass-card"
+        className="border-t py-2.5 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0 glass-card-enhanced"
         style={{
           borderColor: alpha(colors.border, 50),
           backgroundColor: alpha(colors.bgSecondary, 60),
@@ -857,7 +857,7 @@ function AppContent() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] relative overflow-hidden dot-matrix-bg">
       {/* Animated background orbs */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute w-96 h-96 rounded-full opacity-10 animate-float-subtle" style={{

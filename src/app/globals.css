@@ -785,3 +785,291 @@ textarea:focus-visible,
 .border-transition {
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
+
+/* ═══════════════════════════════════════════════
+   Task 5c: Visual Polish, Animations & Micro-interactions
+   ═══════════════════════════════════════════════ */
+
+/* ─── 1. Glassmorphism Card Enhancement ─── */
+.glass-card-enhanced {
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+}
+
+.glass-card-enhanced:hover {
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 8px 32px color-mix(in srgb, var(--color-bg) 30%, transparent);
+  transform: translateY(-1px);
+}
+
+/* ─── 2. Shimmer Loading Effect ─── */
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.shimmer-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-effect::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 100%
+  );
+  animation: shimmer-sweep 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── 3. Glow Effects for Cards ─── */
+.glow-primary {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-primary:hover {
+  box-shadow: 0 0 30px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.glow-success {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 20%, transparent);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-success:hover {
+  box-shadow: 0 0 30px color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.glow-warning {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-warning) 20%, transparent);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-warning:hover {
+  box-shadow: 0 0 30px color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.glow-error {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-error) 20%, transparent);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-error:hover {
+  box-shadow: 0 0 30px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+/* ─── 4. Tooltip CSS ─── */
+.tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-content {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 1.4;
+  border-radius: 6px;
+  padding: 4px 8px;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 50;
+}
+
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--color-border);
+}
+
+.tooltip-wrapper:hover .tooltip-content {
+  opacity: 1;
+}
+
+/* ─── 5. Subtle Grid Background Pattern ─── */
+.grid-bg {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-border) 4%, transparent) 0px,
+      color-mix(in srgb, var(--color-border) 4%, transparent) 1px,
+      transparent 1px,
+      transparent 40px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-border) 4%, transparent) 0px,
+      color-mix(in srgb, var(--color-border) 4%, transparent) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+}
+
+/* ─── 6. Dot Matrix Background Pattern ─── */
+.dot-matrix-bg {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-border) 8%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* ─── 7. Improved Card Hover States ─── */
+.card-interactive {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--color-bg) 35%, transparent),
+              0 4px 10px -6px color-mix(in srgb, var(--color-bg) 25%, transparent);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px 0 color-mix(in srgb, var(--color-bg) 20%, transparent),
+              0 1px 2px -1px color-mix(in srgb, var(--color-bg) 15%, transparent);
+}
+
+/* ─── 8. Text Gradient Utility ─── */
+.text-gradient-primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── 9. Border Gradient Animation ─── */
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes border-rotate {
+  from { --border-angle: 0deg; }
+  to { --border-angle: 360deg; }
+}
+
+.animated-border {
+  position: relative;
+  border: 2px solid transparent;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-image:
+    linear-gradient(var(--color-card), var(--color-card)),
+    conic-gradient(
+      from var(--border-angle),
+      color-mix(in srgb, var(--color-primary) 60%, transparent),
+      transparent 50%,
+      color-mix(in srgb, var(--color-primary) 60%, transparent)
+    );
+  animation: border-rotate 4s linear infinite;
+}
+
+/* ─── 10. Scroll Progress Indicator ─── */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  z-index: 9999;
+  background: var(--color-primary);
+  transform: scaleX(var(--scroll-progress, 0));
+  transform-origin: left;
+  transition: transform 0.1s linear;
+  pointer-events: none;
+}
+
+/* ─── 11. Micro-interactions: Press Effect ─── */
+.press-effect {
+  transition: transform 0.1s ease;
+}
+
+.press-effect:active {
+  transform: scale(0.97);
+}
+
+/* ─── 12. Gradient Overlay Bottom ─── */
+.gradient-overlay-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg) 80%, transparent) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Task 5c: Reduced Motion Addendum ─── */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-effect::after {
+    animation: none !important;
+  }
+
+  .animated-border {
+    animation: none !important;
+    --border-angle: 0deg;
+  }
+
+  .scroll-progress {
+    transition: none !important;
+  }
+
+  .glass-card-enhanced {
+    transition: none !important;
+  }
+
+  .glass-card-enhanced:hover {
+    transform: none !important;
+  }
+
+  .card-interactive {
+    transition: none !important;
+  }
+
+  .card-interactive:hover {
+    transform: none !important;
+  }
+
+  .tooltip-content {
+    transition: none !important;
+  }
+
+  .glow-primary,
+  .glow-success,
+  .glow-warning,
+  .glow-error {
+    transition: none !important;
+  }
+}

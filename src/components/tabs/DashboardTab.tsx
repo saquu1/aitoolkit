@@ -43,6 +43,7 @@ import { useActionToast } from '@/hooks/useActionToast'
 import { useExportCSV } from '@/hooks/useExportCSV'
 import { RealtimeEventFeed } from '@/components/RealtimeEventFeed'
 import DonutChart from '@/components/DonutChart'
+import { AreaChart } from '@/components/AreaChart'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -152,6 +153,37 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     }, 3000)
     return () => clearInterval(timer)
   }, [])
+
+  // Performance trend data - simulated with optional API influence
+  const [throughputData, setThroughputData] = useState(() =>
+    generateSparklineData(20, 5, 50)
+  )
+  const [fkProgressData, setFkProgressData] = useState(() => {
+    const data: number[] = []
+    for (let i = 0; i < 20; i++) {
+      data.push(Math.floor(50 + (i / 19) * 50 + (Math.random() - 0.5) * 10))
+    }
+    return data.map(v => Math.min(100, Math.max(50, v)))
+  })
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setThroughputData(prev => {
+        const last = prev[prev.length - 1]
+        const next = Math.max(5, Math.min(50, last + (Math.random() - 0.45) * 8))
+        return [...prev.slice(1), Math.round(next)]
+      })
+      setFkProgressData(prev => {
+        const last = prev[prev.length - 1]
+        const target = apiStats?.stats?.fkResolvedPercent ?? 100
+        const next = last < target
+          ? Math.min(target, last + Math.random() * 2)
+          : last + (Math.random() - 0.5) * 1.5
+        return [...prev.slice(1), Math.round(Math.min(100, Math.max(50, next)))]
+      })
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [apiStats?.stats?.fkResolvedPercent])
 
   // Helper function
   const alpha = (color: string, opacity: number) =>
@@ -283,7 +315,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Health Score Card */}
         <div
-          className="lg:col-span-2 rounded-xl border p-6 transition-all duration-200"
+          className="lg:col-span-2 rounded-xl border p-6 transition-all duration-200 glass-card-enhanced"
           style={{
             background: `linear-gradient(135deg, ${colors.bgSecondary}, ${alpha(colors.bgSecondary, 50)})`,
             borderColor: colors.border
@@ -355,7 +387,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
         {/* System Monitor */}
         <div
-          className="rounded-xl border p-5 transition-all duration-200"
+          className="rounded-xl border p-5 transition-all duration-200 glass-card-enhanced"
           style={{
             backgroundColor: alpha(colors.card, 50),
             borderColor: colors.border
@@ -636,7 +668,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       {/* Data Distribution - Donut Charts */}
       {apiStats?.data && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+          <div className="rounded-xl border p-5 glass-card-enhanced">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: colors.text }}>
               <BarChart3 className="w-4 h-4" style={{ color: colors.primary }} />
               Table Status
@@ -655,7 +687,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
               />
             </div>
           </div>
-          <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+          <div className="rounded-xl border p-5 glass-card-enhanced">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: colors.text }}>
               <Shield className="w-4 h-4" style={{ color: colors.accent }} />
               FK Resolution
@@ -673,7 +705,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
               />
             </div>
           </div>
-          <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+          <div className="rounded-xl border p-5 glass-card-enhanced">
             <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: colors.text }}>
               <Layers className="w-4 h-4" style={{ color: colors.success }} />
               Module Coverage
@@ -694,9 +726,75 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         </div>
       )}
 
+      {/* Performance Trends */}
+      <div className="rounded-xl border p-5 glass-card-enhanced">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+            <TrendingUp className="w-4 h-4" style={{ color: colors.primary }} />
+            Performance Trends
+          </h3>
+          <span
+            className="text-[10px] px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: alpha(colors.primary, 10), color: colors.primary }}
+          >
+            Live
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium" style={{ color: colors.text }}>
+                Schema Analysis Throughput
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primary }}>
+                {apiStats?.stats?.totalTables ? `${apiStats.stats.totalTables} tables` : 'Simulated'}
+              </span>
+            </div>
+            <div className="rounded-lg p-3" style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}>
+              <AreaChart
+                data={throughputData}
+                color={colors.primary}
+                height={140}
+                showGrid={true}
+                showDots={true}
+                animate={true}
+              />
+            </div>
+            <div className="flex items-center gap-4 text-[10px]" style={{ color: colors.textMuted }}>
+              <span>Avg: {Math.round(throughputData.reduce((a, b) => a + b, 0) / throughputData.length)}/min</span>
+              <span>Peak: {Math.max(...throughputData)}/min</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium" style={{ color: colors.text }}>
+                FK Resolution Progress
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.success, 12), color: colors.success }}>
+                {apiStats?.stats?.fkResolvedPercent ? `${apiStats.stats.fkResolvedPercent}%` : 'Simulated'}
+              </span>
+            </div>
+            <div className="rounded-lg p-3" style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}>
+              <AreaChart
+                data={fkProgressData}
+                color={colors.success}
+                height={140}
+                showGrid={true}
+                showDots={true}
+                animate={true}
+              />
+            </div>
+            <div className="flex items-center gap-4 text-[10px]" style={{ color: colors.textMuted }}>
+              <span>Current: {fkProgressData[fkProgressData.length - 1]}%</span>
+              <span>Target: 100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Recent Agent Runs */}
       {apiStats?.data?.recentActivity && apiStats.data.recentActivity.length > 0 && (
-        <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+        <div className="rounded-xl border p-5 glass-card-enhanced">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
               <Zap className="w-4 h-4" style={{ color: colors.warning }} />

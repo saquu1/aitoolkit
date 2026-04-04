@@ -30,98 +30,393 @@ import {
   MousePointer,
   Sparkles,
   Maximize,
+  Cpu,
+  Globe,
+  Layers,
+  Clock,
+  Activity,
+  Zap,
+  FolderKanban,
+  FileSpreadsheet,
+  Link2,
+  Cog,
+  Boxes,
 } from 'lucide-react'
 import { useActionToast } from '@/hooks/useActionToast'
 
-// System Info Panel with real API data
+// ═══════════════════════════════════════════════════════════════
+// Enhanced System Info Tab – real-time data from /api/schema/stats
+// ═══════════════════════════════════════════════════════════════
+
+interface ApiStats {
+  stats: {
+    totalProjects: number
+    totalTables: number
+    totalColumns: number
+    totalProcedures: number
+    fkRelationships: number
+    fkResolved: number
+    fkResolvedPercent: number
+    lastSync: string | null
+  }
+  data: {
+    modules: number
+    linkedModules: number
+    moduleLinkedPercent: number
+    recentActivity: Array<{
+      id: string
+      type: string
+      name: string
+      status: string
+      timestamp: string
+      details: {
+        itemsProcessed: number | null
+        duration: number | null
+      }
+    }>
+    topTables: Array<{ tableName: string; columnCount: number; status: string; linkedModule: string | null }>
+    tablesByStatus: Record<string, number>
+    lastSync: string
+  }
+}
+
 function SystemInfoPanel() {
   const { colors } = useTheme()
-  const [sysInfo, setSysInfo] = useState<any>(null)
+  const actionToast = useActionToast()
+  const [apiStats, setApiStats] = useState<ApiStats | null>(null)
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchInfo() {
-      try {
-        const [versionRes, statsRes, memoryRes, threadsRes] = await Promise.allSettled([
-          fetch('/api/version'),
-          fetch('/api/schema/stats'),
-          fetch('/api/memory-stats?action=stats'),
-          fetch('/api/system/threads'),
-        ])
-        const data: Record<string, any> = {}
-        if (versionRes.status === 'fulfilled' && versionRes.value.ok) {
-          const j = await versionRes.value.json()
-          data.version = j.version || j.appVersion || '2.4'
-          data.framework = j.framework || 'Next.js 16'
-        }
-        if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
-          const j = await statsRes.value.json()
-          data.projects = j.stats?.totalProjects ?? 0
-          data.tables = j.stats?.totalTables ?? 0
-          data.columns = j.stats?.totalColumns ?? 0
-          data.modules = j.data?.modules ?? 0
-          data.linked = j.data?.linkedModules ?? 0
-        }
-        if (memoryRes.status === 'fulfilled' && memoryRes.value.ok) {
-          const j = await memoryRes.value.json()
-          data.memoryUsed = j.heapUsedMB || j.rssMB || 'N/A'
-          data.memoryTotal = j.heapTotalMB || j.totalMB || 'N/A'
-        }
-        if (threadsRes.status === 'fulfilled' && threadsRes.value.ok) {
-          const j = await threadsRes.value.json()
-          data.threads = j.activeThreads || j.total || 'N/A'
-        }
-        setSysInfo(data)
-      } catch {
-        // Silent fail
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchInfo()
-    const interval = setInterval(fetchInfo, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<string>('')
 
   const alpha = (color: string, opacity: number) =>
     `color-mix(in srgb, ${color} ${opacity}%, transparent)`
 
+  // ── Fetch stats ──
+  const fetchStats = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    try {
+      const res = await fetch('/api/schema/stats')
+      if (res.ok) {
+        const json = await res.json()
+        setApiStats(json as ApiStats)
+        setLastRefresh(new Date().toLocaleTimeString())
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStats()
+    const interval = setInterval(() => fetchStats(), 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // ── Manual refresh ──
+  const handleRefresh = async () => {
+    await fetchStats(true)
+    actionToast.success('System stats refreshed')
+  }
+
+  // ── Detect browser platform ──
+  const getBrowserPlatform = () => {
+    if (typeof navigator === 'undefined') return 'Browser'
+    const ua = navigator.userAgent
+    if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome'
+    if (ua.includes('Firefox')) return 'Firefox'
+    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari'
+    if (ua.includes('Edg')) return 'Edge'
+    return 'Browser'
+  }
+
+  // ── Format duration ms → human-readable ──
+  const formatDuration = (ms: number | null) => {
+    if (ms === null || ms === undefined) return '—'
+    if (ms < 1000) return `${ms}ms`
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+    return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
+  }
+
+  // ── Format relative time ──
+  const formatTime = (iso: string) => {
+    try {
+      const d = new Date(iso)
+      const now = Date.now()
+      const diff = now - d.getTime()
+      if (diff < 60000) return 'Just now'
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
+      return d.toLocaleDateString()
+    } catch {
+      return '—'
+    }
+  }
+
+  // ── Status badge colors ──
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'completed': return { bg: alpha(colors.success, 15), color: colors.success, border: alpha(colors.success, 30) }
+      case 'running': return { bg: alpha(colors.primary, 15), color: colors.primary, border: alpha(colors.primary, 30) }
+      case 'failed': return { bg: alpha('#ef4444', 15), color: '#ef4444', border: alpha('#ef4444', 30) }
+      default: return { bg: alpha(colors.textMuted, 10), color: colors.textMuted, border: alpha(colors.textMuted, 20) }
+    }
+  }
+
+  const s = apiStats?.stats
+  const d = apiStats?.data
+
+  // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <div key={i} className="animate-pulse space-y-2">
-            <div className="h-3 w-16 rounded" style={{ backgroundColor: alpha(colors.border, 40) }} />
-            <div className="h-5 w-24 rounded" style={{ backgroundColor: alpha(colors.border, 25) }} />
+      <div className="space-y-6">
+        {/* Stats skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} className="p-4 rounded-xl border animate-pulse" style={{ borderColor: alpha(colors.border, 40) }}>
+              <div className="h-4 w-10 rounded mb-2" style={{ backgroundColor: alpha(colors.border, 30) }} />
+              <div className="h-6 w-16 rounded mb-1" style={{ backgroundColor: alpha(colors.border, 20) }} />
+              <div className="h-3 w-20 rounded" style={{ backgroundColor: alpha(colors.border, 15) }} />
+            </div>
+          ))}
+        </div>
+        {/* Env skeleton */}
+        <div className="rounded-xl border p-6 animate-pulse" style={{ borderColor: alpha(colors.border, 40) }}>
+          <div className="h-5 w-40 rounded mb-4" style={{ backgroundColor: alpha(colors.border, 30) }} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="h-10 rounded-lg" style={{ backgroundColor: alpha(colors.border, 15) }} />
+            ))}
           </div>
-        ))}
+        </div>
+        {/* Activity skeleton */}
+        <div className="rounded-xl border p-6 animate-pulse" style={{ borderColor: alpha(colors.border, 40) }}>
+          <div className="h-5 w-48 rounded mb-4" style={{ backgroundColor: alpha(colors.border, 30) }} />
+          <div className="space-y-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="h-14 rounded-lg" style={{ backgroundColor: alpha(colors.border, 12) }} />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
-  const infoItems = [
-    { label: 'Version', value: sysInfo?.version || '2.4', color: colors.primary, icon: Settings },
-    { label: 'Framework', value: 'Next.js 16 + Turbopack', color: colors.primary },
-    { label: 'Runtime', value: 'Bun Runtime', color: colors.success },
-    { label: 'Database', value: 'SQLite + Prisma', color: colors.accent },
-    { label: 'Projects', value: sysInfo?.projects ?? 0, color: colors.warning },
-    { label: 'Tables', value: sysInfo?.tables ?? 0, color: colors.accent },
-    { label: 'Columns', value: sysInfo?.columns ?? 0, color: colors.primary },
-    { label: 'Modules', value: `${sysInfo?.linked ?? 0}/${sysInfo?.modules ?? 0}`, color: colors.success },
-    { label: 'Memory', value: sysInfo?.memoryUsed ? `${sysInfo.memoryUsed} MB` : 'N/A', color: colors.warning },
-    { label: 'Threads', value: sysInfo?.threads ?? 'N/A', color: colors.accent },
-    { label: 'AI Mode', value: 'Offline', color: colors.success },
-    { label: 'Modules Loaded', value: '35', color: colors.primary },
-  ]
-
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {infoItems.map((item) => (
-        <div key={item.label} className="p-2.5 rounded-lg transition-all duration-200 hover:scale-[1.02]" style={{ backgroundColor: alpha(item.color, 6), border: `1px solid ${alpha(item.color, 12)}` }}>
-          <span className="text-[11px]" style={{ color: colors.textMuted }}>{item.label}</span>
-          <p className="text-sm font-semibold mt-0.5" style={{ color: item.color }}>{item.value}</p>
+    <div className="space-y-6">
+      {/* ── Section Header with Refresh ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 10) }}>
+            <Activity className="w-5 h-5" style={{ color: colors.primary }} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Database Statistics</h3>
+            <p className="text-xs" style={{ color: colors.textMuted }}>
+              Real-time metrics from the schema engine{lastRefresh ? ` · Last updated ${lastRefresh}` : ''}
+            </p>
+          </div>
         </div>
-      ))}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          style={{ borderColor: colors.border, color: colors.textSecondary }}
+        >
+          <Loader2 className={`w-3.5 h-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
+      {/* ── 1. Real-time Database Statistics ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {/* Projects */}
+        <div
+          className="p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover-lift"
+          style={{ backgroundColor: alpha(colors.warning, 6), borderColor: alpha(colors.warning, 15) }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <FolderKanban className="w-4 h-4" style={{ color: colors.warning }} />
+            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: colors.textMuted }}>Projects</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: colors.warning }}>{s?.totalProjects ?? 0}</p>
+          <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>active</p>
+        </div>
+
+        {/* Tables */}
+        <div
+          className="p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover-lift"
+          style={{ backgroundColor: alpha(colors.accent, 6), borderColor: alpha(colors.accent, 15) }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <FileSpreadsheet className="w-4 h-4" style={{ color: colors.accent }} />
+            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: colors.textMuted }}>Tables</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: colors.accent }}>{s?.totalTables ?? 0}</p>
+          <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>parsed ({s?.totalColumns ?? 0} columns)</p>
+        </div>
+
+        {/* FK Relationships */}
+        <div
+          className="p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover-lift"
+          style={{ backgroundColor: alpha(colors.primary, 6), borderColor: alpha(colors.primary, 15) }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Link2 className="w-4 h-4" style={{ color: colors.primary }} />
+            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: colors.textMuted }}>FK Relationships</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: colors.primary }}>{s?.fkRelationships ?? 0}</p>
+          <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>
+            {s?.fkResolved ?? 0} resolved ({s?.fkResolvedPercent ?? 0}%)
+          </p>
+        </div>
+
+        {/* Stored Procedures */}
+        <div
+          className="p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover-lift"
+          style={{ backgroundColor: alpha('#f472b6', 6), borderColor: alpha('#f472b6', 15) }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Cog className="w-4 h-4" style={{ color: '#f472b6' }} />
+            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: colors.textMuted }}>Procedures</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: '#f472b6' }}>{s?.totalProcedures ?? 0}</p>
+          <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>stored procedures</p>
+        </div>
+
+        {/* HIS Modules */}
+        <div
+          className="p-4 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover-lift"
+          style={{ backgroundColor: alpha(colors.success, 6), borderColor: alpha(colors.success, 15) }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Boxes className="w-4 h-4" style={{ color: colors.success }} />
+            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: colors.textMuted }}>HIS Modules</span>
+          </div>
+          <p className="text-2xl font-bold" style={{ color: colors.success }}>{d?.modules ?? 0}</p>
+          <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>
+            {d?.linkedModules ?? 0} linked ({d?.moduleLinkedPercent ?? 0}%)
+          </p>
+        </div>
+      </div>
+
+      {/* ── 2. System Environment Info ── */}
+      <div
+        className="rounded-xl border p-6"
+        style={{ borderColor: colors.border, backgroundColor: alpha(colors.card, 30) }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Globe className="w-4 h-4" style={{ color: colors.accent }} />
+          <h4 className="text-sm font-semibold" style={{ color: colors.text }}>System Environment</h4>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { label: 'Platform', value: getBrowserPlatform(), icon: Monitor },
+            { label: 'Runtime', value: 'Next.js 16 + Turbopack', icon: Zap },
+            { label: 'Database', value: 'SQLite via Prisma ORM', icon: Database },
+            { label: 'Framework', value: 'React 19 + TypeScript 5', icon: Layers },
+            { label: 'UI Library', value: 'shadcn/ui + Tailwind CSS 4', icon: Palette },
+            { label: 'Cache', value: 'In-Memory (Zustand)', icon: Cpu },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+              style={{ backgroundColor: alpha(colors.bgTertiary, 15) }}
+            >
+              <div className="p-1.5 rounded-md shrink-0" style={{ backgroundColor: alpha(colors.primary, 10) }}>
+                <item.icon className="w-3.5 h-3.5" style={{ color: colors.primary }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider font-medium" style={{ color: colors.textMuted }}>{item.label}</p>
+                <p className="text-xs font-semibold truncate" style={{ color: colors.textSecondary }}>{item.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 3. Recent Agent Activity ── */}
+      <div
+        className="rounded-xl border p-6"
+        style={{ borderColor: colors.border, backgroundColor: alpha(colors.card, 30) }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4" style={{ color: colors.warning }} />
+            <h4 className="text-sm font-semibold" style={{ color: colors.text }}>Recent Agent Activity</h4>
+          </div>
+          <Badge variant="outline" style={{ borderColor: alpha(colors.textMuted, 20), color: colors.textMuted, fontSize: '10px' }}>
+            Last {d?.recentActivity?.length ?? 0} runs
+          </Badge>
+        </div>
+
+        {!d?.recentActivity?.length ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Activity className="w-8 h-8 mb-2" style={{ color: alpha(colors.textMuted, 40) }} />
+            <p className="text-sm" style={{ color: colors.textMuted }}>No agent runs recorded yet</p>
+            <p className="text-xs mt-1" style={{ color: alpha(colors.textMuted, 60) }}>Agent activity will appear here after runs are executed</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto custom-scrollbar">
+            {d.recentActivity.map((run, idx) => {
+              const statusStyle = getStatusStyle(run.status)
+              return (
+                <div
+                  key={run.id || idx}
+                  className="flex items-center gap-3 p-3 rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: alpha(colors.bgTertiary, 10),
+                    borderLeft: `3px solid ${statusStyle.color}`,
+                  }}
+                >
+                  {/* Agent icon */}
+                  <div
+                    className="p-1.5 rounded-md shrink-0"
+                    style={{ backgroundColor: statusStyle.bg }}
+                  >
+                    <Cpu className="w-3.5 h-3.5" style={{ color: statusStyle.color }} />
+                  </div>
+
+                  {/* Agent name + items */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate" style={{ color: colors.text }}>
+                        {run.name || 'Unknown Agent'}
+                      </span>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                        style={{ backgroundColor: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}` }}
+                      >
+                        {run.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      {run.details?.itemsProcessed != null && (
+                        <span className="text-[11px]" style={{ color: colors.textMuted }}>
+                          {run.details.itemsProcessed} items processed
+                        </span>
+                      )}
+                      {run.details?.duration != null && (
+                        <span className="text-[11px]" style={{ color: colors.textMuted }}>
+                          {formatDuration(run.details.duration)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Timestamp */}
+                  <span className="text-[11px] shrink-0" style={{ color: colors.textMuted }}>
+                    {formatTime(run.timestamp)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -254,6 +549,13 @@ export function SettingsTab() {
           >
             <Palette className="w-4 h-4 mr-2" style={{ color: '#f472b6' }} />
             Appearance
+          </TabsTrigger>
+          <TabsTrigger
+            value="system-info"
+            style={{ color: colors.textMuted }}
+          >
+            <Cpu className="w-4 h-4 mr-2" style={{ color: colors.accent }} />
+            System Info
           </TabsTrigger>
         </TabsList>
 
@@ -967,33 +1269,12 @@ export function SettingsTab() {
             </div>
           </div>
         </TabsContent>
-      </Tabs>
 
-      {/* System Information - Enhanced with Real Data */}
-      <div 
-        className="rounded-lg border p-6"
-        style={{ 
-          backgroundColor: alpha(colors.card, 50),
-          borderColor: colors.border 
-        }}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
-            System Information
-          </h3>
-          <Badge
-            variant="outline"
-            style={{
-              borderColor: alpha(colors.success, 30),
-              color: colors.success,
-            }}
-          >
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse mr-1.5" style={{ backgroundColor: colors.success }} />
-            Live
-          </Badge>
-        </div>
-        <SystemInfoPanel />
-      </div>
+        {/* System Info Tab */}
+        <TabsContent value="system-info">
+          <SystemInfoPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
