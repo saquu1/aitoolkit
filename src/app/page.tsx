@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { ThemeProvider, useTheme } from '@/hooks/useTheme'
 import { SchemaProvider, useSchema } from '@/hooks/useSchema'
 import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
-import { Clock, Search, Command, ChevronDown, ChevronRight, Menu, X } from 'lucide-react'
+import { Clock, Search, Command, ChevronDown, ChevronRight, Menu, X, Filter } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
 import { MemoryToggleButton } from '@/components/MemoryBreakdown'
 import { ThreadStatusBadge } from '@/components/ThreadStatusBadge'
@@ -19,6 +19,7 @@ import { CommandPalette } from '@/components/CommandPalette'
 import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog'
 import { NotificationCenter } from '@/components/NotificationCenter'
 import { TabTransition } from '@/components/TabTransition'
+import { useActionToast } from '@/hooks/useActionToast'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -197,6 +198,8 @@ function AppContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [sidebarSearch, setSidebarSearch] = useState('')
+  const actionToast = useActionToast()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -229,8 +232,9 @@ function AppContent() {
         router.push('/', { scroll: false })
       }
       setMobileSidebarOpen(false)
+      actionToast.navigate(navItem.label)
     }
-  }, [router])
+  }, [router, actionToast])
 
   // Keyboard shortcuts - declared after handleNavigate
   useEffect(() => {
@@ -312,11 +316,24 @@ function AppContent() {
     return colorMap[colorKey] || colors.primary
   }
 
-  // Group nav items by group
-  const groupedNavItems = NAV_GROUPS.map(group => ({
-    ...group,
-    items: NAV_ITEMS.filter(item => item.group === group.key),
-  })).filter(group => group.items.length > 0)
+  // Filter nav items by search query
+  const filteredNavItems = useMemo(() => {
+    if (!sidebarSearch.trim()) return NAV_ITEMS
+    const q = sidebarSearch.toLowerCase()
+    return NAV_ITEMS.filter(item =>
+      item.label.toLowerCase().includes(q) ||
+      item.id.toLowerCase().includes(q) ||
+      (item.badge && item.badge.toLowerCase().includes(q))
+    )
+  }, [sidebarSearch])
+
+  // Group nav items by group (filtered)
+  const groupedNavItems = useMemo(() => {
+    return NAV_GROUPS.map(group => ({
+      ...group,
+      items: filteredNavItems.filter(item => item.group === group.key),
+    })).filter(group => group.items.length > 0)
+  }, [filteredNavItems])
 
   // Alpha helper
   const alpha = (color: string, opacity: number) =>
@@ -352,10 +369,19 @@ function AppContent() {
             </button>
 
             <div className="relative w-9 h-9 md:w-10 md:h-10">
+              {/* Glow effect behind logo */}
               <div
-                className="w-full h-full rounded-lg flex items-center justify-center"
+                className="absolute inset-[-4px] rounded-xl animate-glow-pulse"
                 style={{
-                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`
+                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+                  opacity: 0.25,
+                }}
+              />
+              <div
+                className="relative w-full h-full rounded-lg flex items-center justify-center animate-gradient-shift"
+                style={{
+                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent}, ${colors.primary})`,
+                  backgroundSize: '200% 200%',
                 }}
               >
                 <Database className="w-5 h-5 md:w-6 md:h-6 text-white" />
@@ -472,34 +498,40 @@ function AppContent() {
             height: 'calc(100vh - 57px)',
           }}
         >
-          {/* Search - desktop only */}
-          <div className="px-3 pb-2 pt-3 hidden sm:block">
-            <button
-              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border cursor-text transition-colors hover:border-opacity-80"
-              style={{
-                backgroundColor: alpha(colors.bgTertiary, 30),
-                borderColor: alpha(colors.border, 50),
-                color: colors.textMuted,
-              }}
-              onClick={() => setCommandPaletteOpen(true)}
-            >
-              <Search className="w-3.5 h-3.5 flex-shrink-0" />
-              {!sidebarCollapsed && (
-                <>
-                  <span className="text-xs">Search...</span>
-                  <kbd
-                    className="ml-auto text-[9px] px-1 py-0.5 rounded border font-mono"
-                    style={{
-                      backgroundColor: alpha(colors.bgTertiary, 40),
-                      borderColor: alpha(colors.border, 60),
-                      color: colors.textMuted
-                    }}
-                  >
-                    Ctrl+K
-                  </kbd>
-                </>
+          {/* Sidebar Search - filters nav items */}
+          <div className="px-3 pb-2 pt-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: sidebarSearch ? colors.primary : colors.textMuted }} />
+              <input
+                type="text"
+                placeholder="Filter pages..."
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                className="w-full pl-8 pr-8 py-2 rounded-lg border text-xs outline-none transition-all duration-200"
+                style={{
+                  backgroundColor: alpha(colors.bgTertiary, 30),
+                  borderColor: sidebarSearch ? alpha(colors.primary, 40) : alpha(colors.border, 50),
+                  color: colors.text,
+                  boxShadow: sidebarSearch ? `0 0 0 2px ${alpha(colors.primary, 10)}` : 'none',
+                }}
+              />
+              {sidebarSearch && (
+                <button
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded"
+                  style={{ color: colors.textMuted }}
+                  onClick={() => setSidebarSearch('')}
+                  aria-label="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               )}
-            </button>
+            </div>
+            {!sidebarCollapsed && sidebarSearch && (
+              <p className="text-[10px] mt-1.5 px-1" style={{ color: colors.textMuted }}>
+                <Filter className="w-3 h-3 inline mr-1" />
+                {filteredNavItems.length} of {NAV_ITEMS.length} pages
+              </p>
+            )}
           </div>
 
           {/* Scrollable nav area */}
@@ -715,23 +747,22 @@ function AppContent() {
 
       {/* Sticky Footer */}
       <footer
-        className="border-t py-2.5 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0"
+        className="border-t py-2.5 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0 glass-card"
         style={{
           borderColor: alpha(colors.border, 50),
           backgroundColor: alpha(colors.bgSecondary, 60),
           color: colors.textMuted,
-          backdropFilter: 'blur(8px)',
         }}
       >
         <div className="flex items-center gap-3">
           <span className="font-medium" style={{ color: colors.text }}>AI Enterprise Architect</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.primary, 10), color: colors.primaryLight }}>v2.1</span>
-          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 60) }}>|</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.2</span>
+          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
           <span className="hidden sm:flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.success }} />
             <span>35 Agents Active</span>
           </span>
-          <span className="hidden md:inline" style={{ color: alpha(colors.textMuted, 60) }}>|</span>
+          <span className="hidden md:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
           <span className="hidden md:inline">Next.js 16 + Turbopack</span>
         </div>
         <div className="flex items-center gap-3">
@@ -742,7 +773,7 @@ function AppContent() {
           >
             Shortcuts
           </button>
-          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 40) }}>•</span>
+          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 30) }}>•</span>
           <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 50) }}>
             Press <kbd className="px-1 py-0.5 rounded border font-mono text-[9px]" style={{ borderColor: colors.border }}>Ctrl+K</kbd> to search
           </span>
@@ -770,21 +801,65 @@ function AppContent() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
-      <div className="text-center">
-        <div className="relative w-16 h-16 mx-auto mb-6">
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 animate-pulse opacity-75" />
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 animate-spin" style={{ animationDuration: '3s' }} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Database className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] relative overflow-hidden">
+      {/* Animated background orbs */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-96 h-96 rounded-full opacity-10 animate-float-subtle" style={{
+          background: 'radial-gradient(circle, #a855f7, transparent)',
+          top: '10%', left: '20%',
+          animationDelay: '0ms',
+        }} />
+        <div className="absolute w-80 h-80 rounded-full opacity-8 animate-float-subtle" style={{
+          background: 'radial-gradient(circle, #6366f1, transparent)',
+          bottom: '15%', right: '15%',
+          animationDelay: '1.5s',
+        }} />
+        <div className="absolute w-64 h-64 rounded-full opacity-5 animate-float-subtle" style={{
+          background: 'radial-gradient(circle, #22c55e, transparent)',
+          top: '60%', left: '60%',
+          animationDelay: '3s',
+        }} />
+      </div>
+
+      <div className="relative z-10 text-center">
+        <div className="relative w-20 h-20 mx-auto mb-8">
+          {/* Outer glow ring */}
+          <div className="absolute inset-[-8px] rounded-2xl animate-glow-pulse" style={{
+            background: 'linear-gradient(135deg, #a855f7, #6366f1)',
+            opacity: 0.3,
+          }} />
+          {/* Rotating gradient border */}
+          <div className="absolute inset-0 rounded-xl animate-spin" style={{
+            animationDuration: '4s',
+            background: 'conic-gradient(from 0deg, #a855f7, #6366f1, #22c55e, #6366f1, #a855f7)',
+          }}>
+            <div className="absolute inset-[2px] rounded-[10px] bg-[#0f172a]" />
+          </div>
+          {/* Inner icon */}
+          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-600/20 backdrop-blur-sm">
+            <Database className="w-9 h-9 text-white" />
           </div>
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">AI Enterprise Architect</h2>
-        <p className="text-sm text-slate-400">Initializing Multi-Agent System...</p>
-        <div className="mt-4 flex items-center justify-center gap-1">
+
+        <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">
+          AI Enterprise Architect
+        </h2>
+        <p className="text-sm text-slate-400 mb-1">Multi-Agent Schema Intelligence Platform</p>
+        <p className="text-xs text-slate-500 mb-6">Initializing 35 agent modules across 7 layers...</p>
+
+        {/* Progress steps */}
+        <div className="flex items-center justify-center gap-1 mb-6">
+          <div className="w-8 h-1 rounded-full bg-purple-500 animate-shimmer" />
+          <div className="w-8 h-1 rounded-full bg-purple-400/50 animate-shimmer" style={{ animationDelay: '0.2s' }} />
+          <div className="w-8 h-1 rounded-full bg-purple-400/30 animate-shimmer" style={{ animationDelay: '0.4s' }} />
+          <div className="w-8 h-1 rounded-full bg-purple-400/20 animate-shimmer" style={{ animationDelay: '0.6s' }} />
+          <div className="w-8 h-1 rounded-full bg-purple-400/10 animate-shimmer" style={{ animationDelay: '0.8s' }} />
+        </div>
+
+        <div className="flex items-center justify-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-purple-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+          <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <div className="w-2 h-2 rounded-full bg-green-400 animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>

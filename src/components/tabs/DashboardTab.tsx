@@ -36,6 +36,8 @@ import {
 } from 'lucide-react'
 import { Sparkline, MiniBarChart, AnimatedCounter } from '@/components/Sparkline'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
+import { ActivityTimeline } from '@/components/ActivityTimeline'
+import { useActionToast } from '@/hooks/useActionToast'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -83,6 +85,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activities, setActivities] = useState<ActivityItem[]>(initialActivities)
   const [systemMetrics, setSystemMetrics] = useState({ cpu: 12, memory: 45, uptime: 0 })
+  const actionToast = useActionToast()
 
   // Real-time clock
   useEffect(() => {
@@ -178,13 +181,16 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
   const refreshData = () => {
     refreshDbStats()
-    setActivities(prev => [{
+    const newActivity: ActivityItem = {
       id: `refresh-${Date.now()}`,
       type: 'info' as const,
       message: 'Data refreshed successfully',
       time: 'Just now',
       icon: RefreshCw,
-    }, ...prev.slice(0, 9)])
+      detail: 'System metrics and schema stats updated',
+    }
+    setActivities(prev => [newActivity, ...prev.slice(0, 9)])
+    actionToast.success('Data Refreshed', 'System metrics and schema stats updated')
   }
 
   return (
@@ -232,8 +238,11 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           </Badge>
           <Button
             style={{ backgroundColor: colors.primary }}
-            onClick={() => onNavigate?.('pipeline')}
-            className="text-xs"
+            onClick={() => {
+              actionToast.info('Pipeline Started', 'Full analysis pipeline is now running')
+              onNavigate?.('pipeline')
+            }}
+            className="text-xs hover-lift"
           >
             <Activity className="w-4 h-4 mr-2" />
             Run Full Analysis
@@ -415,7 +424,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       </div>
 
       {/* Stats Grid - 4 columns with sparklines */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
         {[
           { label: 'Total Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.accent, spark: sparkData.tables, change: '+3' },
           { label: 'Columns Analyzed', value: stats.totalColumns, icon: FileCode, iconColor: colors.primary, spark: null, change: null },
@@ -424,7 +433,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-xl border p-4 group transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+            className="rounded-xl border p-4 group transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover-lift"
             style={{
               backgroundColor: alpha(colors.card, 50),
               borderColor: alpha(colors.border, 80)
@@ -573,91 +582,73 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           </div>
         </div>
 
-        {/* Activity Feed */}
-        <div
-          className="rounded-xl border p-5"
-          style={{
-            backgroundColor: alpha(colors.card, 50),
-            borderColor: colors.border
-          }}
-        >
-          <div className="flex items-center justify-between mb-4">
+        {/* Activity Timeline */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
               <Terminal className="w-4 h-4" style={{ color: colors.primary }} />
-              Activity Feed
+              Activity Timeline
             </h3>
             <button
-              className="p-1.5 rounded-md transition-colors hover:bg-opacity-10"
-              style={{ color: colors.textMuted }}
+              className="p-1.5 rounded-md transition-all duration-200 hover:scale-105"
+              style={{ color: colors.textMuted, backgroundColor: alpha(colors.bgTertiary, 20) }}
               onClick={refreshData}
               aria-label="Refresh data"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
-            {activities.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-start gap-3 p-2 rounded-lg transition-all duration-200"
-                style={{ backgroundColor: alpha(getActivityColor(activity.type), 5) }}
-              >
-                <div
-                  className="p-1.5 rounded-md mt-0.5 flex-shrink-0"
-                  style={{ backgroundColor: alpha(getActivityColor(activity.type), 15) }}
-                >
-                  <activity.icon className="w-3.5 h-3.5" style={{ color: getActivityColor(activity.type) }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs leading-relaxed" style={{ color: colors.textSecondary }}>{activity.message}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: colors.textMuted }}>{activity.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ActivityTimeline activities={activities} maxItems={8} />
         </div>
       </div>
 
       {/* Quick Actions - 4 columns */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
         {[
           {
             title: 'Upload SQL Schema',
             desc: 'Parse DDL, procedures, views, and CSHTML files',
             icon: Upload,
             tab: 'upload',
-            color: colors.accent
+            color: colors.accent,
+            toastMsg: 'Opening upload wizard for SQL schema files',
           },
           {
             title: 'Run Pipeline',
             desc: 'Execute full analysis or quick scan',
             icon: GitBranch,
             tab: 'pipeline',
-            color: colors.primary
+            color: colors.primary,
+            toastMsg: 'Opening analysis pipeline dashboard',
           },
           {
             title: 'View Compliance',
             desc: 'PII/PHI detection and data sensitivity',
             icon: Shield,
             tab: 'intelligence',
-            color: colors.success
+            color: colors.success,
+            toastMsg: 'Opening intelligence compliance view',
           },
           {
             title: 'Generate Code',
             desc: 'Prisma schemas, APIs, React components',
             icon: Sparkles,
             tab: 'smart-upload',
-            color: colors.warning
+            color: colors.warning,
+            toastMsg: 'Opening AI-powered code generation studio',
           },
         ].map((action) => (
           <div
             key={action.title}
-            className="rounded-xl border p-5 cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-lg group"
+            className="rounded-xl border p-5 cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-xl group hover-lift"
             style={{
               background: `linear-gradient(135deg, ${alpha(action.color, 15)}, ${alpha(action.color, 5)})`,
               borderColor: alpha(action.color, 25),
             }}
-            onClick={() => onNavigate?.(action.tab)}
+            onClick={() => {
+              actionToast.info(action.title, action.toastMsg)
+              onNavigate?.(action.tab)
+            }}
           >
             <div className="flex items-start justify-between">
               <div

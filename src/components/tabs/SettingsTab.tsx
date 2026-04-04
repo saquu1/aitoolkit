@@ -23,15 +23,25 @@ import {
   AlertTriangle,
   Info,
   Loader2,
-  LogOut
+  LogOut,
+  Palette,
+  Monitor,
+  MousePointer,
+  Sparkles,
+  Maximize,
 } from 'lucide-react'
+import { useActionToast } from '@/hooks/useActionToast'
 
 export function SettingsTab() {
-  const { colors } = useTheme()
+  const { colors, colorScheme, setColorScheme } = useTheme()
   const { isAuthenticated, user, loginEnabled, logout, checkAuth } = useAuth()
+  const actionToast = useActionToast()
   const [loginToggle, setLoginToggle] = useState(loginEnabled)
   const [toggleLoading, setToggleLoading] = useState(false)
   const [authMsg, setAuthMsg] = useState<string | null>(null)
+  const [compactMode, setCompactMode] = useState(false)
+  const [animationsEnabled, setAnimationsEnabled] = useState(true)
+  const [sidebarDefault, setSidebarDefault] = useState<'expanded' | 'collapsed'>('expanded')
 
   // Sync toggle state with auth status
   useEffect(() => {
@@ -143,6 +153,13 @@ export function SettingsTab() {
           >
             <Code className="w-4 h-4 mr-2" style={{ color: colors.accentLight }} />
             Developer
+          </TabsTrigger>
+          <TabsTrigger 
+            value="appearance"
+            style={{ color: colors.textMuted }}
+          >
+            <Palette className="w-4 h-4 mr-2" style={{ color: '#f472b6' }} />
+            Appearance
           </TabsTrigger>
         </TabsList>
 
@@ -655,6 +672,203 @@ export function SettingsTab() {
                 >
                   Export Logs
                 </Button>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Appearance Settings */}
+        <TabsContent value="appearance">
+          <div className="grid gap-4">
+            {/* Theme Selection */}
+            <div 
+              className="rounded-lg border p-6"
+              style={{ 
+                backgroundColor: alpha(colors.card, 50),
+                borderColor: colors.border 
+              }}
+            >
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+                  <Palette className="w-5 h-5" style={{ color: '#f472b6' }} />
+                  Color Theme
+                </h3>
+                <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
+                  Choose a color scheme that suits your preference
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                {[
+                  { key: 'midnight', label: 'Midnight', preview: ['#a855f7', '#6366f1', '#0f172a'] },
+                  { key: 'ocean', label: 'Ocean', preview: ['#3b82f6', '#06b6d4', '#0c1929'] },
+                  { key: 'forest', label: 'Forest', preview: ['#22c55e', '#14b8a6', '#0a1a0f'] },
+                  { key: 'sunset', label: 'Sunset', preview: ['#f97316', '#ec4899', '#1a0f0a'] },
+                  { key: 'lavender', label: 'Lavender', preview: ['#a78bfa', '#f472b6', '#13111c'] },
+                  { key: 'cyberpunk', label: 'Cyberpunk', preview: ['#f0abfc', '#22d3ee', '#0a0a0a'] },
+                  { key: 'light', label: 'Light', preview: ['#7c3aed', '#2563eb', '#f8fafc'] },
+                ].map((theme) => (
+                  <button
+                    key={theme.key}
+                    className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 hover:scale-[1.05] hover-lift"
+                    style={{
+                      borderColor: colorScheme === theme.key ? colors.primary : colors.border,
+                      backgroundColor: colorScheme === theme.key ? alpha(colors.primary, 10) : 'transparent',
+                    }}
+                    onClick={() => {
+                      setColorScheme(theme.key as any)
+                      actionToast.settingsSaved(`Theme: ${theme.label}`)
+                    }}
+                  >
+                    <div className="flex gap-0.5">
+                      {theme.preview.map((c, i) => (
+                        <div
+                          key={i}
+                          className="w-5 h-5 rounded-full border"
+                          style={{
+                            backgroundColor: c,
+                            borderColor: alpha(colors.border, 50),
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-[10px] font-medium" style={{ color: colorScheme === theme.key ? colors.primary : colors.textMuted }}>
+                      {theme.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Layout Settings */}
+            <div 
+              className="rounded-lg border p-6"
+              style={{ 
+                backgroundColor: alpha(colors.card, 50),
+                borderColor: colors.border 
+              }}
+            >
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+                  <Monitor className="w-5 h-5" style={{ color: colors.primary }} />
+                  Layout &amp; Density
+                </h3>
+                <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
+                  Adjust the interface layout and density
+                </p>
+              </div>
+              <div className="space-y-4">
+                {/* Compact Mode */}
+                <div 
+                  className="flex items-center justify-between p-4 rounded-lg"
+                  style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 10) }}>
+                      <MousePointer className="w-4 h-4" style={{ color: colors.primary }} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium" style={{ color: colors.text }}>Compact Mode</span>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>Reduce spacing for more content visibility</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={compactMode}
+                    onCheckedChange={(checked) => {
+                      setCompactMode(checked)
+                      actionToast.settingsSaved(checked ? 'Compact Mode On' : 'Compact Mode Off')
+                    }}
+                  />
+                </div>
+
+                {/* Default Sidebar State */}
+                <div 
+                  className="flex items-center justify-between p-4 rounded-lg"
+                  style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.accent, 10) }}>
+                      <Maximize className="w-4 h-4" style={{ color: colors.accent }} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium" style={{ color: colors.text }}>Default Sidebar</span>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>Choose sidebar state on startup</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 p-0.5 rounded-lg" style={{ backgroundColor: alpha(colors.bgTertiary, 30) }}>
+                    {(['expanded', 'collapsed'] as const).map((state) => (
+                      <button
+                        key={state}
+                        className="text-[11px] px-3 py-1.5 rounded-md transition-all font-medium"
+                        style={{
+                          backgroundColor: sidebarDefault === state ? alpha(colors.primary, 20) : 'transparent',
+                          color: sidebarDefault === state ? colors.primary : colors.textMuted,
+                        }}
+                        onClick={() => {
+                          setSidebarDefault(state)
+                          actionToast.settingsSaved(`Sidebar: ${state}`)
+                        }}
+                      >
+                        {state.charAt(0).toUpperCase() + state.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Animation Settings */}
+            <div 
+              className="rounded-lg border p-6"
+              style={{ 
+                backgroundColor: alpha(colors.card, 50),
+                borderColor: colors.border 
+              }}
+            >
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+                  <Sparkles className="w-5 h-5" style={{ color: colors.warning }} />
+                  Animations &amp; Effects
+                </h3>
+                <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
+                  Control motion and visual effects
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div 
+                  className="flex items-center justify-between p-4 rounded-lg"
+                  style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
+                >
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: colors.text }}>Enable Animations</span>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Smooth transitions, hover effects, and loading states</p>
+                  </div>
+                  <Switch
+                    checked={animationsEnabled}
+                    onCheckedChange={(checked) => {
+                      setAnimationsEnabled(checked)
+                      actionToast.settingsSaved(checked ? 'Animations On' : 'Animations Off (reduced motion)')
+                    }}
+                  />
+                </div>
+
+                {[
+                  { title: 'Glow effects', desc: 'Subtle glow on active elements and logo', enabled: true },
+                  { title: 'Staggered children', desc: 'Sequential entrance animations for list items', enabled: true },
+                  { title: 'Hover lift', desc: 'Cards lift slightly on hover for depth effect', enabled: true },
+                  { title: 'Gradient borders', desc: 'Gradient border effects on featured elements', enabled: false },
+                ].map((item) => (
+                  <div 
+                    key={item.title}
+                    className="flex items-center justify-between p-3 rounded-lg"
+                    style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
+                  >
+                    <div>
+                      <span className="text-sm font-medium" style={{ color: colors.text }}>{item.title}</span>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>{item.desc}</p>
+                    </div>
+                    <Switch defaultChecked={item.enabled} />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
