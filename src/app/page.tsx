@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { ThemeProvider, useTheme } from '@/hooks/useTheme'
 import { SchemaProvider, useSchema } from '@/hooks/useSchema'
 import { ColorSchemeSelector } from '@/components/ColorSchemeSelector'
-import { Clock, Search, Command } from 'lucide-react'
+import { Clock, Search, Command, ChevronDown, ChevronRight, Menu, X } from 'lucide-react'
 import { SessionStatusBadge } from '@/components/SessionStatusIndicator'
 import { MemoryToggleButton } from '@/components/MemoryBreakdown'
 import { ThreadStatusBadge } from '@/components/ThreadStatusBadge'
@@ -15,6 +15,8 @@ import { ProjectScopeProvider } from '@/contexts/ProjectScopeContext'
 import { ProjectScopeHeader } from '@/components/project/ProjectScopeHeader'
 import { ErrorMonitor } from '@/components/ErrorMonitor'
 import { VersionTracker } from '@/components/VersionTracker'
+import { CommandPalette } from '@/components/CommandPalette'
+import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -28,7 +30,6 @@ function formatUptime(seconds: number): string {
 }
 
 // Dynamic import for ScrollArea to prevent hydration mismatch
-// Radix UI ScrollArea generates different styles on server vs client
 const ScrollArea = dynamic(
   () => import('@/components/ui/scroll-area').then(m => m.ScrollArea),
   { ssr: false }
@@ -52,7 +53,7 @@ import {
   FolderKanban,
   Activity,
   Bug,
-  ToggleLeft
+  ToggleLeft,
 } from 'lucide-react'
 import { DashboardTab } from '@/components/tabs/DashboardTab'
 import { UploadTab } from '@/components/tabs/UploadTab'
@@ -77,10 +78,8 @@ import { TestRunnerDashboard } from '@/components/TestRunnerDashboard'
 
 // =============================================================================
 // HEAVY COMPONENTS - Lazy Loaded for Memory Optimization
-// These components are large (1000+ lines) and loaded on-demand only
 // =============================================================================
 
-// ChatLogTab - 4,178 lines - loaded only when user navigates to chat-logs
 const ChatLogTab = dynamic(
   () => import('@/components/tabs/ChatLogTab').then(m => m.ChatLogTab),
   {
@@ -96,65 +95,83 @@ const ChatLogTab = dynamic(
   }
 )
 
-// FileManagerTab - 1,434 lines - loaded only when user navigates to file-manager
 const FileManagerTab = dynamic(
   () => import('@/components/tabs/FileManagerTab'),
   { ssr: false }
 )
 
-// IntelligenceTab - loaded only when user navigates to intelligence
 const IntelligenceTab = dynamic(
   () => import('@/components/tabs/IntelligenceTab').then(m => m.IntelligenceTab),
   { ssr: false }
 )
 
-// ProjectIntelligenceTab - loaded only when user navigates to project-intel
 const ProjectIntelligenceTab = dynamic(
   () => import('@/components/tabs/ProjectIntelligenceTab').then(m => m.ProjectIntelligenceTab),
   { ssr: false }
 )
 
-// AutoloadRegistryTab - loaded only when user navigates to autoload
 const AutoloadRegistryTab = dynamic(
   () => import('@/components/tabs/AutoloadRegistryTab').then(m => m.AutoloadRegistryTab),
   { ssr: false }
 )
 import { Layers, BookOpen, FolderSync, MessageSquare, FileCheck, Wrench, ShieldCheck, PackageSearch, Network, FlaskConical, SearchCode } from 'lucide-react'
 
-// Schema Audit Tab - lazy loaded
 const SchemaAuditTab = dynamic(
   () => import('./schema-audit/page').then(m => ({ default: m.SchemaAuditDashboard })),
   { ssr: false }
 )
 
-// Navigation configuration with URL slugs
-const NAV_ITEMS = [
-  { id: 'dashboard', slug: '', icon: LayoutDashboard, label: 'Dashboard' },
-  { id: 'schema-audit', slug: 'schema-audit', icon: SearchCode, label: 'Schema Audit', badge: 'FIX', badgeColorKey: 'warning' },
-  { id: 'projects', slug: 'projects', icon: FolderKanban, label: 'Projects', badge: 'Multi', badgeColorKey: 'accent' },
-  { id: 'file-manager', slug: 'file-manager', icon: FolderSync, label: 'File Manager', badge: 'New', badgeColorKey: 'success' },
-  { id: 'smart-upload', slug: 'universal-upload', icon: Sparkles, label: 'Universal Upload', badge: 'AI', badgeColorKey: 'primary' },
-  { id: 'upload', slug: 'schema-toolkit', icon: Upload, label: 'Schema Toolkit' },
-  { id: 'data-dictionary', slug: 'data-dictionary', icon: BookOpen, label: 'Data Dictionary', badge: 'Live', badgeColorKey: 'success' },
-  { id: 'modules', slug: 'module-registry', icon: Puzzle, label: 'Module Registry', badge: '35', badgeColorKey: 'accent' },
-  { id: 'fk-resolution', slug: 'fk-resolution', icon: AlertTriangle, label: 'FK Resolution', badge: 'Queue', badgeColorKey: 'warning' },
-  { id: 'intelligence-bank', slug: 'intelligence-bank', icon: Layers, label: 'Intelligence Bank', badge: 'Unified', badgeColorKey: 'success' },
-  { id: 'intelligence', slug: 'intelligence', icon: Brain, label: 'Intelligence', badge: 'Step 4', badgeColorKey: 'primary' },
-  { id: 'legacy-migration', slug: 'legacy-migration', icon: ArrowRightLeft, label: 'Legacy Migration', badge: 'Step 9', badgeColorKey: 'success' },
-  { id: 'project-intel', slug: 'project-intelligence', icon: ClipboardList, label: 'Project Intelligence', badge: 'Phase 5', badgeColorKey: 'primary' },
-  { id: 'pipeline', slug: 'pipeline', icon: GitBranch, label: 'Pipeline' },
-  { id: 'multi-tenant', slug: 'multi-tenant', icon: Shield, label: 'Multi-Tenant', badge: 'Step 5', badgeColorKey: 'warning' },
-  { id: 'api-management', slug: 'api-management', icon: Activity, label: 'API Management', badge: 'Debug', badgeColorKey: 'warning' },
-  { id: 'error-patterns', slug: 'error-patterns', icon: Bug, label: 'Error Patterns', badge: 'Analysis', badgeColorKey: 'warning' },
-  { id: 'chat-logs', slug: 'chat-logs', icon: MessageSquare, label: 'Chat Logs', badge: 'History', badgeColorKey: 'primary' },
-  { id: 'smart-fixer', slug: 'smart-fixer', icon: Wrench, label: 'Smart Fixer', badge: 'Phase 3', badgeColorKey: 'primary' },
-  { id: 'pre-commit-hook', slug: 'pre-commit-hook', icon: ShieldCheck, label: 'Pre-commit Hook', badge: 'Phase 5', badgeColorKey: 'success' },
-  { id: 'import-fixer', slug: 'import-fixer', icon: PackageSearch, label: 'Import Fixer', badge: 'Phase 5', badgeColorKey: 'warning' },
-  { id: 'flow-map', slug: 'flow-map', icon: Network, label: 'Flow Map', badge: 'Phase 4', badgeColorKey: 'primary' },
-  { id: 'test-generator', slug: 'test-generator', icon: FlaskConical, label: 'Test Generator', badge: 'Phase 4', badgeColorKey: 'primary' },
-  { id: 'contract-validator', slug: 'contract-validator', icon: FileCheck, label: 'Contract Validator', badge: 'New', badgeColorKey: 'success' },
-  { id: 'autoload', slug: 'autoload', icon: ToggleLeft, label: 'Autoload Config', badge: 'New', badgeColorKey: 'success' },
-  { id: 'settings', slug: 'settings', icon: Settings, label: 'Settings' },
+// =============================================================================
+// Navigation Configuration with Groups
+// =============================================================================
+interface NavItemConfig {
+  id: string
+  slug: string
+  icon: any
+  label: string
+  badge?: string
+  badgeColorKey?: string
+  group?: string
+}
+
+const NAV_ITEMS: NavItemConfig[] = [
+  { id: 'dashboard', slug: '', icon: LayoutDashboard, label: 'Dashboard', group: 'Overview' },
+  { id: 'schema-audit', slug: 'schema-audit', icon: SearchCode, label: 'Schema Audit', badge: 'FIX', badgeColorKey: 'warning', group: 'Core' },
+  { id: 'projects', slug: 'projects', icon: FolderKanban, label: 'Projects', badge: 'Multi', badgeColorKey: 'accent', group: 'Core' },
+  { id: 'file-manager', slug: 'file-manager', icon: FolderSync, label: 'File Manager', badge: 'New', badgeColorKey: 'success', group: 'Core' },
+  { id: 'smart-upload', slug: 'universal-upload', icon: Sparkles, label: 'Universal Upload', badge: 'AI', badgeColorKey: 'primary', group: 'Analysis' },
+  { id: 'upload', slug: 'schema-toolkit', icon: Upload, label: 'Schema Toolkit', group: 'Analysis' },
+  { id: 'data-dictionary', slug: 'data-dictionary', icon: BookOpen, label: 'Data Dictionary', badge: 'Live', badgeColorKey: 'success', group: 'Analysis' },
+  { id: 'modules', slug: 'module-registry', icon: Puzzle, label: 'Module Registry', badge: '35', badgeColorKey: 'accent', group: 'Analysis' },
+  { id: 'fk-resolution', slug: 'fk-resolution', icon: AlertTriangle, label: 'FK Resolution', badge: 'Queue', badgeColorKey: 'warning', group: 'Analysis' },
+  { id: 'intelligence-bank', slug: 'intelligence-bank', icon: Layers, label: 'Intelligence Bank', badge: 'Unified', badgeColorKey: 'success', group: 'Intelligence' },
+  { id: 'intelligence', slug: 'intelligence', icon: Brain, label: 'Intelligence', badge: 'Step 4', badgeColorKey: 'primary', group: 'Intelligence' },
+  { id: 'legacy-migration', slug: 'legacy-migration', icon: ArrowRightLeft, label: 'Legacy Migration', badge: 'Step 9', badgeColorKey: 'success', group: 'Intelligence' },
+  { id: 'project-intel', slug: 'project-intelligence', icon: ClipboardList, label: 'Project Intelligence', badge: 'Phase 5', badgeColorKey: 'primary', group: 'Intelligence' },
+  { id: 'pipeline', slug: 'pipeline', icon: GitBranch, label: 'Pipeline', group: 'Tools' },
+  { id: 'multi-tenant', slug: 'multi-tenant', icon: Shield, label: 'Multi-Tenant', badge: 'Step 5', badgeColorKey: 'warning', group: 'Tools' },
+  { id: 'api-management', slug: 'api-management', icon: Activity, label: 'API Management', badge: 'Debug', badgeColorKey: 'warning', group: 'Tools' },
+  { id: 'error-patterns', slug: 'error-patterns', icon: Bug, label: 'Error Patterns', badge: 'Analysis', badgeColorKey: 'warning', group: 'Tools' },
+  { id: 'chat-logs', slug: 'chat-logs', icon: MessageSquare, label: 'Chat Logs', badge: 'History', badgeColorKey: 'primary', group: 'Developer' },
+  { id: 'smart-fixer', slug: 'smart-fixer', icon: Wrench, label: 'Smart Fixer', badge: 'Phase 3', badgeColorKey: 'primary', group: 'Developer' },
+  { id: 'pre-commit-hook', slug: 'pre-commit-hook', icon: ShieldCheck, label: 'Pre-commit Hook', badge: 'Phase 5', badgeColorKey: 'success', group: 'Developer' },
+  { id: 'import-fixer', slug: 'import-fixer', icon: PackageSearch, label: 'Import Fixer', badge: 'Phase 5', badgeColorKey: 'warning', group: 'Developer' },
+  { id: 'flow-map', slug: 'flow-map', icon: Network, label: 'Flow Map', badge: 'Phase 4', badgeColorKey: 'primary', group: 'Developer' },
+  { id: 'test-generator', slug: 'test-generator', icon: FlaskConical, label: 'Test Generator', badge: 'Phase 4', badgeColorKey: 'primary', group: 'Developer' },
+  { id: 'contract-validator', slug: 'contract-validator', icon: FileCheck, label: 'Contract Validator', badge: 'New', badgeColorKey: 'success', group: 'Developer' },
+  { id: 'autoload', slug: 'autoload', icon: ToggleLeft, label: 'Autoload Config', badge: 'New', badgeColorKey: 'success', group: 'Developer' },
+  { id: 'settings', slug: 'settings', icon: Settings, label: 'Settings', group: 'System' },
+]
+
+// Group order and labels
+const NAV_GROUPS: { key: string; label: string }[] = [
+  { key: 'Overview', label: 'Overview' },
+  { key: 'Core', label: 'Core' },
+  { key: 'Analysis', label: 'Analysis' },
+  { key: 'Intelligence', label: 'Intelligence' },
+  { key: 'Tools', label: 'Tools' },
+  { key: 'Developer', label: 'Developer' },
+  { key: 'System', label: 'System' },
 ]
 
 // Map slug to tab id
@@ -167,16 +184,19 @@ function AppContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  // Workspace panel removed to save memory
-  const { colors, colorScheme } = useTheme()
+  const { colors, colorScheme, setColorScheme } = useTheme()
   const { totalTables, fkResolvedPercent, modulesLinked } = useSchema()
 
   // Session uptime tracking
   const [uptime, setUptime] = useState(0)
   const [showThreadBreakdown, setShowThreadBreakdown] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
-    // Update uptime every second
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - SESSION_START.getTime()) / 1000)
       setUptime(elapsed)
@@ -190,17 +210,14 @@ function AppContent() {
     if (tabParam && SLUG_TO_ID[tabParam]) {
       return SLUG_TO_ID[tabParam]
     }
-    // Check if we're on root path
     if (pathname === '/' && !tabParam) {
       return 'dashboard'
     }
     return 'dashboard'
   }, [pathname, searchParams])
 
-  // Derive active tab from URL directly (no state sync needed)
   const activeTab = getActiveTabFromUrl()
 
-  // Navigation handler - updates URL
   const handleNavigate = useCallback((tabId: string) => {
     const navItem = NAV_ITEMS.find(item => item.id === tabId)
     if (navItem) {
@@ -209,8 +226,78 @@ function AppContent() {
       } else {
         router.push('/', { scroll: false })
       }
+      setMobileSidebarOpen(false)
     }
   }, [router])
+
+  // Keyboard shortcuts - declared after handleNavigate
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K / Cmd+K: Open command palette
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(prev => !prev)
+      }
+      // ?: Show keyboard shortcuts
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const target = e.target as HTMLElement
+        if (target.tagName !== 'INPUT' && target.tagName !== 'TEXTAREA') {
+          e.preventDefault()
+          setShortcutsDialogOpen(true)
+        }
+      }
+      // Alt+1: Dashboard
+      if (e.altKey && e.key === '1') {
+        e.preventDefault()
+        handleNavigate('dashboard')
+      }
+      // Alt+2: Schema Audit
+      if (e.altKey && e.key === '2') {
+        e.preventDefault()
+        handleNavigate('schema-audit')
+      }
+      // Alt+3: Projects
+      if (e.altKey && e.key === '3') {
+        e.preventDefault()
+        handleNavigate('projects')
+      }
+      // Alt+Z: Settings
+      if (e.altKey && e.key === 'z') {
+        e.preventDefault()
+        handleNavigate('settings')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleNavigate])
+
+  // Handle command palette actions
+  const handleCommandAction = useCallback((actionId: string) => {
+    if (actionId.startsWith('theme-')) {
+      const themeName = actionId.replace('theme-', '')
+      setColorScheme(themeName as any)
+    } else if (actionId === 'action-shortcuts') {
+      setShortcutsDialogOpen(true)
+    } else if (actionId === 'action-refresh') {
+      window.location.reload()
+    } else if (actionId === 'action-pipeline') {
+      handleNavigate('pipeline')
+    }
+  }, [setColorScheme, handleNavigate])
+
+  // Toggle group collapse
+  const toggleGroup = useCallback((group: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(group)) {
+        next.delete(group)
+      } else {
+        next.add(group)
+      }
+      return next
+    })
+  }, [])
 
   // Get badge color from colors object
   const getBadgeColor = (colorKey: string) => {
@@ -223,78 +310,133 @@ function AppContent() {
     return colorMap[colorKey] || colors.primary
   }
 
+  // Group nav items by group
+  const groupedNavItems = NAV_GROUPS.map(group => ({
+    ...group,
+    items: NAV_ITEMS.filter(item => item.group === group.key),
+  })).filter(group => group.items.length > 0)
+
+  // Alpha helper
+  const alpha = (color: string, opacity: number) =>
+    `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+
+  const activeNavLabel = NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard'
+
   return (
-    <div 
-      className="min-h-screen"
-      style={{ 
-        background: `linear-gradient(to bottom right, ${colors.bg}, ${colors.bgSecondary}, ${colors.bg})` 
+    <div
+      className="min-h-screen flex flex-col"
+      style={{
+        background: `linear-gradient(to bottom right, ${colors.bg}, ${colors.bgSecondary}, ${colors.bg})`
       }}
     >
       {/* Header */}
-      <header 
+      <header
         className="border-b backdrop-blur-sm sticky top-0 z-50"
-        style={{ 
-          borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)`,
-          backgroundColor: `color-mix(in srgb, ${colors.bg} 80%, transparent)`,
+        style={{
+          borderColor: alpha(colors.border, 50),
+          backgroundColor: alpha(colors.bg, 85),
         }}
       >
-        <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10">
-              <div 
+            {/* Mobile sidebar toggle */}
+            <button
+              className="lg:hidden p-2 rounded-lg transition-colors"
+              style={{ color: colors.textMuted }}
+              onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+              aria-label="Toggle sidebar"
+            >
+              {mobileSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
+            <div className="relative w-9 h-9 md:w-10 md:h-10">
+              <div
                 className="w-full h-full rounded-lg flex items-center justify-center"
-                style={{ 
-                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})` 
+                style={{
+                  background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`
                 }}
               >
-                <Database className="w-6 h-6 text-white" />
+                <Database className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+            <div className="hidden sm:block">
+              <h1 className="text-lg md:text-xl font-bold" style={{ color: colors.text }}>
                 AI Enterprise Architect
               </h1>
-              <p className="text-xs" style={{ color: colors.textMuted }}>
+              <p className="text-[10px] md:text-xs" style={{ color: colors.textMuted }}>
                 Multi-Agent Schema Intelligence Platform
               </p>
             </div>
           </div>
-          {/* Project Scope Selector */}
-          <ProjectScopeHeader variant="header" showSettings />
 
-          <div className="flex items-center gap-2">
-            {/* Uptime Display */}
-            <div 
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 border rounded-full"
-              style={{ 
-                backgroundColor: `color-mix(in srgb, ${colors.success} 8%, transparent)`,
-                borderColor: `color-mix(in srgb, ${colors.success} 15%, transparent)`,
+          {/* Breadcrumb / Current page indicator */}
+          <div className="hidden md:flex items-center gap-2 flex-1 justify-center">
+            <div
+              className="flex items-center gap-2 px-3 py-1 rounded-full"
+              style={{
+                backgroundColor: alpha(colors.primary, 8),
+                border: `1px solid ${alpha(colors.primary, 15)}`,
               }}
             >
-              <div 
-                className="w-2 h-2 rounded-full animate-pulse" 
-                style={{ backgroundColor: colors.success }} 
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }} />
+              <span className="text-xs font-medium" style={{ color: colors.primaryLight }}>{activeNavLabel}</span>
+            </div>
+          </div>
+
+          <ProjectScopeHeader variant="header" showSettings />
+
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {/* Search / Command Palette trigger */}
+            <button
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all duration-200 hover:scale-[1.02]"
+              style={{
+                backgroundColor: alpha(colors.bgTertiary, 30),
+                borderColor: alpha(colors.border, 50),
+                color: colors.textMuted,
+              }}
+              onClick={() => setCommandPaletteOpen(true)}
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span className="text-xs hidden md:inline">Search...</span>
+              <kbd
+                className="text-[9px] px-1 py-0.5 rounded border font-mono"
+                style={{
+                  backgroundColor: alpha(colors.bgTertiary, 40),
+                  borderColor: alpha(colors.border, 60),
+                  color: colors.textMuted
+                }}
+              >
+                ⌘K
+              </kbd>
+            </button>
+
+            {/* Uptime Display */}
+            <div
+              className="hidden lg:flex items-center gap-2 px-3 py-1.5 border rounded-full"
+              style={{
+                backgroundColor: alpha(colors.success, 8),
+                borderColor: alpha(colors.success, 15),
+              }}
+            >
+              <div
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ backgroundColor: colors.success }}
               />
-              <span 
-                className="text-xs font-medium"
+              <span
+                className="text-xs font-mono font-medium"
                 style={{ color: colors.success }}
               >
                 {formatUptime(uptime)}
               </span>
             </div>
-            {/* Version Tracker */}
             <VersionTracker />
-            {/* Thread Status Badge */}
             <ThreadStatusBadge onClick={() => setShowThreadBreakdown(true)} />
-            {/* Memory Breakdown Toggle */}
             <MemoryToggleButton />
-            {/* Session Status Badge (shows uptime + warnings) */}
             <SessionStatusBadge />
             <ColorSchemeSelector />
-            {/* AI Mode Badge */}
-            <div 
-              className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg"
-              style={{ backgroundColor: `color-mix(in srgb, ${colors.primary} 10%, transparent)` }}
+            <div
+              className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: alpha(colors.primary, 10) }}
             >
               <Brain className="w-4 h-4" style={{ color: colors.primary }} />
               <span className="text-xs" style={{ color: colors.textMuted }}>Offline Mode</span>
@@ -304,149 +446,237 @@ function AppContent() {
       </header>
 
       {/* Main Content */}
-      <div className="flex">
+      <div className="flex flex-1 relative">
+        {/* Mobile sidebar overlay */}
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
         {/* Sidebar */}
-        <aside 
-          className="w-64 border-r min-h-[calc(100vh-73px)] sticky top-[73px]"
-          style={{ 
-            borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)`,
-            backgroundColor: `color-mix(in srgb, ${colors.bgSecondary} 30%, transparent)`,
+        <aside
+          className={`
+            ${sidebarCollapsed ? 'w-16' : 'w-60 lg:w-64'}
+            ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+            border-r min-h-0 flex-shrink-0 fixed lg:sticky top-[57px] lg:top-[57px] z-40 lg:z-auto
+            transition-all duration-200 ease-in-out overflow-hidden
+          `}
+          style={{
+            borderColor: alpha(colors.border, 50),
+            backgroundColor: alpha(colors.bgSecondary, 30),
+            height: 'calc(100vh - 57px)',
           }}
         >
-          {/* Search */}
-          <div className="px-4 pb-3">
-            <div 
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-text"
-              style={{ 
-                backgroundColor: `color-mix(in srgb, ${colors.bgTertiary} 30%, transparent)`,
-                borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)`,
+          {/* Search - desktop only */}
+          <div className="px-3 pb-2 pt-3 hidden sm:block">
+            <button
+              className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border cursor-text transition-colors hover:border-opacity-80"
+              style={{
+                backgroundColor: alpha(colors.bgTertiary, 30),
+                borderColor: alpha(colors.border, 50),
+                color: colors.textMuted,
               }}
+              onClick={() => setCommandPaletteOpen(true)}
             >
-              <Search className="w-4 h-4" style={{ color: colors.textMuted }} />
-              <span className="text-sm" style={{ color: colors.textMuted }}>Search...</span>
-              <kbd 
-                className="ml-auto text-[10px] px-1.5 py-0.5 rounded border font-mono"
-                style={{ 
-                  backgroundColor: `color-mix(in srgb, ${colors.bgTertiary} 40%, transparent)`,
-                  borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
-                  color: colors.textMuted
-                }}
-              >
-                Ctrl+K
-              </kbd>
-            </div>
+              <Search className="w-3.5 h-3.5 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="text-xs">Search...</span>
+                  <kbd
+                    className="ml-auto text-[9px] px-1 py-0.5 rounded border font-mono"
+                    style={{
+                      backgroundColor: alpha(colors.bgTertiary, 40),
+                      borderColor: alpha(colors.border, 60),
+                      color: colors.textMuted
+                    }}
+                  >
+                    Ctrl+K
+                  </kbd>
+                </>
+              )}
+            </button>
           </div>
 
-          <nav className="px-4 space-y-1">
-            {NAV_ITEMS.map((item) => {
-              const badgeColor = item.badgeColorKey ? getBadgeColor(item.badgeColorKey) : undefined
-              const isActive = activeTab === item.id
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigate(item.id)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-200 text-left"
-                  style={{
-                    backgroundColor: isActive 
-                      ? `color-mix(in srgb, ${colors.primary} 15%, transparent)` 
-                      : 'transparent',
-                    color: isActive 
-                      ? colors.primaryLight 
-                      : colors.textMuted,
-                    border: isActive 
-                      ? `1px solid color-mix(in srgb, ${colors.primary} 30%, transparent)` 
-                      : '1px solid transparent',
-                  }}
-                >
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm font-medium truncate">{item.label}</span>
-                  {item.badge && badgeColor && (
-                    <span 
-                      className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
-                      style={{ 
-                        backgroundColor: `color-mix(in srgb, ${badgeColor} 20%, transparent)`,
-                        color: badgeColor,
-                      }}
+          {/* Scrollable nav area */}
+          <ScrollArea className="h-[calc(100vh-57px-52px)] lg:h-[calc(100vh-57px-52px)]">
+            <nav className="px-3 space-y-0.5 pb-4">
+              {groupedNavItems.map((group) => (
+                <div key={group.key}>
+                  {/* Group Header */}
+                  {!sidebarCollapsed && (
+                    <button
+                      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-2 first:mt-0"
+                      onClick={() => toggleGroup(group.key)}
                     >
-                      {item.badge}
-                    </span>
+                      {collapsedGroups.has(group.key) ? (
+                        <ChevronRight className="w-3 h-3" style={{ color: colors.textMuted }} />
+                      ) : (
+                        <ChevronDown className="w-3 h-3" style={{ color: colors.textMuted }} />
+                      )}
+                      <span
+                        className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: colors.textMuted }}
+                      >
+                        {group.label}
+                      </span>
+                    </button>
                   )}
-                </button>
-              )
-            })}
-          </nav>
 
-          {/* Agent Layers */}
-          <div 
-            className="px-4 pt-4 pb-2 border-t"
-            style={{ borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)` }}
-          >
-            <h3 
-              className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-              style={{ color: colors.textMuted }}
-            >
-              Agent Layers
-            </h3>
-            <div className="space-y-1.5">
-              {[
-                { name: 'Schema', icon: Database, count: 5, total: 5, color: colors.accent },
-                { name: 'Intelligence', icon: Brain, count: 5, total: 5, color: colors.primary },
-                { name: 'Module', icon: Puzzle, count: 5, total: 5, color: colors.success },
-                { name: 'Requirements', icon: FileCode, count: 5, total: 5, color: colors.warning },
-                { name: 'Generation', icon: Zap, count: 6, total: 6, color: '#eab308' },
-                { name: 'Migration', icon: GitBranch, count: 4, total: 4, color: '#ec4899' },
-                { name: 'Management', icon: BarChart3, count: 5, total: 5, color: '#06b6d4' },
-              ].map((layer) => (
-                <div 
-                  key={layer.name} 
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-md"
-                  style={{ backgroundColor: `color-mix(in srgb, ${colors.card} 30%, transparent)` }}
-                >
-                  <layer.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: layer.color }} />
-                  <span className="text-xs flex-1 truncate" style={{ color: colors.text }}>{layer.name}</span>
-                  <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${colors.border} 60%, transparent)` }}>
-                    <div className="h-full rounded-full" style={{ width: `${(layer.count/layer.total)*100}%`, backgroundColor: layer.color }} />
-                  </div>
-                  <span className="text-[10px] w-5 text-right" style={{ color: colors.textMuted }}>{layer.count}</span>
+                  {/* Nav Items */}
+                  {!collapsedGroups.has(group.key) && (
+                    <div className="space-y-0.5">
+                      {group.items.map((item) => {
+                        const badgeColor = item.badgeColorKey ? getBadgeColor(item.badgeColorKey) : undefined
+                        const isActive = activeTab === item.id
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => handleNavigate(item.id)}
+                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all duration-150 text-left group"
+                            style={{
+                              backgroundColor: isActive
+                                ? alpha(colors.primary, 15)
+                                : 'transparent',
+                              color: isActive
+                                ? colors.primaryLight
+                                : colors.textMuted,
+                              border: isActive
+                                ? `1px solid ${alpha(colors.primary, 30)}`
+                                : '1px solid transparent',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor = alpha(colors.primary, 6)
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isActive) {
+                                e.currentTarget.style.backgroundColor = 'transparent'
+                              }
+                            }}
+                          >
+                            <item.icon className="w-4 h-4 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
+                            {!sidebarCollapsed && (
+                              <>
+                                <span className="text-[13px] font-medium truncate">{item.label}</span>
+                                {item.badge && badgeColor && (
+                                  <span
+                                    className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+                                    style={{
+                                      backgroundColor: alpha(badgeColor, 20),
+                                      color: badgeColor,
+                                    }}
+                                  >
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               ))}
-            </div>
-          </div>
+            </nav>
 
-          {/* Quick Stats */}
-          <div 
-            className="px-4 pt-3 pb-4 border-t"
-            style={{ borderColor: `color-mix(in srgb, ${colors.border} 50%, transparent)` }}
-          >
-            <h3 
-              className="text-[10px] font-semibold uppercase tracking-wider mb-2"
-              style={{ color: colors.textMuted }}
-            >
-              Quick Stats
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'Tables', value: totalTables, color: colors.accent },
-                { label: 'FK %', value: fkResolvedPercent, color: colors.success },
-                { label: 'Modules', value: `${modulesLinked}/35`, color: colors.primary },
-              ].map((stat) => (
-                <div 
-                  key={stat.label}
-                  className="text-center px-2 py-1.5 rounded-md"
-                  style={{ backgroundColor: `color-mix(in srgb, ${stat.color} 8%, transparent)` }}
+            {/* Agent Layers Section */}
+            {!sidebarCollapsed && (
+              <div
+                className="px-3 pt-3 pb-2 border-t mx-3"
+                style={{ borderColor: alpha(colors.border, 50) }}
+              >
+                <h3
+                  className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                  style={{ color: colors.textMuted }}
                 >
-                  <div className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}</div>
-                  <div className="text-[10px]" style={{ color: colors.textMuted }}>{stat.label}</div>
+                  Agent Layers
+                </h3>
+                <div className="space-y-1.5">
+                  {[
+                    { name: 'Schema', icon: Database, count: 5, total: 5, color: colors.accent },
+                    { name: 'Intelligence', icon: Brain, count: 5, total: 5, color: colors.primary },
+                    { name: 'Module', icon: Puzzle, count: 5, total: 5, color: colors.success },
+                    { name: 'Requirements', icon: FileCode, count: 5, total: 5, color: colors.warning },
+                    { name: 'Generation', icon: Zap, count: 6, total: 6, color: '#eab308' },
+                    { name: 'Migration', icon: GitBranch, count: 4, total: 4, color: '#ec4899' },
+                    { name: 'Management', icon: BarChart3, count: 5, total: 5, color: '#06b6d4' },
+                  ].map((layer) => (
+                    <div
+                      key={layer.name}
+                      className="flex items-center gap-2 px-2 py-1 rounded-md"
+                      style={{ backgroundColor: alpha(colors.card, 30) }}
+                    >
+                      <layer.icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: layer.color }} />
+                      <span className="text-xs flex-1 truncate" style={{ color: colors.text }}>{layer.name}</span>
+                      <div className="w-12 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${(layer.count/layer.total)*100}%`, backgroundColor: layer.color }} />
+                      </div>
+                      <span className="text-[10px] w-5 text-right" style={{ color: colors.textMuted }}>{layer.count}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+
+            {/* Quick Stats Section */}
+            {!sidebarCollapsed && (
+              <div
+                className="px-3 pt-3 pb-4 border-t mx-3"
+                style={{ borderColor: alpha(colors.border, 50) }}
+              >
+                <h3
+                  className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+                  style={{ color: colors.textMuted }}
+                >
+                  Quick Stats
+                </h3>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { label: 'Tables', value: totalTables, color: colors.accent },
+                    { label: 'FK %', value: fkResolvedPercent, color: colors.success },
+                    { label: 'Modules', value: `${modulesLinked}/35`, color: colors.primary },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="text-center px-1.5 py-1.5 rounded-md"
+                      style={{ backgroundColor: alpha(stat.color, 8) }}
+                    >
+                      <div className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}</div>
+                      <div className="text-[10px]" style={{ color: colors.textMuted }}>{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Sidebar collapse toggle - desktop only */}
+          <button
+            className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full border items-center justify-center z-10 transition-colors"
+            style={{
+              backgroundColor: colors.bgSecondary,
+              borderColor: colors.border,
+              color: colors.textMuted,
+            }}
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3 rotate-[-90deg]" />
+            )}
+          </button>
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 min-h-[calc(100vh-73px)]">
-          <ScrollArea className="h-[calc(100vh-73px)]">
-            <div className="p-6">
+        <main className="flex-1 min-h-0">
+          <ScrollArea className="h-[calc(100vh-57px)]">
+            <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
               {activeTab === 'dashboard' && <DashboardTab onNavigate={handleNavigate} />}
               {activeTab === 'schema-audit' && <SchemaAuditTab />}
               {activeTab === 'projects' && <ProjectManagerTab onNavigate={handleNavigate} />}
@@ -476,14 +706,52 @@ function AppContent() {
             </div>
           </ScrollArea>
         </main>
-
-        {/* Workspace Panel removed */}
       </div>
 
-      {/* Thread Breakdown Modal */}
-      <ThreadBreakdown 
-        isOpen={showThreadBreakdown} 
-        onClose={() => setShowThreadBreakdown(false)} 
+      {/* Sticky Footer */}
+      <footer
+        className="border-t py-2 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0"
+        style={{
+          borderColor: alpha(colors.border, 50),
+          backgroundColor: alpha(colors.bgSecondary, 50),
+          color: colors.textMuted,
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span>AI Enterprise Architect v2.0</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="hidden sm:flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.success }} />
+            35 Agents Active
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            className="hover:underline transition-colors"
+            style={{ color: colors.textMuted }}
+            onClick={() => setShortcutsDialogOpen(true)}
+          >
+            Keyboard Shortcuts
+          </button>
+          <span className="hidden sm:inline">•</span>
+          <span className="hidden sm:inline">Press <kbd className="px-1 py-0.5 rounded border font-mono text-[9px]" style={{ borderColor: colors.border }}>?</kbd> for help</span>
+        </div>
+      </footer>
+
+      {/* Modals & Overlays */}
+      <ThreadBreakdown
+        isOpen={showThreadBreakdown}
+        onClose={() => setShowThreadBreakdown(false)}
+      />
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        onNavigate={handleNavigate}
+        onAction={handleCommandAction}
+      />
+      <KeyboardShortcutsDialog
+        open={shortcutsDialogOpen}
+        onOpenChange={setShortcutsDialogOpen}
       />
     </div>
   )

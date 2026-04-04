@@ -122,7 +122,7 @@ export async function analyzeErrorPatterns(
     const existing = groups.get(key) || []
     existing.push(error)
     groups.set(key, existing)
-  })
+  }
 
   const patterns: DetectedPattern[] = []
   let newPatterns = 0

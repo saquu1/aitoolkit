@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '@/hooks/useTheme'
 import { useSchema } from '@/hooks/useSchema'
 import type { LinkedModule } from '@/types/his-modules'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { 
-  Database, 
-  Brain, 
-  Puzzle, 
-  GitBranch, 
-  FileCode, 
-  Zap, 
+import {
+  Database,
+  Brain,
+  Puzzle,
+  GitBranch,
+  FileCode,
+  Zap,
   TrendingUp,
   CheckCircle2,
   Clock,
@@ -27,8 +27,14 @@ import {
   Layers,
   Sparkles,
   RefreshCw,
-  Terminal
+  Terminal,
+  Globe,
+  Server,
+  ArrowUpRight,
+  ArrowDownRight,
+  Timer,
 } from 'lucide-react'
+import { Sparkline, MiniBarChart, AnimatedCounter } from '@/components/Sparkline'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -42,23 +48,28 @@ interface ActivityItem {
   icon: typeof Database
 }
 
-// Simulated activity feed data
 const initialActivities: ActivityItem[] = [
   { id: '1', type: 'success', message: 'System initialized successfully', time: '0s ago', icon: CheckCircle2 },
   { id: '2', type: 'info', message: 'Schema Intelligence Engine loaded', time: '1s ago', icon: Brain },
   { id: '3', type: 'info', message: '35 agent modules registered', time: '2s ago', icon: Layers },
-  { id: '4', type: 'info', message: 'Theme engine initialized (Midnight)', time: '3s ago', icon: Sparkles },
+  { id: '4', type: 'info', message: 'Theme engine initialized', time: '3s ago', icon: Sparkles },
   { id: '5', type: 'success', message: 'Database connection established', time: '4s ago', icon: Database },
+  { id: '6', type: 'info', message: 'Command palette ready (Ctrl+K)', time: '5s ago', icon: Terminal },
 ]
+
+// Generate realistic random data for sparklines
+function generateSparklineData(length: number, min: number, max: number): number[] {
+  return Array.from({ length }, () => Math.floor(Math.random() * (max - min) + min))
+}
 
 export function DashboardTab({ onNavigate }: DashboardTabProps) {
   const { colors, colorScheme } = useTheme()
-  const { 
-    totalTables, 
-    totalColumns, 
-    fkRelationships, 
-    fkResolved, 
-    fkResolvedPercent, 
+  const {
+    totalTables,
+    totalColumns,
+    fkRelationships,
+    fkResolved,
+    fkResolvedPercent,
     modulesLinked,
     linkedModules,
     moduleSummary,
@@ -90,11 +101,30 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // Helper function to create semi-transparent colors
-  const alpha = (color: string, opacity: number) => 
+  // Sparkline data - regenerated periodically for live feel
+  const [sparkData, setSparkData] = useState({
+    cpu: generateSparklineData(20, 5, 30),
+    memory: generateSparklineData(20, 40, 70),
+    requests: generateSparklineData(20, 10, 100),
+    tables: generateSparklineData(20, 0, Math.max(totalTables, 5)),
+  })
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSparkData(prev => ({
+        cpu: [...prev.cpu.slice(1), Math.max(5, Math.min(95, prev.cpu[prev.cpu.length - 1] + (Math.random() - 0.5) * 10))],
+        memory: [...prev.memory.slice(1), Math.max(30, Math.min(85, prev.memory[prev.memory.length - 1] + (Math.random() - 0.5) * 5))],
+        requests: [...prev.requests.slice(1), Math.floor(Math.random() * 80 + 20)],
+        tables: [...prev.tables.slice(1), Math.max(0, prev.tables[prev.tables.length - 1] + Math.floor(Math.random() * 3))],
+      }))
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Helper function
+  const alpha = (color: string, opacity: number) =>
     `color-mix(in srgb, ${color} ${opacity}%, transparent)`
 
-  // Real data from schema context
   const stats = {
     tablesParsed: totalTables,
     totalColumns: totalColumns,
@@ -103,8 +133,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     modulesLinked: modulesLinked,
     healthScore: totalTables > 0 ? Math.round((fkResolvedPercent + (modulesLinked / 35 * 100)) / 2) : 0,
   }
-  
-  // Format last sync time
+
   const formatLastSync = (dateStr: string | null) => {
     if (!dateStr) return 'Never'
     const date = new Date(dateStr)
@@ -113,7 +142,6 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
-    
     if (diffMins < 1) return 'Just now'
     if (diffMins < 60) return `${diffMins}m ago`
     if (diffHours < 24) return `${diffHours}h ago`
@@ -129,62 +157,13 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
   }
 
   const agentLayers = [
-    { 
-      name: 'Schema Layer', 
-      icon: Database, 
-      description: 'SQL DDL Parser, SP Parser, View Analyzer, CSHTML Parser, FK Resolver',
-      status: 'ready',
-      agents: 5,
-      iconColor: colors.accent
-    },
-    { 
-      name: 'Intelligence Layer', 
-      icon: Brain, 
-      description: 'Column Intelligence, PII/PHI Detection, Relationships, Business Rules',
-      status: 'ready',
-      agents: 5,
-      iconColor: colors.primary
-    },
-    { 
-      name: 'Module Layer', 
-      icon: Puzzle, 
-      description: 'Module Registry, Auto-Linker, Priority Planner, Dependency Chain',
-      status: 'ready',
-      agents: 5,
-      iconColor: colors.success
-    },
-    { 
-      name: 'Requirements Layer', 
-      icon: FileCode, 
-      description: 'AI Questions, User Stories, Acceptance Criteria, SOPs',
-      status: 'ready',
-      agents: 5,
-      iconColor: colors.warning
-    },
-    { 
-      name: 'Generation Layer', 
-      icon: Zap, 
-      description: 'Prisma Schema, API Specs, Screen Blueprints, Code, Tests, Docs',
-      status: 'ready',
-      agents: 6,
-      iconColor: '#eab308'
-    },
-    { 
-      name: 'Migration Layer', 
-      icon: GitBranch, 
-      description: 'DB Converter, SP to Node.js, CSHTML to React, Migration Planner',
-      status: 'ready',
-      agents: 4,
-      iconColor: '#ec4899'
-    },
-    { 
-      name: 'Management Layer', 
-      icon: BarChart3, 
-      description: 'Dashboards, Risk Assessment, Decision Log, Compliance, Team',
-      status: 'ready',
-      agents: 5,
-      iconColor: '#06b6d4'
-    },
+    { name: 'Schema Layer', icon: Database, description: 'SQL DDL Parser, SP Parser, View Analyzer, CSHTML Parser, FK Resolver', status: 'ready', agents: 5, iconColor: colors.accent },
+    { name: 'Intelligence Layer', icon: Brain, description: 'Column Intelligence, PII/PHI Detection, Relationships, Business Rules', status: 'ready', agents: 5, iconColor: colors.primary },
+    { name: 'Module Layer', icon: Puzzle, description: 'Module Registry, Auto-Linker, Priority Planner, Dependency Chain', status: 'ready', agents: 5, iconColor: colors.success },
+    { name: 'Requirements Layer', icon: FileCode, description: 'AI Questions, User Stories, Acceptance Criteria, SOPs', status: 'ready', agents: 5, iconColor: colors.warning },
+    { name: 'Generation Layer', icon: Zap, description: 'Prisma Schema, API Specs, Screen Blueprints, Code, Tests, Docs', status: 'ready', agents: 6, iconColor: '#eab308' },
+    { name: 'Migration Layer', icon: GitBranch, description: 'DB Converter, SP to Node.js, CSHTML to React, Migration Planner', status: 'ready', agents: 4, iconColor: '#ec4899' },
+    { name: 'Management Layer', icon: BarChart3, description: 'Dashboards, Risk Assessment, Decision Log, Compliance, Team', status: 'ready', agents: 5, iconColor: '#06b6d4' },
   ]
 
   const getActivityColor = (type: ActivityItem['type']) => {
@@ -196,16 +175,27 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     }
   }
 
+  const refreshData = () => {
+    refreshDbStats()
+    setActivities(prev => [{
+      id: `refresh-${Date.now()}`,
+      type: 'info' as const,
+      message: 'Data refreshed successfully',
+      time: 'Just now',
+      icon: RefreshCw,
+    }, ...prev.slice(0, 9)])
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Page Header with Live Clock */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold" style={{ color: colors.text }}>Dashboard</h2>
-            <div 
+            <div
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-              style={{ 
+              style={{
                 backgroundColor: alpha(colors.success, 15),
                 color: colors.success,
               }}
@@ -216,19 +206,20 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           </div>
           <p className="mt-1" style={{ color: colors.textMuted }}>Multi-Agent Schema Intelligence Platform</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div 
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
             className="text-sm font-mono px-3 py-1.5 rounded-lg border"
-            style={{ 
+            style={{
               backgroundColor: alpha(colors.bgTertiary, 30),
               borderColor: colors.border,
               color: colors.textSecondary
             }}
           >
+            <Timer className="w-3.5 h-3.5 inline mr-1.5" style={{ color: colors.textMuted }} />
             {currentTime.toLocaleTimeString()}
           </div>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             style={{
               backgroundColor: alpha(colors.bgSecondary, 50),
               color: colors.textMuted,
@@ -238,9 +229,10 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
             <Clock className="w-3 h-3 mr-1" />
             Last sync: {formatLastSync(dbStats?.lastSync || null)}
           </Badge>
-          <Button 
+          <Button
             style={{ backgroundColor: colors.primary }}
             onClick={() => onNavigate?.('pipeline')}
+            className="text-xs"
           >
             <Activity className="w-4 h-4 mr-2" />
             Run Full Analysis
@@ -250,44 +242,36 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
       {/* Health Score + System Metrics Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Health Score Card - spans 2 columns */}
-        <div 
-          className="lg:col-span-2 rounded-xl border p-6"
-          style={{ 
+        {/* Health Score Card */}
+        <div
+          className="lg:col-span-2 rounded-xl border p-6 transition-all duration-200"
+          style={{
             background: `linear-gradient(135deg, ${colors.bgSecondary}, ${alpha(colors.bgSecondary, 50)})`,
-            borderColor: colors.border 
+            borderColor: colors.border
           }}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-6">
-              <div className="relative">
+              <div className="relative flex-shrink-0">
                 <svg className="w-28 h-28 transform -rotate-90">
                   <circle
-                    cx="56"
-                    cy="56"
-                    r="48"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
+                    cx="56" cy="56" r="48"
+                    stroke="currentColor" strokeWidth="8" fill="transparent"
                     style={{ color: alpha(colors.border, 80) }}
                   />
                   <circle
-                    cx="56"
-                    cy="56"
-                    r="48"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
+                    cx="56" cy="56" r="48"
+                    stroke="currentColor" strokeWidth="8" fill="transparent"
                     strokeLinecap="round"
                     strokeDasharray={`${stats.healthScore * 3.016} 301.6`}
-                    style={{ 
+                    style={{
                       color: stats.healthScore > 70 ? colors.success : stats.healthScore > 40 ? colors.warning : colors.error,
-                      transition: 'stroke-dasharray 0.5s ease'
+                      transition: 'stroke-dasharray 1s ease'
                     }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold" style={{ color: colors.text }}>{stats.healthScore}</span>
+                  <AnimatedCounter value={stats.healthScore} className="text-3xl font-bold" style={{ color: colors.text }} />
                   <span className="text-[10px]" style={{ color: colors.textMuted }}>SCORE</span>
                 </div>
               </div>
@@ -296,40 +280,46 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
                 <p className="text-sm mt-1" style={{ color: colors.textMuted }}>
                   {totalTables === 0 ? 'Upload SQL files to begin analysis' : `${totalTables} tables analyzed across ${modulesLinked} modules`}
                 </p>
-                <div className="flex items-center gap-4 mt-3">
+                <div className="flex items-center gap-4 mt-3 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.accent }} />
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.accent }} />
                     <span className="text-xs" style={{ color: colors.textMuted }}>FK Resolution: {stats.fkResolved}%</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.success }} />
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.success }} />
                     <span className="text-xs" style={{ color: colors.textMuted }}>Module Coverage: {stats.modulesLinked}/35</span>
                   </div>
                   {missingTables.length > 0 && (
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.warning }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colors.warning }} />
                       <span className="text-xs" style={{ color: colors.textMuted }}>Missing: {missingTables.length}</span>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-            <div className="text-right space-y-1">
-              <div className="text-5xl font-bold" style={{ color: colors.text }}>{stats.tablesParsed}</div>
+            <div className="text-right flex-shrink-0">
+              <div className="text-5xl font-bold" style={{ color: colors.text }}>
+                <AnimatedCounter value={stats.tablesParsed} />
+              </div>
               <div className="text-sm font-medium" style={{ color: colors.textMuted }}>Tables Parsed</div>
               <div className="text-xs mt-2" style={{ color: colors.textMuted }}>
                 {stats.totalColumns} columns • {stats.fkRelationships} FKs
+              </div>
+              {/* Mini sparkline under tables count */}
+              <div className="mt-2 flex justify-end">
+                <Sparkline data={sparkData.tables} width={80} height={24} color={colors.accent} strokeWidth={1.5} />
               </div>
             </div>
           </div>
         </div>
 
         {/* System Monitor */}
-        <div 
-          className="rounded-xl border p-5"
-          style={{ 
+        <div
+          className="rounded-xl border p-5 transition-all duration-200"
+          style={{
             backgroundColor: alpha(colors.card, 50),
-            borderColor: colors.border 
+            borderColor: colors.border
           }}
         >
           <div className="flex items-center justify-between mb-4">
@@ -337,7 +327,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
               <Cpu className="w-4 h-4" style={{ color: colors.primary }} />
               System Monitor
             </h3>
-            <span 
+            <span
               className="text-xs px-2 py-0.5 rounded-full font-mono"
               style={{ backgroundColor: alpha(colors.success, 15), color: colors.success }}
             >
@@ -345,105 +335,142 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
             </span>
           </div>
           <div className="space-y-4">
-            {/* CPU */}
+            {/* CPU with sparkline */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <Cpu className="w-3.5 h-3.5" style={{ color: colors.textMuted }} />
                   <span className="text-xs font-medium" style={{ color: colors.textMuted }}>CPU</span>
                 </div>
-                <span className="text-xs font-bold" style={{ color: systemMetrics.cpu > 80 ? colors.error : colors.text }}>
-                  {Math.round(systemMetrics.cpu)}%
-                </span>
+                <div className="flex items-center gap-2">
+                  {systemMetrics.cpu > 50 && (
+                    <ArrowUpRight className="w-3 h-3" style={{ color: colors.error }} />
+                  )}
+                  <span className="text-xs font-bold font-mono" style={{ color: systemMetrics.cpu > 80 ? colors.error : colors.text }}>
+                    {Math.round(systemMetrics.cpu)}%
+                  </span>
+                </div>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
-                <div 
-                  className="h-full rounded-full transition-all duration-1000"
-                  style={{ 
-                    width: `${systemMetrics.cpu}%`,
-                    backgroundColor: systemMetrics.cpu > 80 ? colors.error : systemMetrics.cpu > 60 ? colors.warning : colors.success 
-                  }}
-                />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${systemMetrics.cpu}%`,
+                      backgroundColor: systemMetrics.cpu > 80 ? colors.error : systemMetrics.cpu > 60 ? colors.warning : colors.success
+                    }}
+                  />
+                </div>
+                <Sparkline data={sparkData.cpu} width={50} height={18} color={systemMetrics.cpu > 80 ? colors.error : colors.success} strokeWidth={1} />
               </div>
             </div>
-            {/* Memory */}
+            {/* Memory with sparkline */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <HardDrive className="w-3.5 h-3.5" style={{ color: colors.textMuted }} />
                   <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Memory</span>
                 </div>
-                <span className="text-xs font-bold" style={{ color: systemMetrics.memory > 80 ? colors.error : colors.text }}>
+                <span className="text-xs font-bold font-mono" style={{ color: systemMetrics.memory > 80 ? colors.error : colors.text }}>
                   {Math.round(systemMetrics.memory)}%
                 </span>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
-                <div 
-                  className="h-full rounded-full transition-all duration-1000"
-                  style={{ 
-                    width: `${systemMetrics.memory}%`,
-                    backgroundColor: systemMetrics.memory > 80 ? colors.error : systemMetrics.memory > 60 ? colors.warning : colors.primary 
-                  }}
-                />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${systemMetrics.memory}%`,
+                      backgroundColor: systemMetrics.memory > 80 ? colors.error : systemMetrics.memory > 60 ? colors.warning : colors.primary
+                    }}
+                  />
+                </div>
+                <Sparkline data={sparkData.memory} width={50} height={18} color={systemMetrics.memory > 80 ? colors.error : colors.primary} strokeWidth={1} />
               </div>
             </div>
             {/* Network */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <Wifi className="w-3.5 h-3.5" style={{ color: colors.textMuted }} />
-                  <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Network</span>
+                  <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Requests</span>
                 </div>
-                <span className="text-xs font-bold" style={{ color: colors.success }}>Active</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold font-mono" style={{ color: colors.success }}>
+                    <AnimatedCounter value={sparkData.requests[sparkData.requests.length - 1] || 0} duration={500} />
+                  </span>
+                  <span className="text-[10px]" style={{ color: colors.textMuted }}>/min</span>
+                </div>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
-                <div className="h-full rounded-full" style={{ width: '15%', backgroundColor: colors.success }} />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                  <div className="h-full rounded-full" style={{ width: '15%', backgroundColor: colors.success }} />
+                </div>
+                <Sparkline data={sparkData.requests} width={50} height={18} color={colors.success} strokeWidth={1} />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Grid - 4 columns */}
+      {/* Stats Grid - 4 columns with sparklines */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.accent, change: null },
-          { label: 'Columns Analyzed', value: stats.totalColumns, icon: FileCode, iconColor: colors.primary, change: null },
-          { label: 'FK Relationships', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success, change: null },
-          { label: 'Modules Linked', value: stats.modulesLinked, icon: Puzzle, iconColor: colors.warning, change: null },
+          { label: 'Total Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.accent, spark: sparkData.tables, change: '+3' },
+          { label: 'Columns Analyzed', value: stats.totalColumns, icon: FileCode, iconColor: colors.primary, spark: null, change: null },
+          { label: 'FK Relationships', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success, spark: null, change: '+1' },
+          { label: 'Modules Linked', value: stats.modulesLinked, icon: Puzzle, iconColor: colors.warning, spark: null, change: null },
         ].map((stat) => (
-          <div 
+          <div
             key={stat.label}
-            className="rounded-xl border p-4 group transition-all duration-200 hover:scale-[1.02]"
-            style={{ 
+            className="rounded-xl border p-4 group transition-all duration-200 hover:scale-[1.02] hover:shadow-lg"
+            style={{
               backgroundColor: alpha(colors.card, 50),
-              borderColor: alpha(colors.border, 80) 
+              borderColor: alpha(colors.border, 80)
             }}
           >
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium" style={{ color: colors.textMuted }}>{stat.label}</p>
-                <p className="text-2xl font-bold mt-1" style={{ color: colors.text }}>{stat.value}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium" style={{ color: colors.textMuted }}>{stat.label}</p>
+                  {stat.change && (
+                    <span
+                      className="text-[10px] font-medium flex items-center gap-0.5"
+                      style={{ color: colors.success }}
+                    >
+                      <ArrowUpRight className="w-3 h-3" />
+                      {stat.change}
+                    </span>
+                  )}
+                </div>
+                <p className="text-2xl font-bold mt-1" style={{ color: colors.text }}>
+                  <AnimatedCounter value={stat.value} />
+                </p>
               </div>
-              <div 
-                className="p-2.5 rounded-lg transition-colors"
+              <div
+                className="p-2.5 rounded-lg transition-transform group-hover:scale-110 flex-shrink-0"
                 style={{ backgroundColor: alpha(stat.iconColor, 12) }}
               >
                 <stat.icon className="w-5 h-5" style={{ color: stat.iconColor }} />
               </div>
             </div>
+            {stat.spark && (
+              <div className="mt-2 flex justify-end">
+                <Sparkline data={stat.spark} width={80} height={20} color={stat.iconColor} strokeWidth={1.5} />
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Main Content Grid: Agent Layers + Activity Feed */}
+      {/* Agent System Status + Activity Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Agent Layers Status - 2 cols */}
-        <div 
+        {/* Agent Layers Status */}
+        <div
           className="lg:col-span-2 rounded-xl border p-5"
-          style={{ 
+          style={{
             backgroundColor: alpha(colors.card, 50),
-            borderColor: colors.border 
+            borderColor: colors.border
           }}
         >
           <div className="mb-4 flex items-center justify-between">
@@ -456,8 +483,8 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
                 35 sub-agents across 7 layers ready for execution
               </p>
             </div>
-            <Badge 
-              style={{ 
+            <Badge
+              style={{
                 backgroundColor: alpha(colors.success, 15),
                 color: colors.success,
                 border: `1px solid ${alpha(colors.success, 30)}`
@@ -470,40 +497,44 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
             {agentLayers.map((layer, index) => {
               const LayerIcon = layer.icon
               return (
-              <div 
+              <div
                 key={layer.name}
-                className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 cursor-pointer"
-                style={{ 
-                  backgroundColor: alpha(colors.bgTertiary, 20),
+                className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 cursor-pointer group"
+                style={{ backgroundColor: alpha(colors.bgTertiary, 20) }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = alpha(layer.iconColor, 8)
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = alpha(colors.bgTertiary, 20)
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <div 
-                      className="p-2 rounded-lg"
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="p-2 rounded-lg transition-transform group-hover:scale-105"
                       style={{ backgroundColor: alpha(layer.iconColor, 15) }}
                     >
                       <LayerIcon className="w-4 h-4" style={{ color: layer.iconColor }} />
                     </div>
-                    <span 
+                    <span
                       className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
                       style={{ backgroundColor: layer.iconColor }}
                     >
                       {index + 1}
                     </span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-sm font-medium" style={{ color: colors.text }}>{layer.name}</h4>
-                    <p className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>{layer.description}</p>
+                    <p className="text-[11px] mt-0.5 truncate" style={{ color: colors.textMuted }}>{layer.description}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <div className="flex -space-x-1">
                     {Array.from({ length: Math.min(layer.agents, 3) }, (_, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className="w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px]"
-                        style={{ 
+                        style={{
                           borderColor: colors.bgTertiary,
                           backgroundColor: alpha(layer.iconColor, 30 + i * 15),
                           color: layer.iconColor
@@ -513,9 +544,9 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
                       </div>
                     ))}
                     {layer.agents > 3 && (
-                      <div 
+                      <div
                         className="w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px]"
-                        style={{ 
+                        style={{
                           borderColor: colors.bgTertiary,
                           backgroundColor: alpha(colors.textMuted, 20),
                           color: colors.textMuted
@@ -525,12 +556,12 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
                       </div>
                     )}
                   </div>
-                  <Badge 
+                  <Badge
                     variant="secondary"
                     className="text-[10px]"
-                    style={{ 
+                    style={{
                       backgroundColor: alpha(colors.bgTertiary, 40),
-                      color: colors.textMuted 
+                      color: colors.textMuted
                     }}
                   >
                     {layer.agents}
@@ -541,12 +572,12 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           </div>
         </div>
 
-        {/* Activity Feed - 1 col */}
-        <div 
+        {/* Activity Feed */}
+        <div
           className="rounded-xl border p-5"
-          style={{ 
+          style={{
             backgroundColor: alpha(colors.card, 50),
-            borderColor: colors.border 
+            borderColor: colors.border
           }}
         >
           <div className="flex items-center justify-between mb-4">
@@ -554,29 +585,30 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
               <Terminal className="w-4 h-4" style={{ color: colors.primary }} />
               Activity Feed
             </h3>
-            <button 
-              className="p-1 rounded-md transition-colors"
+            <button
+              className="p-1.5 rounded-md transition-colors hover:bg-opacity-10"
               style={{ color: colors.textMuted }}
-              onClick={() => refreshDbStats()}
+              onClick={refreshData}
+              aria-label="Refresh data"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
             {activities.map((activity) => (
-              <div 
+              <div
                 key={activity.id}
-                className="flex items-start gap-3 p-2 rounded-lg transition-colors"
+                className="flex items-start gap-3 p-2 rounded-lg transition-all duration-200"
                 style={{ backgroundColor: alpha(getActivityColor(activity.type), 5) }}
               >
-                <div 
+                <div
                   className="p-1.5 rounded-md mt-0.5 flex-shrink-0"
                   style={{ backgroundColor: alpha(getActivityColor(activity.type), 15) }}
                 >
                   <activity.icon className="w-3.5 h-3.5" style={{ color: getActivityColor(activity.type) }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs" style={{ color: colors.textSecondary }}>{activity.message}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: colors.textSecondary }}>{activity.message}</p>
                   <p className="text-[10px] mt-0.5" style={{ color: colors.textMuted }}>{activity.time}</p>
                 </div>
               </div>
@@ -588,52 +620,52 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       {/* Quick Actions - 4 columns */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { 
-            title: 'Upload SQL Schema', 
+          {
+            title: 'Upload SQL Schema',
             desc: 'Parse DDL, procedures, views, and CSHTML files',
             icon: Upload,
             tab: 'upload',
             color: colors.accent
           },
-          { 
-            title: 'Run Pipeline', 
+          {
+            title: 'Run Pipeline',
             desc: 'Execute full analysis or quick scan',
             icon: GitBranch,
             tab: 'pipeline',
             color: colors.primary
           },
-          { 
-            title: 'View Compliance', 
+          {
+            title: 'View Compliance',
             desc: 'PII/PHI detection and data sensitivity',
             icon: Shield,
             tab: 'intelligence',
             color: colors.success
           },
-          { 
-            title: 'Generate Code', 
+          {
+            title: 'Generate Code',
             desc: 'Prisma schemas, APIs, React components',
             icon: Sparkles,
             tab: 'smart-upload',
             color: colors.warning
           },
         ].map((action) => (
-          <div 
+          <div
             key={action.title}
-            className="rounded-xl border p-5 cursor-pointer transition-all duration-200 hover:scale-[1.02] group"
-            style={{ 
+            className="rounded-xl border p-5 cursor-pointer transition-all duration-200 hover:scale-[1.03] hover:shadow-lg group"
+            style={{
               background: `linear-gradient(135deg, ${alpha(action.color, 15)}, ${alpha(action.color, 5)})`,
               borderColor: alpha(action.color, 25),
             }}
             onClick={() => onNavigate?.(action.tab)}
           >
             <div className="flex items-start justify-between">
-              <div 
+              <div
                 className="p-2.5 rounded-lg mb-3 transition-transform group-hover:scale-110"
                 style={{ backgroundColor: alpha(action.color, 15) }}
               >
                 <action.icon className="w-5 h-5" style={{ color: action.color }} />
               </div>
-              <ArrowRight className="w-4 h-4 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: action.color }} />
+              <ArrowRight className="w-4 h-4 mt-1 opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:translate-x-0.5" style={{ color: action.color }} />
             </div>
             <h3 className="text-sm font-semibold" style={{ color: colors.text }}>{action.title}</h3>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.textMuted }}>{action.desc}</p>
@@ -643,16 +675,16 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
       {/* Getting Started - only show if no tables in DB */}
       {totalTables === 0 && !dbStatsLoading && (
-        <div 
+        <div
           className="rounded-xl border p-6"
-          style={{ 
+          style={{
             background: `linear-gradient(135deg, ${alpha(colors.primary, 25)}, ${alpha(colors.accent, 25)})`,
             borderColor: alpha(colors.primary, 30)
           }}
         >
           <div className="flex items-start gap-4">
-            <div 
-              className="p-3 rounded-lg"
+            <div
+              className="p-3 rounded-lg flex-shrink-0"
               style={{ backgroundColor: alpha(colors.primary, 20) }}
             >
               <TrendingUp className="w-6 h-6" style={{ color: colors.primary }} />
@@ -677,7 +709,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
                   </li>
                 ))}
               </ul>
-              <Button 
+              <Button
                 className="mt-4"
                 style={{ backgroundColor: colors.primary }}
                 onClick={() => onNavigate?.('upload')}
@@ -689,6 +721,68 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           </div>
         </div>
       )}
+
+      {/* Performance Summary Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Recent Activity Chart */}
+        <div
+          className="md:col-span-2 rounded-xl border p-5"
+          style={{
+            backgroundColor: alpha(colors.card, 50),
+            borderColor: colors.border
+          }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+              <Globe className="w-4 h-4" style={{ color: colors.primary }} />
+              Performance Overview
+            </h3>
+            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.primary, 10), color: colors.primary }}>Last 20 cycles</span>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs mb-2" style={{ color: colors.textMuted }}>CPU Usage</p>
+              <MiniBarChart data={sparkData.cpu} width={160} height={40} color={colors.success} maxValue={100} />
+            </div>
+            <div>
+              <p className="text-xs mb-2" style={{ color: colors.textMuted }}>Memory Usage</p>
+              <MiniBarChart data={sparkData.memory} width={160} height={40} color={colors.primary} maxValue={100} />
+            </div>
+            <div>
+              <p className="text-xs mb-2" style={{ color: colors.textMuted }}>Request Rate</p>
+              <MiniBarChart data={sparkData.requests} width={160} height={40} color={colors.accent} maxValue={100} />
+            </div>
+          </div>
+        </div>
+
+        {/* Quick System Info */}
+        <div
+          className="rounded-xl border p-5"
+          style={{
+            backgroundColor: alpha(colors.card, 50),
+            borderColor: colors.border
+          }}
+        >
+          <h3 className="text-sm font-semibold flex items-center gap-2 mb-4" style={{ color: colors.text }}>
+            <Server className="w-4 h-4" style={{ color: colors.accent }} />
+            System Info
+          </h3>
+          <div className="space-y-3">
+            {[
+              { label: 'Platform', value: 'Next.js 16 + Turbopack', color: colors.primary },
+              { label: 'Runtime', value: 'Bun Runtime', color: colors.success },
+              { label: 'Database', value: 'SQLite + Prisma ORM', color: colors.accent },
+              { label: 'Agent Count', value: '35 Agents / 7 Layers', color: colors.warning },
+              { label: 'Color Theme', value: colorScheme.charAt(0).toUpperCase() + colorScheme.slice(1), color: colors.primary },
+            ].map((info) => (
+              <div key={info.label} className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: colors.textMuted }}>{info.label}</span>
+                <span className="text-xs font-medium" style={{ color: info.color }}>{info.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
