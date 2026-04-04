@@ -565,19 +565,25 @@ function AppContent() {
                   {/* Group Header */}
                   {!sidebarCollapsed && (
                     <button
-                      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-2 first:mt-0"
+                      className="w-full flex items-center gap-1.5 px-2 py-1.5 mt-3 first:mt-0 group"
                       onClick={() => toggleGroup(group.key)}
                     >
                       {collapsedGroups.has(group.key) ? (
-                        <ChevronRight className="w-3 h-3" style={{ color: colors.textMuted }} />
+                        <ChevronRight className="w-3 h-3 transition-transform duration-200" style={{ color: colors.textMuted }} />
                       ) : (
-                        <ChevronDown className="w-3 h-3" style={{ color: colors.textMuted }} />
+                        <ChevronDown className="w-3 h-3 transition-transform duration-200" style={{ color: colors.textMuted }} />
                       )}
                       <span
                         className="text-[10px] font-semibold uppercase tracking-wider"
                         style={{ color: colors.textMuted }}
                       >
                         {group.label}
+                      </span>
+                      <span
+                        className="ml-auto text-[9px] font-mono tabular-nums"
+                        style={{ color: alpha(colors.textMuted, 40) }}
+                      >
+                        {group.items.length}
                       </span>
                     </button>
                   )}
@@ -592,7 +598,7 @@ function AppContent() {
                           <button
                             key={item.id}
                             onClick={() => handleNavigate(item.id)}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all duration-150 text-left group"
+                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all duration-200 text-left group relative overflow-hidden"
                             style={{
                               backgroundColor: isActive
                                 ? alpha(colors.primary, 15)
@@ -601,30 +607,52 @@ function AppContent() {
                                 ? colors.primaryLight
                                 : colors.textMuted,
                               border: isActive
-                                ? `1px solid ${alpha(colors.primary, 30)}`
+                                ? `1px solid ${alpha(colors.primary, 25)}`
                                 : '1px solid transparent',
+                              boxShadow: isActive
+                                ? `0 0 12px ${alpha(colors.primary, 10)}, inset 0 0 0 1px ${alpha(colors.primary, 5)}`
+                                : 'none',
                             }}
                             onMouseEnter={(e) => {
                               if (!isActive) {
                                 e.currentTarget.style.backgroundColor = alpha(colors.primary, 6)
+                                e.currentTarget.style.borderColor = alpha(colors.primary, 10)
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (!isActive) {
                                 e.currentTarget.style.backgroundColor = 'transparent'
+                                e.currentTarget.style.borderColor = '1px solid transparent'
                               }
                             }}
                           >
-                            <item.icon className="w-4 h-4 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
+                            {/* Active glow indicator bar */}
+                            {isActive && (
+                              <div
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                                style={{
+                                  backgroundColor: colors.primary,
+                                  boxShadow: `0 0 8px ${alpha(colors.primary, 50)}`,
+                                }}
+                              />
+                            )}
+                            <item.icon
+                              className="w-4 h-4 flex-shrink-0 transition-all duration-200"
+                              style={{
+                                transform: isActive ? 'scale(1.1)' : undefined,
+                                filter: isActive ? `drop-shadow(0 0 4px ${alpha(colors.primary, 40)})` : undefined,
+                              }}
+                            />
                             {!sidebarCollapsed && (
                               <>
-                                <span className="text-[13px] font-medium truncate">{item.label}</span>
+                                <span className={`text-[13px] truncate transition-all duration-200 ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
                                 {item.badge && badgeColor && (
                                   <span
-                                    className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+                                    className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0 transition-all duration-200"
                                     style={{
                                       backgroundColor: alpha(badgeColor, 20),
                                       color: badgeColor,
+                                      boxShadow: isActive ? `0 0 6px ${alpha(badgeColor, 20)}` : 'none',
                                     }}
                                   >
                                     {item.badge}
@@ -779,14 +807,19 @@ function AppContent() {
       >
         <div className="flex items-center gap-3">
           <span className="font-medium" style={{ color: colors.text }}>AI Enterprise Architect</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.4</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.5</span>
           <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
           <span className="hidden sm:flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.success }} />
+            <div className="w-1.5 h-1.5 rounded-full live-dot" style={{ backgroundColor: colors.success }} />
             <span>35 Agents Active</span>
           </span>
           <span className="hidden md:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
           <span className="hidden md:inline">Next.js 16 + Turbopack</span>
+          <span className="hidden lg:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
+          <span className="hidden lg:flex items-center gap-1">
+            <Database className="w-3 h-3" style={{ color: alpha(colors.accent, 60) }} />
+            <span>SQLite</span>
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <button

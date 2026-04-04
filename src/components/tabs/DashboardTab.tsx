@@ -42,6 +42,7 @@ import { DataTable, type ColumnDef } from '@/components/DataTable'
 import { useActionToast } from '@/hooks/useActionToast'
 import { useExportCSV } from '@/hooks/useExportCSV'
 import { RealtimeEventFeed } from '@/components/RealtimeEventFeed'
+import DonutChart from '@/components/DonutChart'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -451,13 +452,15 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         </div>
       </div>
 
-      {/* Stats Grid - 4 columns with sparklines */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
+      {/* Stats Grid - 6 columns with sparklines */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 stagger-children">
         {[
-          { label: 'Total Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.accent, spark: sparkData.tables, change: '+3' },
-          { label: 'Columns Analyzed', value: stats.totalColumns, icon: FileCode, iconColor: colors.primary, spark: null, change: null },
-          { label: 'FK Relationships', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success, spark: null, change: '+1' },
-          { label: 'Modules Linked', value: stats.modulesLinked, icon: Puzzle, iconColor: colors.warning, spark: null, change: null },
+          { label: 'Projects', value: apiStats?.stats?.totalProjects ?? 0, icon: Layers, iconColor: colors.accent, spark: null, change: null },
+          { label: 'Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.primary, spark: sparkData.tables, change: totalTables > 0 ? '+3' : null },
+          { label: 'Columns', value: stats.totalColumns, icon: FileCode, iconColor: colors.warning, spark: null, change: totalColumns > 0 ? '+12' : null },
+          { label: 'FKs', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success, spark: null, change: fkRelationships > 0 ? '+1' : null },
+          { label: 'Procedures', value: apiStats?.stats?.totalProcedures ?? 0, icon: Terminal, iconColor: '#ec4899', spark: null, change: null },
+          { label: 'Modules', value: apiStats?.data?.modules ?? 0, icon: Puzzle, iconColor: '#06b6d4', spark: null, change: null },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -630,6 +633,116 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         </div>
       </div>
 
+      {/* Data Distribution - Donut Charts */}
+      {apiStats?.data && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: colors.text }}>
+              <BarChart3 className="w-4 h-4" style={{ color: colors.primary }} />
+              Table Status
+            </h3>
+            <div className="flex justify-center">
+              <DonutChart
+                segments={Object.entries(apiStats.data.tablesByStatus || {}).map(([key, val]) => ({
+                  value: val as number,
+                  color: key === 'linked' ? colors.success : key === 'standalone' ? colors.warning : colors.textMuted,
+                  label: key.charAt(0).toUpperCase() + key.slice(1),
+                }))}
+                size={140}
+                strokeWidth={16}
+                centerLabel="Tables"
+                centerValue={apiStats.stats?.totalTables ?? 0}
+              />
+            </div>
+          </div>
+          <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: colors.text }}>
+              <Shield className="w-4 h-4" style={{ color: colors.accent }} />
+              FK Resolution
+            </h3>
+            <div className="flex justify-center">
+              <DonutChart
+                segments={[
+                  { value: apiStats.stats?.fkResolved ?? 0, color: colors.success, label: 'Resolved' },
+                  { value: Math.max(0, (apiStats.stats?.totalFKs ?? 0) - (apiStats.stats?.fkResolved ?? 0)), color: colors.warning, label: 'Unresolved' },
+                ]}
+                size={140}
+                strokeWidth={16}
+                centerLabel="FKs"
+                centerValue={`${apiStats.stats?.fkResolvedPercent ?? 0}%`}
+              />
+            </div>
+          </div>
+          <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+            <h3 className="text-sm font-semibold flex items-center gap-2 mb-3" style={{ color: colors.text }}>
+              <Layers className="w-4 h-4" style={{ color: colors.success }} />
+              Module Coverage
+            </h3>
+            <div className="flex justify-center">
+              <DonutChart
+                segments={[
+                  { value: apiStats.data?.linkedModules ?? 0, color: colors.success, label: 'Linked' },
+                  { value: Math.max(0, (apiStats.data?.modules ?? 0) - (apiStats.data?.linkedModules ?? 0)), color: colors.textMuted, label: 'Pending' },
+                ]}
+                size={140}
+                strokeWidth={16}
+                centerLabel="Modules"
+                centerValue={`${apiStats.data?.moduleLinkedPercent ?? 0}%`}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recent Agent Runs */}
+      {apiStats?.data?.recentActivity && apiStats.data.recentActivity.length > 0 && (
+        <div className="rounded-xl border p-5" style={{ backgroundColor: alpha(colors.card, 50), borderColor: colors.border }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+              <Zap className="w-4 h-4" style={{ color: colors.warning }} />
+              Recent Agent Runs
+            </h3>
+            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.primary, 10), color: colors.primary }}>
+              {apiStats.data.recentActivity.length} runs
+            </span>
+          </div>
+          <div className="space-y-2">
+            {apiStats.data.recentActivity.map((run: any) => {
+              const statusColor = run.status === 'completed' ? colors.success : run.status === 'running' ? colors.primary : run.status === 'failed' ? colors.error : colors.warning
+              const statusLabel = run.status.charAt(0).toUpperCase() + run.status.slice(1)
+              const duration = run.details?.duration ? (run.details.duration > 60000 ? `${Math.round(run.details.duration / 60000)}m ${Math.round((run.details.duration % 60000) / 1000)}s` : `${Math.round(run.details.duration / 1000)}s`) : '-'
+              const time = run.timestamp ? formatLastSync(run.timestamp) : '-'
+              return (
+                <div
+                  key={run.id}
+                  className="flex items-center justify-between p-3 rounded-lg transition-all duration-200 group shine-effect"
+                  style={{ backgroundColor: alpha(colors.bgTertiary, 15) }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = alpha(statusColor, 6) }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = alpha(colors.bgTertiary, 15) }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full live-dot" style={{ backgroundColor: statusColor }} />
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: colors.text }}>{run.name}</p>
+                      <p className="text-[10px]" style={{ color: colors.textMuted }}>{time} • {run.details?.itemsProcessed ?? 0} items processed</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-mono" style={{ color: colors.textMuted }}>{duration}</span>
+                    <span
+                      className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: alpha(statusColor, 15), color: statusColor }}
+                    >
+                      {statusLabel}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions - 4 columns */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
         {[
@@ -696,12 +809,43 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       {/* Welcome Banner - shown for first-time users */}
       <WelcomeBanner onNavigate={onNavigate} />
 
+      {/* Top Tables - from API data */}
+      {apiStats?.data?.topTables && apiStats.data.topTables.length > 0 && (
+        <DataTable
+          title="Top Tables by Column Count"
+          subtitle="Most complex tables in your schema"
+          columns={[
+            { key: 'rank', label: '#', width: '40px', render: (_: any, __: any, index: number) => (
+              <span className="text-xs font-bold" style={{ color: colors.textMuted }}>{index + 1}</span>
+            )},
+            { key: 'tableName', label: 'Table Name', render: (val: string) => (
+              <div className="flex items-center gap-2">
+                <Database className="w-3.5 h-3.5 flex-shrink-0" style={{ color: colors.accent }} />
+                <span className="text-xs font-medium" style={{ color: colors.text }}>{val}</span>
+              </div>
+            )},
+            { key: 'columnCount', label: 'Columns', sortable: true, render: (val: number) => (
+              <span className="text-xs font-mono font-bold" style={{ color: colors.primary }}>{val}</span>
+            )},
+            { key: 'linkedModule', label: 'Module', render: (val: string) => (
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.success, 12), color: colors.success }}>{val || 'Unlinked'}</span>
+            )},
+            { key: 'status', label: 'Status', render: (val: string) => {
+              const c = val === 'linked' ? colors.success : colors.warning
+              return <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(c, 15), color: c }}>{val}</span>
+            }},
+          ]}
+          data={apiStats.data.topTables}
+          pageSize={5}
+        />
+      )}
+
       {/* Task Progress Rings */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: 'Schema Parsing', percent: totalTables > 0 ? 85 : 0, color: colors.accent, icon: Database },
-          { label: 'FK Resolution', percent: stats.fkResolved, color: colors.success, icon: GitBranch },
-          { label: 'Module Linking', percent: Math.round((modulesLinked / 35) * 100), color: colors.primary, icon: Puzzle },
+          { label: 'FK Resolution', percent: apiStats?.stats?.fkResolvedPercent ?? stats.fkResolved, color: colors.success, icon: GitBranch },
+          { label: 'Module Linking', percent: apiStats?.data?.moduleLinkedPercent ?? Math.round((modulesLinked / 35) * 100), color: colors.primary, icon: Puzzle },
           { label: 'Intelligence', percent: totalTables > 0 ? 62 : 0, color: colors.warning, icon: Brain },
         ].map((ring) => (
           <div

@@ -21,42 +21,58 @@ interface NotificationCenterProps {
 const initialNotifications: Notification[] = [
   {
     id: '1',
-    type: 'info',
-    title: 'System Ready',
-    message: 'All 35 agent modules initialized and ready for execution.',
+    type: 'success',
+    title: 'Schema Analysis Complete',
+    message: '17 tables parsed with 201 columns and 29 FK relationships.',
     time: 'Just now',
     read: false,
   },
   {
     id: '2',
     type: 'success',
-    title: 'Database Connected',
-    message: 'SQLite connection established. Schema sync complete.',
+    title: 'FK Resolution: 76% Complete',
+    message: '22 of 29 foreign keys resolved successfully.',
     time: '2m ago',
     read: false,
   },
   {
     id: '3',
     type: 'info',
-    title: 'Welcome Back',
-    message: 'Press Ctrl+K to open the command palette and navigate quickly.',
+    title: '6 Modules Linked',
+    message: 'Patient Management, Order Management, and 4 more modules linked.',
     time: '5m ago',
     read: false,
   },
   {
     id: '4',
     type: 'warning',
-    title: 'No Schema Data',
-    message: 'Upload SQL files to enable schema analysis features.',
-    time: '10m ago',
-    read: true,
+    title: 'Agent Run Failed',
+    message: 'fk-resolver agent failed: timeout after 30s. Retry recommended.',
+    time: '15m ago',
+    read: false,
   },
   {
     id: '5',
     type: 'info',
-    title: 'Theme Updated',
-    message: 'Midnight Purple theme applied successfully.',
+    title: 'Pipeline Running',
+    message: 'code-generator agent is processing 4 items.',
+    time: '20m ago',
+    read: true,
+  },
+  {
+    id: '6',
+    type: 'success',
+    title: 'Database Connected',
+    message: 'SQLite connection established via Prisma ORM.',
     time: '1h ago',
+    read: true,
+  },
+  {
+    id: '7',
+    type: 'info',
+    title: 'Welcome Back',
+    message: 'Press Ctrl+K to open the command palette for quick navigation.',
+    time: '2h ago',
     read: true,
   },
 ]
@@ -66,6 +82,7 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications)
   const panelRef = useRef<HTMLDivElement>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const alpha = (color: string, opacity: number) =>
     `color-mix(in srgb, ${color} ${opacity}%, transparent)`
@@ -122,18 +139,27 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
 
   return (
     <div className="relative" ref={panelRef}>
-      {/* Bell Button */}
+      {/* Bell Button with glow ring */}
       <button
-        className="relative p-2 rounded-lg transition-all duration-200 hover:scale-105"
+        className="relative p-2 rounded-lg transition-all duration-200 hover:scale-105 group"
         style={{ color: colors.textMuted }}
         onClick={() => setIsOpen(!isOpen)}
         aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
       >
-        <Bell className="w-4 h-4" />
         {unreadCount > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white animate-in zoom-in duration-200"
-            style={{ backgroundColor: colors.error }}
+            className="absolute inset-0 rounded-lg animate-pulse-ring"
+            style={{ backgroundColor: alpha(colors.error, 20) }}
+          />
+        )}
+        <Bell className="w-4 h-4 relative z-10 transition-transform group-hover:scale-110" />
+        {unreadCount > 0 && (
+          <span
+            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white animate-in zoom-in duration-200 z-10"
+            style={{
+              backgroundColor: colors.error,
+              boxShadow: `0 0 8px ${alpha(colors.error, 40)}`,
+            }}
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
@@ -143,35 +169,44 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
       {/* Dropdown Panel */}
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-xl border shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+          className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-xl border z-50 glass-card-enhanced animate-in fade-in slide-in-from-top-2 duration-200"
           style={{
-            backgroundColor: colors.bgSecondary,
-            borderColor: colors.border,
-            boxShadow: `0 25px 50px -12px ${alpha(colors.bg, 80)}`,
+            backgroundColor: alpha(colors.bgSecondary, 95),
+            borderColor: alpha(colors.border, 60),
+            boxShadow: `0 25px 60px -12px ${alpha(colors.bg, 90)}, 0 0 0 1px ${alpha(colors.border, 20)}`,
           }}
         >
           {/* Header */}
           <div
             className="flex items-center justify-between px-4 py-3 border-b"
-            style={{ borderColor: alpha(colors.border, 50) }}
+            style={{ borderColor: alpha(colors.border, 40) }}
           >
             <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4" style={{ color: colors.primary }} />
+              <div className="p-1.5 rounded-md" style={{ backgroundColor: alpha(colors.primary, 12) }}>
+                <Bell className="w-3.5 h-3.5" style={{ color: colors.primary }} />
+              </div>
               <h3 className="text-sm font-semibold" style={{ color: colors.text }}>Notifications</h3>
               {unreadCount > 0 && (
                 <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                  style={{ backgroundColor: alpha(colors.error, 15), color: colors.error }}
+                  className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                  style={{
+                    backgroundColor: alpha(colors.error, 15),
+                    color: colors.error,
+                    border: `1px solid ${alpha(colors.error, 20)}`,
+                  }}
                 >
                   {unreadCount} new
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {unreadCount > 0 && (
                 <button
-                  className="p-1 rounded-md transition-colors text-[11px] hover:underline"
-                  style={{ color: colors.primary }}
+                  className="px-2 py-1 rounded-md text-[11px] font-medium transition-all duration-200 hover:scale-[1.02]"
+                  style={{
+                    color: colors.primary,
+                    backgroundColor: alpha(colors.primary, 8),
+                  }}
                   onClick={markAllRead}
                 >
                   Mark all read
@@ -179,8 +214,8 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
               )}
               {notifications.length > 0 && (
                 <button
-                  className="p-1 rounded-md transition-colors"
-                  style={{ color: colors.textMuted }}
+                  className="p-1.5 rounded-md transition-all duration-200 hover:scale-105"
+                  style={{ color: colors.textMuted, backgroundColor: alpha(colors.bgTertiary, 20) }}
                   onClick={clearAll}
                   title="Clear all"
                 >
@@ -188,8 +223,8 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
                 </button>
               )}
               <button
-                className="p-1 rounded-md transition-colors"
-                style={{ color: colors.textMuted }}
+                className="p-1.5 rounded-md transition-all duration-200 hover:scale-105"
+                style={{ color: colors.textMuted, backgroundColor: alpha(colors.bgTertiary, 20) }}
                 onClick={() => setIsOpen(false)}
               >
                 <X className="w-3.5 h-3.5" />
@@ -198,48 +233,69 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-[400px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+          <div className="max-h-[420px] overflow-y-auto custom-scrollbar" style={{ scrollbarWidth: 'thin' }}>
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                  style={{ backgroundColor: alpha(colors.primary, 10) }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center mb-3 animate-float-subtle"
+                  style={{ backgroundColor: alpha(colors.success, 10) }}
                 >
-                  <Bell className="w-6 h-6" style={{ color: colors.textMuted }} />
+                  <CheckCircle2 className="w-7 h-7" style={{ color: colors.success }} />
                 </div>
-                <p className="text-sm font-medium" style={{ color: colors.text }}>All caught up!</p>
+                <p className="text-sm font-semibold" style={{ color: colors.text }}>All caught up!</p>
                 <p className="text-xs mt-1" style={{ color: colors.textMuted }}>No new notifications</p>
               </div>
             ) : (
-              <div className="divide-y" style={{ borderColor: alpha(colors.border, 30) }}>
-                {notifications.map((notification) => {
+              <div className="divide-y" style={{ borderColor: alpha(colors.border, 20) }}>
+                {notifications.map((notification, index) => {
                   const Icon = getIcon(notification.type)
                   const color = getColor(notification.type)
+                  const isHovered = hoveredId === notification.id
                   return (
                     <div
                       key={notification.id}
-                      className="flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer"
+                      className="flex items-start gap-3 px-4 py-3 transition-all duration-200 cursor-pointer relative group"
                       style={{
-                        backgroundColor: notification.read ? 'transparent' : alpha(color, 4),
+                        backgroundColor: isHovered
+                          ? alpha(color, 8)
+                          : notification.read
+                            ? 'transparent'
+                            : alpha(color, 3),
                       }}
                       onClick={() => markRead(notification.id)}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = alpha(color, 8)
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = notification.read ? 'transparent' : alpha(color, 4)
-                      }}
+                      onMouseEnter={() => setHoveredId(notification.id)}
+                      onMouseLeave={() => setHoveredId(null)}
                     >
+                      {/* Unread indicator line */}
+                      {!notification.read && (
+                        <div
+                          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full animate-in slide-in-from-left duration-300"
+                          style={{
+                            backgroundColor: color,
+                            animationDelay: `${index * 50}ms`,
+                          }}
+                        />
+                      )}
+
+                      {/* Icon */}
                       <div
-                        className="p-1.5 rounded-lg mt-0.5 flex-shrink-0"
-                        style={{ backgroundColor: alpha(color, 12) }}
+                        className="p-1.5 rounded-lg mt-0.5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+                        style={{
+                          backgroundColor: alpha(color, 12),
+                          boxShadow: isHovered ? `0 0 12px ${alpha(color, 15)}` : 'none',
+                        }}
                       >
                         <Icon className="w-3.5 h-3.5" style={{ color: color }} />
                       </div>
+
+                      {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           {!notification.read && (
-                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                            <div
+                              className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-breathe"
+                              style={{ backgroundColor: color }}
+                            />
                           )}
                           <p className="text-xs font-semibold truncate" style={{ color: colors.text }}>
                             {notification.title}
@@ -248,14 +304,17 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
                         <p className="text-[11px] mt-0.5 leading-relaxed" style={{ color: colors.textMuted }}>
                           {notification.message}
                         </p>
-                        <p className="text-[10px] mt-1" style={{ color: alpha(colors.textMuted, 70) }}>
+                        <p className="text-[10px] mt-1.5 font-mono" style={{ color: alpha(colors.textMuted, 60) }}>
                           {notification.time}
                         </p>
                       </div>
+
+                      {/* Dismiss button */}
                       <button
-                        className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5"
-                        style={{ color: colors.textMuted }}
+                        className="p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 flex-shrink-0 mt-0.5 hover:scale-110"
+                        style={{ color: colors.textMuted, backgroundColor: alpha(colors.bgTertiary, 30) }}
                         onClick={(e) => dismissNotification(notification.id, e)}
+                        aria-label="Dismiss notification"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -269,15 +328,18 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
           {/* Footer */}
           {notifications.length > 0 && (
             <div
-              className="px-4 py-2.5 border-t text-center"
-              style={{ borderColor: alpha(colors.border, 50) }}
+              className="px-4 py-2.5 border-t flex items-center justify-between"
+              style={{ borderColor: alpha(colors.border, 40) }}
             >
+              <span className="text-[10px]" style={{ color: colors.textMuted }}>
+                {notifications.filter(n => n.read).length} read, {unreadCount} unread
+              </span>
               <button
-                className="text-xs font-medium transition-colors hover:underline"
+                className="text-xs font-medium transition-all duration-200 hover:underline"
                 style={{ color: colors.primary }}
                 onClick={() => setIsOpen(false)}
               >
-                Close notifications
+                Close
               </button>
             </div>
           )}

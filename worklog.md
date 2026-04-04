@@ -760,3 +760,20 @@ Stage Summary:
 6. **LOW**: Fix remaining lib/ lint errors (require imports, module assignments)
 7. **LOW**: Add more DataTable instances to other tabs (Modules, FK Resolution, etc.)
 
+---
+## Task ID: 6a
+Agent: full-stack-developer subagent
+Task: Create API seed endpoint and DonutChart component
+
+Work Log:
+- Created `/src/app/api/seed/route.ts` with POST handler
+- Seeded 2 projects (HIS Core System, Laboratory Information System), 17 tables (Patient, Encounter, Practitioner, Order, Result, Observation, AllergyIntolerance, MedicationRequest, DiagnosticReport, Organization, Location, Specimen, Condition, Immunization, Procedure, LabTestCatalog, LabResult), 7 stored procedures, 9 HIS modules, 6 agent runs
+- Fixed missing `id` field in ToolkitTable and ToolkitProcedure creates (Prisma schema requires manual ID since `@id` has no `@default`)
+- Created `/src/components/DonutChart.tsx` — reusable SVG donut chart with animation, tooltip, legend, center text, empty state, theme-aware
+- Verified seed endpoint returns success and schema stats show non-zero values
+- Verified via `/api/schema/stats`: totalProjects=2, totalTables=17, totalColumns=201, totalProcedures=7, fkRelationships=29, fkResolved=22, modules=9, linkedModules=6
+
+Stage Summary:
+- Dashboard now has real data to display (17 tables, 201 columns, 7 procedures, 9 modules, 6 agent runs)
+- DonutChart component ready for integration with segments, animation, tooltip, and legend
+
