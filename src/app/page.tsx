@@ -17,6 +17,8 @@ import { ErrorMonitor } from '@/components/ErrorMonitor'
 import { VersionTracker } from '@/components/VersionTracker'
 import { CommandPalette } from '@/components/CommandPalette'
 import { KeyboardShortcutsDialog } from '@/components/KeyboardShortcutsDialog'
+import { NotificationCenter } from '@/components/NotificationCenter'
+import { TabTransition } from '@/components/TabTransition'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -429,6 +431,7 @@ function AppContent() {
                 {formatUptime(uptime)}
               </span>
             </div>
+            <NotificationCenter onNavigate={handleNavigate} />
             <VersionTracker />
             <ThreadStatusBadge onClick={() => setShowThreadBreakdown(true)} />
             <MemoryToggleButton />
@@ -677,32 +680,34 @@ function AppContent() {
         <main className="flex-1 min-h-0">
           <ScrollArea className="h-[calc(100vh-57px)]">
             <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
-              {activeTab === 'dashboard' && <DashboardTab onNavigate={handleNavigate} />}
-              {activeTab === 'schema-audit' && <SchemaAuditTab />}
-              {activeTab === 'projects' && <ProjectManagerTab onNavigate={handleNavigate} />}
-              {activeTab === 'smart-upload' && <UniversalUploadTab onNavigate={handleNavigate} />}
-              {activeTab === 'upload' && <UploadTab onNavigate={handleNavigate} />}
-              {activeTab === 'data-dictionary' && <LivingDataDictionaryTab onNavigate={handleNavigate} />}
-              {activeTab === 'fk-resolution' && <FKResolutionTab />}
-              {activeTab === 'modules' && <ModulesTab />}
-              {activeTab === 'intelligence-bank' && <IntelligenceBankTab />}
-              {activeTab === 'intelligence' && <IntelligenceTab onNavigate={handleNavigate} />}
-              {activeTab === 'legacy-migration' && <LegacyMigrationTab onNavigate={handleNavigate} />}
-              {activeTab === 'project-intel' && <ProjectIntelligenceTab />}
-              {activeTab === 'multi-tenant' && <MultiTenantTab onNavigate={handleNavigate} />}
-              {activeTab === 'pipeline' && <PipelineTab />}
-              {activeTab === 'api-management' && <ApiManagementTab />}
-              {activeTab === 'error-patterns' && <ErrorPatternDashboardTab onNavigate={handleNavigate} />}
-              {activeTab === 'chat-logs' && <ChatLogTab />}
-              {activeTab === 'smart-fixer' && <FixCenterDashboard />}
-              {activeTab === 'pre-commit-hook' && <PreCommitHookManager />}
-              {activeTab === 'import-fixer' && <ImportFixerDashboard />}
-              {activeTab === 'flow-map' && <FlowMapViewer />}
-              {activeTab === 'test-generator' && <TestRunnerDashboard />}
-              {activeTab === 'contract-validator' && <ContractValidatorTab />}
-              {activeTab === 'autoload' && <AutoloadRegistryTab />}
-              {activeTab === 'settings' && <SettingsTab />}
-              {activeTab === 'file-manager' && <FileManagerTab onNavigate={handleNavigate} />}
+              <TabTransition activeTab={activeTab}>
+                {activeTab === 'dashboard' && <DashboardTab onNavigate={handleNavigate} />}
+                {activeTab === 'schema-audit' && <SchemaAuditTab />}
+                {activeTab === 'projects' && <ProjectManagerTab onNavigate={handleNavigate} />}
+                {activeTab === 'smart-upload' && <UniversalUploadTab onNavigate={handleNavigate} />}
+                {activeTab === 'upload' && <UploadTab onNavigate={handleNavigate} />}
+                {activeTab === 'data-dictionary' && <LivingDataDictionaryTab onNavigate={handleNavigate} />}
+                {activeTab === 'fk-resolution' && <FKResolutionTab />}
+                {activeTab === 'modules' && <ModulesTab />}
+                {activeTab === 'intelligence-bank' && <IntelligenceBankTab />}
+                {activeTab === 'intelligence' && <IntelligenceTab onNavigate={handleNavigate} />}
+                {activeTab === 'legacy-migration' && <LegacyMigrationTab onNavigate={handleNavigate} />}
+                {activeTab === 'project-intel' && <ProjectIntelligenceTab />}
+                {activeTab === 'multi-tenant' && <MultiTenantTab onNavigate={handleNavigate} />}
+                {activeTab === 'pipeline' && <PipelineTab />}
+                {activeTab === 'api-management' && <ApiManagementTab />}
+                {activeTab === 'error-patterns' && <ErrorPatternDashboardTab onNavigate={handleNavigate} />}
+                {activeTab === 'chat-logs' && <ChatLogTab />}
+                {activeTab === 'smart-fixer' && <FixCenterDashboard />}
+                {activeTab === 'pre-commit-hook' && <PreCommitHookManager />}
+                {activeTab === 'import-fixer' && <ImportFixerDashboard />}
+                {activeTab === 'flow-map' && <FlowMapViewer />}
+                {activeTab === 'test-generator' && <TestRunnerDashboard />}
+                {activeTab === 'contract-validator' && <ContractValidatorTab />}
+                {activeTab === 'autoload' && <AutoloadRegistryTab />}
+                {activeTab === 'settings' && <SettingsTab />}
+                {activeTab === 'file-manager' && <FileManagerTab onNavigate={handleNavigate} />}
+              </TabTransition>
             </div>
           </ScrollArea>
         </main>
@@ -710,20 +715,24 @@ function AppContent() {
 
       {/* Sticky Footer */}
       <footer
-        className="border-t py-2 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0"
+        className="border-t py-2.5 px-4 md:px-6 flex items-center justify-between text-[11px] flex-shrink-0"
         style={{
           borderColor: alpha(colors.border, 50),
-          backgroundColor: alpha(colors.bgSecondary, 50),
+          backgroundColor: alpha(colors.bgSecondary, 60),
           color: colors.textMuted,
+          backdropFilter: 'blur(8px)',
         }}
       >
         <div className="flex items-center gap-3">
-          <span>AI Enterprise Architect v2.0</span>
-          <span className="hidden sm:inline">•</span>
-          <span className="hidden sm:flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.success }} />
-            35 Agents Active
+          <span className="font-medium" style={{ color: colors.text }}>AI Enterprise Architect</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.primary, 10), color: colors.primaryLight }}>v2.1</span>
+          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 60) }}>|</span>
+          <span className="hidden sm:flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.success }} />
+            <span>35 Agents Active</span>
           </span>
+          <span className="hidden md:inline" style={{ color: alpha(colors.textMuted, 60) }}>|</span>
+          <span className="hidden md:inline">Next.js 16 + Turbopack</span>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -731,10 +740,12 @@ function AppContent() {
             style={{ color: colors.textMuted }}
             onClick={() => setShortcutsDialogOpen(true)}
           >
-            Keyboard Shortcuts
+            Shortcuts
           </button>
-          <span className="hidden sm:inline">•</span>
-          <span className="hidden sm:inline">Press <kbd className="px-1 py-0.5 rounded border font-mono text-[9px]" style={{ borderColor: colors.border }}>?</kbd> for help</span>
+          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 40) }}>•</span>
+          <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 50) }}>
+            Press <kbd className="px-1 py-0.5 rounded border font-mono text-[9px]" style={{ borderColor: colors.border }}>Ctrl+K</kbd> to search
+          </span>
         </div>
       </footer>
 

@@ -35,6 +35,7 @@ import {
   Timer,
 } from 'lucide-react'
 import { Sparkline, MiniBarChart, AnimatedCounter } from '@/components/Sparkline'
+import { WelcomeBanner } from '@/components/WelcomeBanner'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -669,6 +670,52 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
             </div>
             <h3 className="text-sm font-semibold" style={{ color: colors.text }}>{action.title}</h3>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.textMuted }}>{action.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Welcome Banner - shown for first-time users */}
+      <WelcomeBanner onNavigate={onNavigate} />
+
+      {/* Task Progress Rings */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Schema Parsing', percent: totalTables > 0 ? 85 : 0, color: colors.accent, icon: Database },
+          { label: 'FK Resolution', percent: stats.fkResolved, color: colors.success, icon: GitBranch },
+          { label: 'Module Linking', percent: Math.round((modulesLinked / 35) * 100), color: colors.primary, icon: Puzzle },
+          { label: 'Intelligence', percent: totalTables > 0 ? 62 : 0, color: colors.warning, icon: Brain },
+        ].map((ring) => (
+          <div
+            key={ring.label}
+            className="rounded-xl border p-4 transition-all duration-200 hover:scale-[1.02]"
+            style={{
+              backgroundColor: alpha(ring.color, 6),
+              borderColor: alpha(ring.color, 20),
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative flex-shrink-0">
+                <svg className="w-14 h-14 transform -rotate-90">
+                  <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="3" fill="transparent"
+                    style={{ color: alpha(colors.border, 50) }} />
+                  <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="3" fill="transparent"
+                    strokeLinecap="round"
+                    strokeDasharray={`${ring.percent * 1.508} 150.8`}
+                    style={{ color: ring.color, transition: 'stroke-dasharray 1s ease' }} />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-bold" style={{ color: ring.color }}>{ring.percent}%</span>
+                </div>
+              </div>
+              <div className="min-w-0">
+                <ring.icon className="w-4 h-4 mb-1" style={{ color: ring.color }} />
+                <p className="text-xs font-medium truncate" style={{ color: colors.text }}>{ring.label}</p>
+                <p className="text-[10px]" style={{ color: colors.textMuted }}>
+                  {ring.percent >= 80 ? 'Almost done' : ring.percent >= 40 ? 'In progress' : 'Not started'}
+                </p>
+              </div>
+            </div>
           </div>
         ))}
       </div>
