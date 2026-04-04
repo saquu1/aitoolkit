@@ -32,6 +32,7 @@ import {
   Server,
   ArrowUpRight,
   ArrowDownRight,
+  Download,
   Timer,
 } from 'lucide-react'
 import { Sparkline, MiniBarChart, AnimatedCounter } from '@/components/Sparkline'
@@ -39,6 +40,8 @@ import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { ActivityTimeline } from '@/components/ActivityTimeline'
 import { DataTable, type ColumnDef } from '@/components/DataTable'
 import { useActionToast } from '@/hooks/useActionToast'
+import { useExportCSV } from '@/hooks/useExportCSV'
+import { RealtimeEventFeed } from '@/components/RealtimeEventFeed'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -89,6 +92,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
   const [apiStats, setApiStats] = useState<any>(null)
   const [apiStatsLoading, setApiStatsLoading] = useState(false)
   const actionToast = useActionToast()
+  const { exportCSV } = useExportCSV()
 
   // Fetch real API stats on mount and refresh
   const fetchApiStats = useCallback(async () => {
@@ -850,6 +854,33 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       <DataTable
         title="Database Activity"
         subtitle={apiStats ? `Last sync: ${formatLastSync(apiStats.data?.lastSync || null)}` : 'Real-time schema statistics'}
+        headerExtra={
+          <button
+            onClick={() => {
+              const exportData = apiStats ? [
+                { label: 'Total Projects', value: apiStats.stats?.totalProjects ?? 0 },
+                { label: 'Parsed Tables', value: apiStats.stats?.totalTables ?? 0 },
+                { label: 'Total Columns', value: apiStats.stats?.totalColumns ?? 0 },
+                { label: 'Total FKs', value: apiStats.stats?.totalFKs ?? 0 },
+                { label: 'FK Resolved', value: apiStats.stats?.fkResolved ?? 0 },
+                { label: 'Modules', value: apiStats.data?.modules ?? 0 },
+                { label: 'Linked Modules', value: apiStats.data?.linkedModules ?? 0 },
+                { label: 'Recent Activity', value: apiStats.data?.recentActivity?.length ?? 0 },
+              ] : []
+              exportCSV(exportData, `dashboard-stats-${new Date().toISOString().slice(0,10)}`, { title: 'AI Enterprise Architect - Dashboard Statistics' })
+              actionToast.success('Exported CSV', 'Dashboard statistics downloaded successfully')
+            }}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-200 hover:scale-[1.02]"
+            style={{
+              backgroundColor: alpha(colors.primary, 10),
+              borderColor: alpha(colors.primary, 20),
+              color: colors.primary,
+            }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </button>
+        }
         columns={[
           { key: 'label', label: 'Metric', sortable: true, width: '40%' },
           { key: 'value', label: 'Value', sortable: true, width: '25%', align: 'right' as const,
@@ -890,6 +921,9 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         maxHeight="max-h-80"
         pageSize={5}
       />
+
+      {/* Real-time Event Stream */}
+      <RealtimeEventFeed />
     </div>
   )
 }

@@ -33,6 +33,99 @@ import {
 } from 'lucide-react'
 import { useActionToast } from '@/hooks/useActionToast'
 
+// System Info Panel with real API data
+function SystemInfoPanel() {
+  const { colors } = useTheme()
+  const [sysInfo, setSysInfo] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchInfo() {
+      try {
+        const [versionRes, statsRes, memoryRes, threadsRes] = await Promise.allSettled([
+          fetch('/api/version'),
+          fetch('/api/schema/stats'),
+          fetch('/api/memory-stats?action=stats'),
+          fetch('/api/system/threads'),
+        ])
+        const data: Record<string, any> = {}
+        if (versionRes.status === 'fulfilled' && versionRes.value.ok) {
+          const j = await versionRes.value.json()
+          data.version = j.version || j.appVersion || '2.4'
+          data.framework = j.framework || 'Next.js 16'
+        }
+        if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+          const j = await statsRes.value.json()
+          data.projects = j.stats?.totalProjects ?? 0
+          data.tables = j.stats?.totalTables ?? 0
+          data.columns = j.stats?.totalColumns ?? 0
+          data.modules = j.data?.modules ?? 0
+          data.linked = j.data?.linkedModules ?? 0
+        }
+        if (memoryRes.status === 'fulfilled' && memoryRes.value.ok) {
+          const j = await memoryRes.value.json()
+          data.memoryUsed = j.heapUsedMB || j.rssMB || 'N/A'
+          data.memoryTotal = j.heapTotalMB || j.totalMB || 'N/A'
+        }
+        if (threadsRes.status === 'fulfilled' && threadsRes.value.ok) {
+          const j = await threadsRes.value.json()
+          data.threads = j.activeThreads || j.total || 'N/A'
+        }
+        setSysInfo(data)
+      } catch {
+        // Silent fail
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchInfo()
+    const interval = setInterval(fetchInfo, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const alpha = (color: string, opacity: number) =>
+    `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="animate-pulse space-y-2">
+            <div className="h-3 w-16 rounded" style={{ backgroundColor: alpha(colors.border, 40) }} />
+            <div className="h-5 w-24 rounded" style={{ backgroundColor: alpha(colors.border, 25) }} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const infoItems = [
+    { label: 'Version', value: sysInfo?.version || '2.4', color: colors.primary, icon: Settings },
+    { label: 'Framework', value: 'Next.js 16 + Turbopack', color: colors.primary },
+    { label: 'Runtime', value: 'Bun Runtime', color: colors.success },
+    { label: 'Database', value: 'SQLite + Prisma', color: colors.accent },
+    { label: 'Projects', value: sysInfo?.projects ?? 0, color: colors.warning },
+    { label: 'Tables', value: sysInfo?.tables ?? 0, color: colors.accent },
+    { label: 'Columns', value: sysInfo?.columns ?? 0, color: colors.primary },
+    { label: 'Modules', value: `${sysInfo?.linked ?? 0}/${sysInfo?.modules ?? 0}`, color: colors.success },
+    { label: 'Memory', value: sysInfo?.memoryUsed ? `${sysInfo.memoryUsed} MB` : 'N/A', color: colors.warning },
+    { label: 'Threads', value: sysInfo?.threads ?? 'N/A', color: colors.accent },
+    { label: 'AI Mode', value: 'Offline', color: colors.success },
+    { label: 'Modules Loaded', value: '35', color: colors.primary },
+  ]
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {infoItems.map((item) => (
+        <div key={item.label} className="p-2.5 rounded-lg transition-all duration-200 hover:scale-[1.02]" style={{ backgroundColor: alpha(item.color, 6), border: `1px solid ${alpha(item.color, 12)}` }}>
+          <span className="text-[11px]" style={{ color: colors.textMuted }}>{item.label}</span>
+          <p className="text-sm font-semibold mt-0.5" style={{ color: item.color }}>{item.value}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function SettingsTab() {
   const { colors, colorScheme, setColorScheme } = useTheme()
   const { isAuthenticated, user, loginEnabled, logout, checkAuth } = useAuth()
@@ -876,7 +969,7 @@ export function SettingsTab() {
         </TabsContent>
       </Tabs>
 
-      {/* System Info */}
+      {/* System Information - Enhanced with Real Data */}
       <div 
         className="rounded-lg border p-6"
         style={{ 
@@ -884,22 +977,22 @@ export function SettingsTab() {
           borderColor: colors.border 
         }}
       >
-        <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-          System Information
-        </h3>
-        <div className="grid grid-cols-4 gap-4 text-sm">
-          {[
-            { label: 'Version', value: '1.0.0' },
-            { label: 'AI Mode', value: 'Offline' },
-            { label: 'Modules Loaded', value: '32' },
-            { label: 'Database', value: 'SQLite' },
-          ].map((item) => (
-            <div key={item.label}>
-              <span style={{ color: colors.textMuted }}>{item.label}</span>
-              <p className="font-medium" style={{ color: colors.text }}>{item.value}</p>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
+            System Information
+          </h3>
+          <Badge
+            variant="outline"
+            style={{
+              borderColor: alpha(colors.success, 30),
+              color: colors.success,
+            }}
+          >
+            <div className="w-1.5 h-1.5 rounded-full animate-pulse mr-1.5" style={{ backgroundColor: colors.success }} />
+            Live
+          </Badge>
         </div>
+        <SystemInfoPanel />
       </div>
     </div>
   )

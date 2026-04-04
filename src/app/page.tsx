@@ -21,6 +21,7 @@ import { NotificationCenter } from '@/components/NotificationCenter'
 import { TabTransition } from '@/components/TabTransition'
 import { useActionToast } from '@/hooks/useActionToast'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useNavigationHistory } from '@/hooks/useNavigationHistory'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -201,6 +202,7 @@ function AppContent() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [sidebarSearch, setSidebarSearch] = useState('')
   const actionToast = useActionToast()
+  const navHistory = useNavigationHistory()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -233,6 +235,7 @@ function AppContent() {
         router.push('/', { scroll: false })
       }
       setMobileSidebarOpen(false)
+      navHistory.push(navItem.id, navItem.label)
       actionToast.navigate(navItem.label)
     }
   }, [router, actionToast])
@@ -386,8 +389,21 @@ function AppContent() {
             </div>
           </div>
 
-          {/* Breadcrumb / Current page indicator */}
-          <div className="hidden md:flex items-center gap-2 flex-1 justify-center">
+          {/* Breadcrumb / Navigation History */}
+          <div className="hidden md:flex items-center gap-1.5 flex-1 justify-center">
+            {navHistory.canGoBack && (
+              <button
+                className="p-1 rounded-md transition-all duration-200 hover:scale-110"
+                style={{ color: colors.textMuted, backgroundColor: alpha(colors.bgTertiary, 20) }}
+                onClick={() => {
+                  const entry = navHistory.goBack()
+                  if (entry) handleNavigate(entry.tabId)
+                }}
+                aria-label="Go back"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
             <div
               className="flex items-center gap-2 px-3 py-1 rounded-full"
               style={{
@@ -395,9 +411,27 @@ function AppContent() {
                 border: `1px solid ${alpha(colors.primary, 15)}`,
               }}
             >
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }} />
+              <div className="w-1.5 h-1.5 rounded-full animate-breathe" style={{ backgroundColor: colors.primary }} />
               <span className="text-xs font-medium" style={{ color: colors.primaryLight }}>{activeNavLabel}</span>
+              {navHistory.historyLength > 1 && (
+                <span className="text-[10px] font-mono px-1 py-0.5 rounded" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primary }}>
+                  {navHistory.historyLength}
+                </span>
+              )}
             </div>
+            {navHistory.canGoForward && (
+              <button
+                className="p-1 rounded-md transition-all duration-200 hover:scale-110"
+                style={{ color: colors.textMuted, backgroundColor: alpha(colors.bgTertiary, 20) }}
+                onClick={() => {
+                  const entry = navHistory.goForward()
+                  if (entry) handleNavigate(entry.tabId)
+                }}
+                aria-label="Go forward"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <ProjectScopeHeader variant="header" showSettings />
@@ -745,7 +779,7 @@ function AppContent() {
       >
         <div className="flex items-center gap-3">
           <span className="font-medium" style={{ color: colors.text }}>AI Enterprise Architect</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.3</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.primary, 12), color: colors.primaryLight, border: `1px solid ${alpha(colors.primary, 20)}` }}>v2.4</span>
           <span className="hidden sm:inline" style={{ color: alpha(colors.textMuted, 40) }}>|</span>
           <span className="hidden sm:flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.success }} />
