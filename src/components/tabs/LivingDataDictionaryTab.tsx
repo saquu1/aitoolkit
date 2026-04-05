@@ -13,7 +13,7 @@ import {
   Download,
   FileText,
   Table2,
-  Columns,
+  Columns2 as Columns,
   Key,
   Link2,
   Search,

@@ -34,6 +34,7 @@ import {
   ArrowDownRight,
   Download,
   Timer,
+  Settings,
 } from 'lucide-react'
 import { Sparkline, MiniBarChart, AnimatedCounter } from '@/components/Sparkline'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
@@ -44,6 +45,8 @@ import { useExportCSV } from '@/hooks/useExportCSV'
 import { RealtimeEventFeed } from '@/components/RealtimeEventFeed'
 import DonutChart from '@/components/DonutChart'
 import { AreaChart } from '@/components/AreaChart'
+import { QuickActionMenu } from '@/components/QuickActionMenu'
+import { EnhancedStatCard } from '@/components/EnhancedStatCard'
 
 interface DashboardTabProps {
   onNavigate?: (tab: string) => void
@@ -484,56 +487,52 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
         </div>
       </div>
 
-      {/* Stats Grid - 6 columns with sparklines */}
+      {/* Stats Grid - Enhanced Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 stagger-children">
-        {[
-          { label: 'Projects', value: apiStats?.stats?.totalProjects ?? 0, icon: Layers, iconColor: colors.accent, spark: null, change: null },
-          { label: 'Tables', value: stats.tablesParsed, icon: Database, iconColor: colors.primary, spark: sparkData.tables, change: totalTables > 0 ? '+3' : null },
-          { label: 'Columns', value: stats.totalColumns, icon: FileCode, iconColor: colors.warning, spark: null, change: totalColumns > 0 ? '+12' : null },
-          { label: 'FKs', value: stats.fkRelationships, icon: GitBranch, iconColor: colors.success, spark: null, change: fkRelationships > 0 ? '+1' : null },
-          { label: 'Procedures', value: apiStats?.stats?.totalProcedures ?? 0, icon: Terminal, iconColor: '#ec4899', spark: null, change: null },
-          { label: 'Modules', value: apiStats?.data?.modules ?? 0, icon: Puzzle, iconColor: '#06b6d4', spark: null, change: null },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border p-4 group transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover-lift"
-            style={{
-              backgroundColor: alpha(colors.card, 50),
-              borderColor: alpha(colors.border, 80)
-            }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium" style={{ color: colors.textMuted }}>{stat.label}</p>
-                  {stat.change && (
-                    <span
-                      className="text-[10px] font-medium flex items-center gap-0.5"
-                      style={{ color: colors.success }}
-                    >
-                      <ArrowUpRight className="w-3 h-3" />
-                      {stat.change}
-                    </span>
-                  )}
-                </div>
-                <p className="text-2xl font-bold mt-1" style={{ color: colors.text }}>
-                  <AnimatedCounter value={stat.value} />
-                </p>
-              </div>
-              <div
-                className="p-2.5 rounded-lg transition-transform group-hover:scale-110 flex-shrink-0"
-                style={{ backgroundColor: alpha(stat.iconColor, 12) }}
-              >
-                <stat.icon className="w-5 h-5" style={{ color: stat.iconColor }} />
-              </div>
-            </div>
-            {stat.spark && (
-              <div className="mt-2 flex justify-end">
-                <Sparkline data={stat.spark} width={80} height={20} color={stat.iconColor} strokeWidth={1.5} />
-              </div>
-            )}
-          </div>
-        ))}
+        <EnhancedStatCard
+          title="Projects"
+          value={apiStats?.stats?.totalProjects ?? 0}
+          icon={Layers}
+          status="active"
+          trend={apiStats?.stats?.totalProjects ? { value: 0, label: 'stable' } : undefined}
+        />
+        <EnhancedStatCard
+          title="Tables"
+          value={stats.tablesParsed}
+          icon={Database}
+          status="active"
+          trend={totalTables > 0 ? { value: 12.5, label: 'vs last hour' } : undefined}
+          sparkData={sparkData.tables}
+          progress={totalTables > 0 ? 85 : 0}
+        />
+        <EnhancedStatCard
+          title="Columns"
+          value={stats.totalColumns}
+          icon={FileCode}
+          status="warning"
+          trend={totalColumns > 0 ? { value: 8.2, label: 'vs last hour' } : undefined}
+        />
+        <EnhancedStatCard
+          title="FK Relationships"
+          value={stats.fkRelationships}
+          icon={GitBranch}
+          status="success"
+          trend={fkRelationships > 0 ? { value: 3.1, label: 'vs last hour' } : undefined}
+          progress={stats.fkResolved}
+        />
+        <EnhancedStatCard
+          title="Procedures"
+          value={apiStats?.stats?.totalProcedures ?? 0}
+          icon={Terminal}
+          status="error"
+        />
+        <EnhancedStatCard
+          title="Modules"
+          value={apiStats?.data?.modules ?? 0}
+          icon={Puzzle}
+          status="success"
+          trend={apiStats?.data?.modules ? { value: 5.5, label: 'linked' } : undefined}
+        />
       </div>
 
       {/* Agent System Status + Activity Feed */}
@@ -1166,6 +1165,54 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
       {/* Real-time Event Stream */}
       <RealtimeEventFeed />
+
+      {/* Quick Action Menu (Floating FAB) */}
+      <QuickActionMenu
+        actions={[
+          {
+            icon: Zap,
+            label: 'Run Analysis',
+            variant: 'primary',
+            onClick: () => {
+              actionToast.info('Pipeline Started', 'Full analysis pipeline is now running')
+              onNavigate?.('pipeline')
+            },
+          },
+          {
+            icon: Upload,
+            label: 'Upload Schema',
+            variant: 'success',
+            onClick: () => {
+              actionToast.info('Upload Schema', 'Opening upload wizard for SQL schema files')
+              onNavigate?.('upload')
+            },
+          },
+          {
+            icon: Download,
+            label: 'Export Report',
+            variant: 'warning',
+            onClick: () => {
+              const exportData = apiStats ? [
+                { label: 'Total Projects', value: apiStats.stats?.totalProjects ?? 0 },
+                { label: 'Parsed Tables', value: apiStats.stats?.totalTables ?? 0 },
+                { label: 'Total Columns', value: apiStats.stats?.totalColumns ?? 0 },
+                { label: 'FK Resolution %', value: `${apiStats.stats?.fkResolvedPercent ?? 0}%` },
+                { label: 'Modules', value: apiStats.data?.modules ?? 0 },
+              ] : []
+              exportCSV(exportData, `dashboard-report-${new Date().toISOString().slice(0,10)}`, { title: 'AI Enterprise Architect - Report' })
+              actionToast.success('Exported Report', 'Dashboard report downloaded successfully')
+            },
+          },
+          {
+            icon: Settings,
+            label: 'Settings',
+            variant: 'error',
+            onClick: () => {
+              onNavigate?.('settings')
+            },
+          },
+        ]}
+      />
     </div>
   )
 }

@@ -77,7 +77,7 @@ export function WelcomeBanner({ onNavigate, onDismiss }: WelcomeBannerProps) {
             <Sparkles className="w-5 h-5" style={{ color: colors.primary }} />
           </div>
           <div>
-            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+            <h3 className="text-sm font-semibold flex items-center gap-2 gradient-text-accent" style={{ color: colors.text }}>
               Welcome to AI Enterprise Architect
               <span
                 className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"

@@ -155,7 +155,7 @@ export function NotificationCenter({ onNavigate }: NotificationCenterProps) {
         <Bell className="w-4 h-4 relative z-10 transition-transform group-hover:scale-110" />
         {unreadCount > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white animate-in zoom-in duration-200 z-10"
+            className="notification-badge-count"
             style={{
               backgroundColor: colors.error,
               boxShadow: `0 0 8px ${alpha(colors.error, 40)}`,

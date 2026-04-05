@@ -1382,3 +1382,375 @@ textarea:focus-visible,
     transition: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   Task 10c: Dashboard Styling & CSS Polish
+   ═══════════════════════════════════════════════ */
+
+/* ─── 1. Sidebar Navigation Item ─── */
+.sidebar-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-align: left;
+  color: var(--color-text-muted);
+  background-color: transparent;
+  overflow: hidden;
+}
+
+.sidebar-nav-item:hover {
+  border-left: 2px solid color-mix(in srgb, var(--color-primary) 50%, transparent);
+  background-color: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  color: var(--color-text);
+}
+
+.sidebar-nav-item[data-active="true"],
+.sidebar-nav-item.active {
+  border-left: 2px solid var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary-light);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 8%, transparent),
+              inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.sidebar-nav-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* ─── 2. Tab Content Wrapper ─── */
+@keyframes tabContentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-content-wrapper {
+  animation: tabContentFadeIn 0.35s ease-out forwards;
+}
+
+.tab-content-wrapper > * {
+  animation: tabContentFadeIn 0.35s ease-out both;
+}
+
+.tab-content-wrapper > *:nth-child(2) { animation-delay: 40ms; }
+.tab-content-wrapper > *:nth-child(3) { animation-delay: 80ms; }
+.tab-content-wrapper > *:nth-child(4) { animation-delay: 120ms; }
+.tab-content-wrapper > *:nth-child(5) { animation-delay: 160ms; }
+
+/* ─── 3. Card Hover Lift ─── */
+.card-hover-lift {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  background-color: var(--color-card);
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -4px color-mix(in srgb, var(--color-bg) 35%, transparent),
+              0 4px 12px -2px color-mix(in srgb, var(--color-primary) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+.card-hover-lift:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 20%, transparent);
+}
+
+/* ─── 4. Stat Value Glow ─── */
+.stat-value-glow {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 40%, transparent);
+  transition: text-shadow 0.3s ease;
+}
+
+.stat-value-glow:hover {
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-primary) 55%, transparent);
+}
+
+.stat-value-glow.success {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.stat-value-glow.success:hover {
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-success) 55%, transparent);
+}
+
+.stat-value-glow.warning {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.stat-value-glow.warning:hover {
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-warning) 55%, transparent);
+}
+
+.stat-value-glow.error {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--color-error) 40%, transparent);
+}
+
+.stat-value-glow.error:hover {
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-error) 55%, transparent);
+}
+
+/* ─── 5. Badge Pulse ─── */
+@keyframes badgeScale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.badge-pulse {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: badgeScale 2s ease-in-out infinite;
+}
+
+.badge-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: inherit;
+  opacity: 0;
+  animation: pulse-ring 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  z-index: -1;
+}
+
+/* ─── 6. Sidebar Active Indicator ─── */
+@keyframes indicatorPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--color-primary) 50%, transparent); }
+  50% { opacity: 0.7; box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary) 30%, transparent); }
+}
+
+.sidebar-active-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 1.25rem;
+  border-radius: 0 4px 4px 0;
+  background-color: var(--color-primary);
+  animation: indicatorPulse 2.5s ease-in-out infinite;
+}
+
+/* ─── 7. Loading Shimmer ─── */
+@keyframes loadingShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-bg-tertiary) 30%, transparent) 25%,
+    color-mix(in srgb, var(--color-border) 50%, transparent) 37%,
+    color-mix(in srgb, var(--color-bg-tertiary) 30%, transparent) 63%
+  );
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.8s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.loading-shimmer.rounded-full {
+  border-radius: 9999px;
+}
+
+.loading-shimmer.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+/* ─── 8. Notification Badge Count ─── */
+@keyframes badgePop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.notification-badge-count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background-color: var(--color-error);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 4px;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 40%, transparent),
+              0 2px 4px rgba(0, 0, 0, 0.3);
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.notification-badge-count::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: var(--color-error);
+  opacity: 0;
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  z-index: -1;
+}
+
+/* ─── 9. Command Palette Overlay ─── */
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background-color: color-mix(in srgb, var(--color-bg) 60%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: overlayFadeIn 0.15s ease-out forwards;
+}
+
+/* ─── 10. Gradient Text Accent ─── */
+.gradient-text-accent {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+}
+
+/* ─── 11. Responsive Grid ─── */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+/* ─── 12. Scroll Shadow ─── */
+.scroll-shadow {
+  position: relative;
+}
+
+.scroll-shadow::before,
+.scroll-shadow::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 16px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.scroll-shadow::before {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-bg) 80%, transparent),
+    transparent
+  );
+}
+
+.scroll-shadow::after {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg) 80%, transparent),
+    transparent
+  );
+}
+
+.scroll-shadow.shadow-top::before {
+  opacity: 1;
+}
+
+.scroll-shadow.shadow-bottom::after {
+  opacity: 1;
+}
+
+/* ─── Task 10c: Reduced Motion Addendum ─── */
+@media (prefers-reduced-motion: reduce) {
+  .tab-content-wrapper,
+  .tab-content-wrapper > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .card-hover-lift {
+    transition: none !important;
+  }
+
+  .card-hover-lift:hover {
+    transform: none !important;
+  }
+
+  .stat-value-glow {
+    transition: none !important;
+  }
+
+  .badge-pulse {
+    animation: none !important;
+  }
+
+  .badge-pulse::after {
+    animation: none !important;
+  }
+
+  .sidebar-active-indicator {
+    animation: none !important;
+  }
+
+  .loading-shimmer {
+    animation: none !important;
+    background: color-mix(in srgb, var(--color-bg-tertiary) 30%, transparent);
+  }
+
+  .notification-badge-count {
+    animation: none !important;
+    transform: scale(1) !important;
+  }
+
+  .notification-badge-count::before {
+    animation: none !important;
+  }
+
+  .command-palette-overlay {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .scroll-shadow::before,
+  .scroll-shadow::after {
+    transition: none !important;
+  }
+}

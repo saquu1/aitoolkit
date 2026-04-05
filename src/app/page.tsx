@@ -22,6 +22,8 @@ import { TabTransition } from '@/components/TabTransition'
 import { useActionToast } from '@/hooks/useActionToast'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useNavigationHistory } from '@/hooks/useNavigationHistory'
+import { BreadcrumbNav } from '@/components/BreadcrumbNav'
+import { TabSearchFilter } from '@/components/TabSearchFilter'
 
 // Session start time - set once when module loads
 const SESSION_START = new Date()
@@ -523,37 +525,14 @@ function AppContent() {
         >
           {/* Sidebar Search - filters nav items */}
           <div className="px-3 pb-2 pt-3">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: sidebarSearch ? colors.primary : colors.textMuted }} />
-              <input
-                type="text"
-                placeholder="Filter pages..."
+            {!sidebarCollapsed && (
+              <TabSearchFilter
                 value={sidebarSearch}
-                onChange={(e) => setSidebarSearch(e.target.value)}
-                className="w-full pl-8 pr-8 py-2 rounded-lg border text-xs outline-none transition-all duration-200"
-                style={{
-                  backgroundColor: alpha(colors.bgTertiary, 30),
-                  borderColor: sidebarSearch ? alpha(colors.primary, 40) : alpha(colors.border, 50),
-                  color: colors.text,
-                  boxShadow: sidebarSearch ? `0 0 0 2px ${alpha(colors.primary, 10)}` : 'none',
-                }}
+                onChange={setSidebarSearch}
+                placeholder="Filter pages..."
+                totalCount={NAV_ITEMS.length}
+                matchCount={filteredNavItems.length}
               />
-              {sidebarSearch && (
-                <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded"
-                  style={{ color: colors.textMuted }}
-                  onClick={() => setSidebarSearch('')}
-                  aria-label="Clear search"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-            {!sidebarCollapsed && sidebarSearch && (
-              <p className="text-[10px] mt-1.5 px-1" style={{ color: colors.textMuted }}>
-                <Filter className="w-3 h-3 inline mr-1" />
-                {filteredNavItems.length} of {NAV_ITEMS.length} pages
-              </p>
             )}
           </div>
 
@@ -598,7 +577,7 @@ function AppContent() {
                           <button
                             key={item.id}
                             onClick={() => handleNavigate(item.id)}
-                            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all duration-200 text-left group relative overflow-hidden"
+                            className="sidebar-nav-item card-hover-lift w-full flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all duration-200 text-left group relative overflow-hidden"
                             style={{
                               backgroundColor: isActive
                                 ? alpha(colors.primary, 15)
@@ -629,7 +608,7 @@ function AppContent() {
                             {/* Active glow indicator bar */}
                             {isActive && (
                               <div
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                                className="sidebar-active-indicator"
                                 style={{
                                   backgroundColor: colors.primary,
                                   boxShadow: `0 0 8px ${alpha(colors.primary, 50)}`,
@@ -763,6 +742,20 @@ function AppContent() {
         <main className="flex-1 min-h-0">
           <ScrollArea className="h-[calc(100vh-57px)]">
             <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+              {/* Breadcrumb Navigation */}
+              <BreadcrumbNav
+                items={(() => {
+                  const activeItem = NAV_ITEMS.find(n => n.id === activeTab)
+                  const groupLabel = activeItem?.group || ''
+                  const crumbs = []
+                  if (groupLabel) {
+                    crumbs.push({ label: groupLabel.toUpperCase() })
+                  }
+                  crumbs.push({ label: activeItem?.label || 'Dashboard' })
+                  return crumbs
+                })()}
+                className="mb-3"
+              />
               <TabTransition activeTab={activeTab}>
                 {activeTab === 'dashboard' && <DashboardTab onNavigate={handleNavigate} />}
                 {activeTab === 'schema-audit' && <SchemaAuditTab />}
