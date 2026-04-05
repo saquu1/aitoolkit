@@ -2594,3 +2594,429 @@ textarea:focus-visible,
   .compliance-trend-card::before { transition: none; }
   .snapshot-btn { transition: none; }
 }
+
+/* ═══════════════════════════════════════════════
+   Task 12: New CSS Utility Classes & Features
+   ═══════════════════════════════════════════════ */
+
+/* ─── 1. Glass Card Elevated ─── */
+.glass-card-elevated {
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-bg) 50%, transparent);
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--color-bg) 30%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-primary) 5%, transparent);
+  transition: box-shadow 0.35s ease, border-color 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glass-card-elevated:hover {
+  box-shadow:
+    0 8px 32px color-mix(in srgb, var(--color-bg) 40%, transparent),
+    0 0 20px color-mix(in srgb, var(--color-primary) 12%, transparent),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  transform: translateY(-3px) perspective(600px) rotateX(1deg);
+}
+
+/* ─── 2. Scrollbar Thin ─── */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 15%, transparent);
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border) 55%, transparent);
+  border-radius: 4px;
+  border: 2px solid color-mix(in srgb, var(--color-bg-tertiary) 15%, transparent);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  border-color: color-mix(in srgb, var(--color-bg-tertiary) 15%, transparent);
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-border) 55%, transparent) color-mix(in srgb, var(--color-bg-tertiary) 15%, transparent);
+}
+
+/* ─── 3. Text Shimmer ─── */
+@keyframes text-shimmer-move {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.text-shimmer {
+  background: linear-gradient(
+    110deg,
+    var(--color-text) 30%,
+    var(--color-primary) 45%,
+    var(--color-primary-light) 50%,
+    var(--color-primary) 55%,
+    var(--color-text) 70%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-shimmer-move 3s linear infinite;
+}
+
+/* ─── 4. Pulse Ring ─── */
+@keyframes pulse-ring-expand {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.pulse-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  animation: pulse-ring-expand 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  pointer-events: none;
+}
+
+/* ─── 5. Stat Chip ─── */
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  background-color: color-mix(in srgb, var(--color-bg-tertiary) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 35%, transparent);
+  color: var(--color-text);
+  white-space: nowrap;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.stat-chip:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  transform: translateY(-1px);
+}
+
+.stat-chip .stat-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.stat-chip .stat-chip-value {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.stat-chip .stat-chip-label {
+  color: var(--color-text-muted);
+}
+
+/* ─── 6. Grid Lines Background ─── */
+.grid-lines-bg {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-border) 3%, transparent) 0px,
+      color-mix(in srgb, var(--color-border) 3%, transparent) 1px,
+      transparent 1px,
+      transparent 60px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-border) 3%, transparent) 0px,
+      color-mix(in srgb, var(--color-border) 3%, transparent) 1px,
+      transparent 1px,
+      transparent 60px
+    );
+  background-position: center center;
+}
+
+/* ─── 7. Floating Shadow ─── */
+.floating-shadow {
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--color-bg) 15%, transparent),
+    0 4px 8px color-mix(in srgb, var(--color-bg) 10%, transparent),
+    0 8px 16px color-mix(in srgb, var(--color-bg) 8%, transparent),
+    0 16px 32px color-mix(in srgb, var(--color-bg) 6%, transparent),
+    0 24px 48px color-mix(in srgb, var(--color-bg) 4%, transparent);
+}
+
+/* ─── 8. Border Gradient Animated ─── */
+@property --hue-offset {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes hue-rotate-loop {
+  0% { --hue-offset: 0; }
+  100% { --hue-offset: 360; }
+}
+
+.border-gradient-animated {
+  position: relative;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.border-gradient-animated::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary),
+    var(--color-accent),
+    var(--color-success),
+    var(--color-primary)
+  );
+  background-size: 300% 300%;
+  animation:
+    hue-rotate-loop 6s linear infinite,
+    gradient-shift 4s ease infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.border-gradient-animated > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* ─── 9. Skeleton Shine ─── */
+@keyframes skeleton-shine-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-shine {
+  position: relative;
+  overflow: hidden;
+  background-color: color-mix(in srgb, var(--color-bg-tertiary) 20%, transparent);
+  border-radius: 6px;
+}
+
+.skeleton-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.04) 20%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 80%,
+    transparent 100%
+  );
+  animation: skeleton-shine-sweep 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ─── 10. Badge Dot ─── */
+.badge-dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-error);
+  border: 2px solid var(--color-bg);
+}
+
+.badge-dot.pulse::after {
+  animation: pulse-ring-expand 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.badge-dot[data-color="success"]::after {
+  background-color: var(--color-success);
+}
+
+.badge-dot[data-color="warning"]::after {
+  background-color: var(--color-warning);
+}
+
+.badge-dot[data-color="primary"]::after {
+  background-color: var(--color-primary);
+}
+
+/* ─── 11. Card Stack ─── */
+.card-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.card-stack > * {
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), margin-top 0.3s ease;
+}
+
+.card-stack > *:not(:first-child) {
+  margin-top: -12px;
+}
+
+.card-stack:hover > *:not(:first-child) {
+  margin-top: 4px;
+}
+
+.card-stack > *:not(:last-child) {
+  z-index: 1;
+}
+
+.card-stack > *:last-child {
+  z-index: 2;
+}
+
+.card-stack:hover > *:not(:last-child) {
+  z-index: 1;
+}
+
+.card-stack:hover > *:last-child {
+  z-index: 3;
+}
+
+/* ─── 12. Text Balance ─── */
+.text-balance {
+  text-wrap: balance;
+}
+
+/* ─── 13. Focus Ring Glow ─── */
+.focus-ring-glow:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-bg),
+    0 0 0 4px color-mix(in srgb, var(--color-primary) 40%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.focus-ring-glow:focus {
+  outline: none;
+}
+
+.focus-ring-glow:focus:not(:focus-visible) {
+  box-shadow: none;
+}
+
+/* ─── 14. Transition Smooth ─── */
+.transition-smooth {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── 15. Hover Brightness ─── */
+.hover-brightness {
+  transition: filter 0.25s ease;
+}
+
+.hover-brightness:hover {
+  filter: brightness(1.15);
+}
+
+/* ─── Task 12: Reduced Motion Addendum ─── */
+@media (prefers-reduced-motion: reduce) {
+  .glass-card-elevated {
+    transition: none !important;
+  }
+
+  .glass-card-elevated:hover {
+    transform: none !important;
+  }
+
+  .text-shimmer {
+    animation: none !important;
+  }
+
+  .pulse-ring::before {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .stat-chip {
+    transition: none !important;
+  }
+
+  .stat-chip:hover {
+    transform: none !important;
+  }
+
+  .border-gradient-animated::before {
+    animation: none !important;
+  }
+
+  .skeleton-shine::after {
+    animation: none !important;
+  }
+
+  .badge-dot.pulse::after {
+    animation: none !important;
+  }
+
+  .card-stack > * {
+    transition: none !important;
+  }
+
+  .focus-ring-glow:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--color-bg),
+      0 0 0 4px color-mix(in srgb, var(--color-primary) 40%, transparent) !important;
+  }
+
+  .transition-smooth {
+    transition: none !important;
+  }
+
+  .hover-brightness {
+    transition: none !important;
+  }
+
+  .hover-brightness:hover {
+    filter: none !important;
+  }
+}

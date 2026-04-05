@@ -57,32 +57,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ─── Check auth status (login enabled + token valid) ────────────────────
-  const checkAuth = useCallback(async () => {
+  const checkAuth = useCallback(async (retries = 2) => {
     try {
-      // Check if login is enabled
-      const statusRes = await fetch("/api/auth/status")
+      // Check if login is enabled (with retry for dev mode cold start)
+      let statusRes: Response | undefined
+      for (let i = 0; i <= retries; i++) {
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), i === 0 ? 5000 : 8000)
+          statusRes = await fetch("/api/auth/status", { signal: controller.signal })
+          clearTimeout(timeout)
+          if (statusRes.ok) break
+          if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+        } catch {
+          if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+          else { statusRes = undefined; break }
+        }
+      }
+      if (!statusRes || !statusRes.ok) { setReady(true); return }
       const statusData = await statusRes.json()
       setLoginEnabled(statusData.loginEnabled)
 
       // If we have a token, validate it
       const saved = localStorage.getItem(TOKEN_KEY)
       if (saved) {
-        const checkRes = await fetch("/api/auth/check", {
-          headers: { Authorization: `Bearer ${saved}` },
-        })
-        const checkData = await checkRes.json()
-        if (checkData.valid) {
-          setToken(saved)
-          setUser(checkData.user)
-        } else {
-          // Token expired or invalid — clear it
-          setToken(null)
-          setUser(null)
-          localStorage.removeItem(TOKEN_KEY)
+        try {
+          const checkRes = await fetch("/api/auth/check", {
+            headers: { Authorization: `Bearer ${saved}` },
+          })
+          const checkData = await checkRes.json()
+          if (checkData.valid) {
+            setToken(saved)
+            setUser(checkData.user)
+          } else {
+            setToken(null)
+            setUser(null)
+            localStorage.removeItem(TOKEN_KEY)
+          }
+        } catch {
+          // Token check failed — keep existing state
         }
       }
-    } catch (err) {
-      console.warn("[Auth] Status check failed:", err)
+    } catch {
+      // Auth check unavailable — proceed without auth
     } finally {
       setReady(true)
     }

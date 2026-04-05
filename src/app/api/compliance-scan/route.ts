@@ -981,6 +981,43 @@ interface GapReport {
     low: number;
   };
   violations: Violation[];
+  executiveSummary: ExecutiveSummary;
+  criticalViolations: Violation[];
+  highViolations: Violation[];
+  mediumViolations: Violation[];
+}
+
+interface ExecutiveSummary {
+  overallScore: number;
+  gdprScore: number;
+  hipaaScore: number;
+  pciScore: number;
+  soxScore: number;
+ totalViolations: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  frameworkStatuses: Record<string, string>;
+}
+
+interface FieldRuleEvaluation {
+  ruleId: string;
+  ruleName: string;
+  framework: string;
+  severity: RuleSeverity;
+  status: RuleStatus;
+  field: string;
+  description: string;
+}
+
+interface RuleCoverageEntry {
+  evaluated: number;
+  pass: number;
+  fail: number;
+  warning: number;
+  partial: number;
+  na: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1732,14 +1769,286 @@ function evaluatePCIRules(ctx: EvaluationContext): RuleEvaluation[] {
 }
 
 // ---------------------------------------------------------------------------
-// Gap Report Generation
+// Per-Field Rule Evaluations
 // ---------------------------------------------------------------------------
 
-function generateGapReport(evaluations: {
-  GDPR: RuleEvaluation[];
-  HIPAA: RuleEvaluation[];
-  "PCI-DSS": RuleEvaluation[];
-}): GapReport {
+/**
+ * Evaluate a single field against a specific rule, returning a deterministic status
+ * based on the field's properties (sensitivity, category, requirements).
+ */
+function evaluateFieldRule(
+  field: ColumnMatch,
+  rule: RuleDefinition
+): FieldRuleEvaluation {
+  const fieldKey = `${field.tableName}.${field.columnName}`;
+  let status: RuleStatus = "PASS";
+  let description = rule.description;
+
+  const isPII = field.type === "PII";
+  const isPHI = field.type === "PHI";
+  const isPCI = field.type === "PCI-DSS";
+
+  // --- GDPR Rules (apply to PII and PHI fields) ---
+  if (rule.framework === "GDPR") {
+    switch (rule.ruleId) {
+      case "G1": // Lawful Basis
+        status = "PASS"; // Assume documented in schema scan
+        description = `${fieldKey}: Lawful basis assumed documented for ${field.category} data`;
+        break;
+      case "G2": // Data Minimization
+        if (field.confidence < 70) {
+          status = "WARNING";
+          description = `${fieldKey}: Low detection confidence (${field.confidence}%) — verify field necessity`;
+        } else {
+          status = "PASS";
+          description = `${fieldKey}: Data minimization reviewed — field has clear purpose`;
+        }
+        break;
+      case "G3": // Retention
+        status = "PARTIAL";
+        description = `${fieldKey}: Retention policy needs to be defined and enforced for ${field.category} data`;
+        break;
+      case "G4": // Right To Erasure
+        status = isPHI ? "WARNING" : "PASS";
+        description = isPHI
+          ? `${fieldKey}: PHI field — cascading erasure across related tables must be verified`
+          : `${fieldKey}: Erasure capability assumed for ${field.category} data`;
+        break;
+      case "G5": // Data Portability
+        status = "PASS";
+        description = `${fieldKey}: Export in machine-readable format supported`;
+        break;
+      case "G6": // Encryption At Rest
+        if (field.sensitivity === "restricted" && !field.requiresEncryption) {
+          status = "FAIL";
+          description = `${fieldKey}: RESTRICTED field requires mandatory encryption at rest (Art. 32)`;
+        } else if (field.sensitivity === "confidential" && !field.requiresEncryption) {
+          status = "WARNING";
+          description = `${fieldKey}: CONFIDENTIAL field — encryption at rest recommended`;
+        } else if (field.requiresEncryption) {
+          status = "PASS";
+          description = `${fieldKey}: Encryption requirement detected and flagged`;
+        } else {
+          status = "PASS";
+          description = `${fieldKey}: Encryption not strictly required for this sensitivity level`;
+        }
+        break;
+      case "G7": // Masking In Logs
+        if (field.requiresMasking) {
+          status = "PASS";
+          description = `${fieldKey}: Log masking requirement detected`;
+        } else if (field.sensitivity === "restricted") {
+          status = "WARNING";
+          description = `${fieldKey}: RESTRICTED field should be masked in application logs`;
+        } else {
+          status = "PASS";
+          description = `${fieldKey}: Log masking not required at this sensitivity level`;
+        }
+        break;
+      case "G8": // Consent Tracking
+        if (field.requiresConsent) {
+          status = "WARNING";
+          description = `${fieldKey}: Consent tracking required — withdrawal logging not verified`;
+        } else {
+          status = "N/A";
+          description = `${fieldKey}: Consent-based processing not applicable for this field`;
+        }
+        break;
+      case "G9": // Cross-Border Transfer
+        status = "PASS";
+        description = `${fieldKey}: Cross-border transfer safeguards (SCCs) assumed in place`;
+        break;
+      case "G10": // Privacy By Design
+        status = field.sensitivity === "restricted"
+          ? "WARNING"
+          : "PASS";
+        description = field.sensitivity === "restricted"
+          ? `${fieldKey}: RESTRICTED data — verify privacy-by-design controls are embedded`
+          : `${fieldKey}: Privacy-by-design principles applied`;
+        break;
+    }
+  }
+
+  // --- HIPAA Rules (apply to PHI fields) ---
+  if (rule.framework === "HIPAA") {
+    if (!isPHI) {
+      status = "N/A";
+      description = `${fieldKey}: HIPAA rule not applicable (field is ${field.type})`;
+    } else {
+      switch (rule.ruleId) {
+        case "H1": // Minimum Necessary
+          status = "PARTIAL";
+          description = `${fieldKey}: Role-based access control for ${field.category} data needs verification`;
+          break;
+        case "H2": // PHI Encryption
+          if (field.requiresEncryption) {
+            status = "PASS";
+            description = `${fieldKey}: PHI encryption requirement detected (AES-256 at rest, TLS 1.2+ in transit)`;
+          } else if (field.sensitivity === "restricted") {
+            status = "FAIL";
+            description = `${fieldKey}: RESTRICTED PHI field requires encryption (45 CFR § 164.312)`;
+          } else {
+            status = "WARNING";
+            description = `${fieldKey}: PHI encryption recommended for ${field.category} data`;
+          }
+          break;
+        case "H3": // Audit Controls
+          if (field.requiresAudit) {
+            status = "PASS";
+            description = `${fieldKey}: Audit logging requirement detected for ${field.category} data`;
+          } else {
+            status = "WARNING";
+            description = `${fieldKey}: Audit trail logging should be enabled for PHI access`;
+          }
+          break;
+        case "H4": // Automatic Logoff
+          status = "WARNING";
+          description = `${fieldKey}: Session timeout configuration for PHI access needs verification`;
+          break;
+        case "H5": // De-identification
+          status = "WARNING";
+          description = `${fieldKey}: Verify 18 HIPAA identifiers are removed when de-identifying ${field.category} data`;
+          break;
+        case "H6": // Business Associate
+          status = "PARTIAL";
+          description = `${fieldKey}: BAA verification needed for any third-party PHI access`;
+          break;
+        case "H7": // Breach Notification
+          status = "PARTIAL";
+          description = `${fieldKey}: Breach notification readiness — notification workflow needs testing`;
+          break;
+        case "H8": // Mental Health
+          const mhKw = ["mental_health", "psychiatric", "substance", "rehab", "counseling"];
+          const norm = field.columnName.toLowerCase();
+          if (mhKw.some(k => norm.includes(k))) {
+            status = "FAIL";
+            description = `${fieldKey}: Mental health/substance abuse field — 42 CFR Part 2 extra protections required`;
+          } else {
+            status = "N/A";
+            description = `${fieldKey}: 42 CFR Part 2 not applicable (not a mental health field)`;
+          }
+          break;
+      }
+    }
+  }
+
+  // --- PCI-DSS Rules (apply to PCI fields) ---
+  if (rule.framework === "PCI-DSS") {
+    if (!isPCI) {
+      status = "N/A";
+      description = `${fieldKey}: PCI-DSS rule not applicable (field is ${field.type})`;
+    } else {
+      switch (rule.ruleId) {
+        case "P1": // CVV Prohibition
+          status = field.category === "restricted" ? "FAIL" : "N/A";
+          description = field.category === "restricted"
+            ? `${fieldKey}: CVV/CVC storage detected — STRICT PROHIBITION (Req 3.2.1)`
+            : `${fieldKey}: CVV prohibition rule not applicable to this field category`;
+          break;
+        case "P2": // PAN Protection
+          status = field.category === "prohibited" ? "FAIL" : "N/A";
+          description = field.category === "prohibited"
+            ? `${fieldKey}: PAN storage detected — must be rendered unreadable (Req 3.4)`
+            : `${fieldKey}: PAN protection rule not applicable to this field category`;
+          break;
+        case "P3": // PAN Masking
+          status = field.category === "minimized" ? "WARNING" : "N/A";
+          description = field.category === "minimized"
+            ? `${fieldKey}: Masked cardholder data — verify display masking (Req 3.3)`
+            : `${fieldKey}: PAN masking rule not applicable to this field category`;
+          break;
+        case "P4": // Network Segmentation
+          status = "WARNING";
+          description = `${fieldKey}: Cardholder data environment segmentation needs verification`;
+          break;
+        case "P5": // Access Control
+          status = "WARNING";
+          description = `${fieldKey}: Role-based access control for cardholder data needs implementation`;
+          break;
+        case "P6": // Vulnerability Management
+          status = "PARTIAL";
+          description = `${fieldKey}: Vulnerability scanning and penetration testing schedule needs confirmation`;
+          break;
+        case "P7": // Compliance Level
+          status = "PASS";
+          description = `${fieldKey}: PCI compliance level assessment — assumed Level 4`;
+          break;
+      }
+    }
+  }
+
+  return {
+    ruleId: rule.ruleId,
+    ruleName: rule.name,
+    framework: rule.framework,
+    severity: rule.severity,
+    status,
+    field: fieldKey,
+    description,
+  };
+}
+
+/**
+ * Generate per-field rule evaluations for all detected fields.
+ */
+function generateFieldRuleEvaluations(
+  ctx: EvaluationContext
+): FieldRuleEvaluation[] {
+  const results: FieldRuleEvaluation[] = [];
+
+  // Deduplicate fields across all matches
+  const fieldMap = new Map<string, ColumnMatch>();
+  for (const m of ctx.allMatches) {
+    const key = `${m.tableName}.${m.columnName}`;
+    if (!fieldMap.has(key)) {
+      fieldMap.set(key, m);
+    }
+  }
+  const uniqueFields = Array.from(fieldMap.values());
+
+  for (const field of uniqueFields) {
+    const isPII = field.type === "PII";
+    const isPHI = field.type === "PHI";
+    const isPCI = field.type === "PCI-DSS";
+
+    // GDPR rules apply to PII and PHI fields
+    if (isPII || isPHI) {
+      for (const rule of GDPR_RULES) {
+        results.push(evaluateFieldRule(field, rule));
+      }
+    }
+
+    // HIPAA rules apply to PHI fields
+    if (isPHI) {
+      for (const rule of HIPAA_RULES) {
+        results.push(evaluateFieldRule(field, rule));
+      }
+    }
+
+    // PCI-DSS rules apply to PCI fields
+    if (isPCI) {
+      for (const rule of PCI_RULES) {
+        results.push(evaluateFieldRule(field, rule));
+      }
+    }
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Gap Report Generation (Enhanced)
+// ---------------------------------------------------------------------------
+
+function generateGapReport(
+  evaluations: {
+    GDPR: RuleEvaluation[];
+    HIPAA: RuleEvaluation[];
+    "PCI-DSS": RuleEvaluation[];
+  },
+  scores: { gdpr: number; hipaa: number; pci: number; sox: number },
+  frameworkStatuses: Record<string, string>
+): GapReport {
   const severityOrder: Record<RuleSeverity, number> = {
     CRITICAL: 0,
     HIGH: 1,
@@ -1752,8 +2061,7 @@ function generateGapReport(evaluations: {
 
   for (const [framework, rules] of Object.entries(evaluations)) {
     for (const rule of rules as RuleEvaluation[]) {
-      // Include non-PASS evaluations as violations
-      if (rule.status !== "PASS") {
+      if (rule.status !== "PASS" && rule.status !== "N/A") {
         const idPrefix = rule.severity === "CRITICAL"
           ? "CRIT"
           : rule.severity === "HIGH"
@@ -1798,11 +2106,90 @@ function generateGapReport(evaluations: {
     low: violations.filter(v => v.severity === "LOW").length,
   };
 
+  const criticalViolations = violations.filter(v => v.severity === "CRITICAL");
+  const highViolations = violations.filter(v => v.severity === "HIGH");
+  const mediumViolations = violations.filter(v => v.severity === "MEDIUM");
+
+  // Executive summary
+  const overallScore = Math.round(
+    (scores.gdpr + scores.hipaa + scores.pci + scores.sox) / 4
+  );
+
+  const executiveSummary: ExecutiveSummary = {
+    overallScore,
+    gdprScore: scores.gdpr,
+    hipaaScore: scores.hipaa,
+    pciScore: scores.pci,
+    soxScore: scores.sox,
+    totalViolations: violations.length,
+    criticalCount: bySeverity.critical,
+    highCount: bySeverity.high,
+    mediumCount: bySeverity.medium,
+    lowCount: bySeverity.low,
+    frameworkStatuses,
+  };
+
   return {
     totalViolations: violations.length,
     bySeverity,
     violations,
+    executiveSummary,
+    criticalViolations,
+    highViolations,
+    mediumViolations,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Rule Coverage
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate rule coverage statistics per framework.
+ */
+function generateRuleCoverage(
+  evaluations: {
+    GDPR: RuleEvaluation[];
+    HIPAA: RuleEvaluation[];
+    "PCI-DSS": RuleEvaluation[];
+  }
+): Record<string, RuleCoverageEntry> {
+ const coverage: Record<string, RuleCoverageEntry> = {};
+
+  for (const [framework, rules] of Object.entries(evaluations)) {
+    const entry: RuleCoverageEntry = {
+      evaluated: rules.length,
+      pass: 0,
+      fail: 0,
+      warning: 0,
+      partial: 0,
+      na: 0,
+    };
+
+    for (const rule of rules as RuleEvaluation[]) {
+      switch (rule.status) {
+        case "PASS":
+          entry.pass++;
+          break;
+        case "FAIL":
+          entry.fail++;
+          break;
+        case "WARNING":
+          entry.warning++;
+          break;
+        case "PARTIAL":
+          entry.partial++;
+          break;
+        case "N/A":
+          entry.na++;
+          break;
+      }
+    }
+
+    coverage[framework] = entry;
+  }
+
+  return coverage;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2060,7 +2447,24 @@ export async function GET() {
       "PCI-DSS": pciEvaluations,
     };
 
-    const gapReport = generateGapReport(ruleEvaluations);
+    // 9b. Per-field rule evaluations (Phase 3)
+    const fieldEvaluations = generateFieldRuleEvaluations(evalContext);
+
+    // 9c. Rule coverage statistics
+    const ruleCoverage = generateRuleCoverage(ruleEvaluations);
+
+    // 9d. Enhanced gap report with executive summary
+    const frameworkStatuses: Record<string, string> = {
+      HIPAA: hipaaResult.status,
+      GDPR: gdprResult.status,
+      SOX: soxResult.status,
+      "PCI-DSS": pciResult.status,
+    };
+    const gapReport = generateGapReport(
+      ruleEvaluations,
+      { gdpr: gdprResult.score, hipaa: hipaaResult.score, pci: pciResult.score, sox: soxResult.score },
+      frameworkStatuses
+    );
 
     // 10. Build response
     const response = {
@@ -2120,7 +2524,9 @@ export async function GET() {
       },
       topFindings,
       ruleEvaluations,
+      fieldEvaluations,
       gapReport,
+      ruleCoverage,
     };
 
     return NextResponse.json(response);

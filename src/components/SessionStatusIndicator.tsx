@@ -54,15 +54,28 @@ export function SessionStatusIndicator({ compact = false, showDetails = true }: 
     return () => clearInterval(interval)
   }, [])
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (retryCount = 2) => {
     try {
-      const response = await fetch('/api/session-status')
-      if (response.ok) {
+      let response: Response | undefined
+      for (let i = 0; i <= retryCount; i++) {
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), i === 0 ? 5000 : 8000)
+          response = await fetch('/api/session-status', { signal: controller.signal })
+          clearTimeout(timeout)
+          if (response.ok) break
+          if (i < retryCount) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+        } catch {
+          if (i < retryCount) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+          else { response = undefined; break }
+        }
+      }
+      if (response && response.ok) {
         const data = await response.json()
         setStatus(data)
       }
-    } catch (error) {
-      console.error('Failed to fetch session status:', error)
+    } catch {
+      // Session status unavailable — silent retry on next interval
     } finally {
       setLoading(false)
       setLastUpdate(new Date())
@@ -399,15 +412,28 @@ export function SessionStatusBadge() {
   const [status, setStatus] = useState<SessionStatus | null>(null)
 
   useEffect(() => {
-    const fetchStatus = async () => {
+    const fetchStatus = async (retryCount = 2) => {
       try {
-        const response = await fetch('/api/session-status')
-        if (response.ok) {
+        let response: Response | undefined
+        for (let i = 0; i <= retryCount; i++) {
+          try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), i === 0 ? 5000 : 8000)
+            response = await fetch('/api/session-status', { signal: controller.signal })
+            clearTimeout(timeout)
+            if (response.ok) break
+            if (i < retryCount) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+          } catch {
+            if (i < retryCount) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+            else { response = undefined; break }
+          }
+        }
+        if (response && response.ok) {
           const data = await response.json()
           setStatus(data)
         }
-      } catch (error) {
-        console.error('Failed to fetch session status:', error)
+      } catch {
+        // Session status unavailable
       }
     }
     fetchStatus()
