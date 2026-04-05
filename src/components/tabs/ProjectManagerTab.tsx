@@ -31,7 +31,9 @@ import {
   Download,
   Package,
   Loader2,
-  BarChart3
+  BarChart3,
+  Building,
+  Microscope
 } from 'lucide-react'
 
 interface ProjectWithCounts {
@@ -82,13 +84,13 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Layers,
   FileCode,
   Table2,
-  Building2,
+  Building,
   Microscope,
 }
 
 // Also map string icon names to lucide-react components for seeded data
 const ICON_NAME_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Hospital: Building2,
+  Hospital: Building,
   Microscope: Microscope,
 }
 
