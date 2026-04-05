@@ -36,7 +36,10 @@ import {
   ShieldCheck,
   CreditCard,
   Sparkles,
-  Download
+  Download,
+  ChevronRight,
+  AlertOctagon,
+  Clock
 } from 'lucide-react';
 import { SOPManagementUI } from '@/components/SOPManagementUI';
 import { FrameworkActivationConfig } from '@/components/FrameworkActivationConfig';
@@ -1280,6 +1283,270 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                           </div>
                         );
                       })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Section A: Rule Evaluation Details */}
+                <Card className="glass-card-enhanced content-fade-in">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertOctagon className="h-5 w-5" style={{ color: colors.warning }} />
+                      Rule Evaluation Details
+                    </CardTitle>
+                    <CardDescription>Per-framework rule evaluation results from Phase 3 analysis</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(d?.ruleEvaluations || {}).map(([framework, rules]: [string, any]) => {
+                        const fwColor = framework === 'GDPR' ? colors.primary : framework === 'HIPAA' ? colors.error : framework === 'PCI-DSS' ? '#a855f7' : colors.warning;
+                        const passCount = (rules || []).filter((r: any) => r.status === 'PASS').length;
+                        const totalCount = (rules || []).length;
+                        return (
+                          <div
+                            key={framework}
+                            className="rounded-lg border overflow-hidden"
+                            style={{
+                              borderColor: alpha(fwColor, 30),
+                              backgroundColor: alpha(fwColor, 4),
+                            }}
+                          >
+                            <button
+                              className="w-full flex items-center justify-between p-3 text-left transition-colors hover:brightness-110"
+                              style={{ backgroundColor: alpha(fwColor, 8) }}
+                              onClick={(e) => {
+                                const panel = e.currentTarget.nextElementSibling;
+                                if (panel) panel.classList.toggle('hidden');
+                                const icon = e.currentTarget.querySelector('.chevron-icon');
+                                if (icon) icon.classList.toggle('rotate-90');
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <ChevronRight className="h-4 w-4 chevron-icon rotate-90 transition-transform" style={{ color: fwColor }} />
+                                <span className="font-semibold text-sm" style={{ color: colors.text }}>{framework}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: alpha(fwColor, 40), color: fwColor }}>
+                                  {passCount}/{totalCount} PASS
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {(rules || []).map((rule: any) => {
+                                  const dotColor = rule.status === 'PASS' ? '#22c55e' : rule.status === 'WARNING' ? '#eab308' : rule.status === 'FAIL' ? '#ef4444' : rule.status === 'PARTIAL' ? '#3b82f6' : '#6b7280';
+                                  return (
+                                    <div
+                                      key={rule.ruleId}
+                                      className="w-2 h-2 rounded-full"
+                                      style={{ backgroundColor: dotColor }}
+                                      title={`${rule.ruleId}: ${rule.status}`}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </button>
+                            <div className="overflow-hidden">
+                              <div className="divide-y" style={{ borderColor: alpha(colors.border, 40) }}>
+                                {(rules || []).map((rule: any) => {
+                                  const statusColor = rule.status === 'PASS' ? '#22c55e' : rule.status === 'WARNING' ? '#eab308' : rule.status === 'FAIL' ? '#ef4444' : rule.status === 'PARTIAL' ? '#3b82f6' : '#6b7280';
+                                  const sevColor = rule.severity === 'CRITICAL' ? '#ef4444' : rule.severity === 'HIGH' ? '#f97316' : rule.severity === 'MEDIUM' ? '#eab308' : '#22c55e';
+                                  return (
+                                    <div
+                                      key={rule.ruleId}
+                                      className="px-3 py-2.5 transition-colors hover:brightness-105"
+                                      style={{ borderColor: alpha(colors.border, 30) }}
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-mono text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: alpha(statusColor, 15), color: statusColor }}>
+                                            {rule.ruleId}
+                                          </span>
+                                          <span className="text-sm font-medium" style={{ color: colors.text }}>{rule.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                          <Badge
+                                            variant={rule.status === 'FAIL' ? 'destructive' : 'outline'}
+                                            className="text-[10px] px-1.5 py-0"
+                                            style={rule.status !== 'FAIL' ? { borderColor: alpha(statusColor, 50), color: statusColor } : undefined}
+                                          >
+                                            {rule.status}
+                                          </Badge>
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[10px] px-1.5 py-0"
+                                            style={{ borderColor: alpha(sevColor, 50), color: sevColor }}
+                                          >
+                                            {rule.severity}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                      <p className="text-xs mb-1.5 line-clamp-2" style={{ color: colors.textMuted }}>
+                                        {rule.description}
+                                      </p>
+                                      <div className="flex items-center gap-3">
+                                        <span className="text-[10px] flex items-center gap-1" style={{ color: colors.textMuted }}>
+                                          <Database className="h-3 w-3" />
+                                          {rule.affectedFields} fields
+                                        </span>
+                                        {(rule.requiredActions && rule.requiredActions.length > 0) && (
+                                          <span className="text-[10px] flex items-center gap-1" style={{ color: sevColor }}>
+                                            <Wrench className="h-3 w-3" />
+                                            {rule.requiredActions.length} action{rule.requiredActions.length !== 1 ? 's' : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {(rule.requiredActions && rule.requiredActions.length > 0) && (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                          {rule.requiredActions.map((action: string, i: number) => (
+                                            <span
+                                              key={i}
+                                              className="text-[10px] px-1.5 py-0.5 rounded"
+                                              style={{
+                                                backgroundColor: alpha(sevColor, 10),
+                                                color: alpha(sevColor, 85),
+                                                border: `1px solid ${alpha(sevColor, 20)}`,
+                                              }}
+                                            >
+                                              {action}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Section B: Compliance Gap Report */}
+                <Card className="glass-card-enhanced content-fade-in">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <AlertOctagon className="h-5 w-5" style={{ color: colors.error }} />
+                          Compliance Gap Report
+                        </CardTitle>
+                        <CardDescription>Identified compliance gaps requiring remediation</CardDescription>
+                      </div>
+                      <Badge variant="destructive" className="text-sm">
+                            {(d?.gapReport?.totalViolations || 0)} violation{((d?.gapReport?.totalViolations || 0) !== 1) ? 's' : ''}
+                          </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {/* Severity Distribution */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Severity:</span>
+                      {[
+                        { label: 'Critical', count: d?.gapReport?.bySeverity?.critical || 0, color: '#ef4444' },
+                        { label: 'High', count: d?.gapReport?.bySeverity?.high || 0, color: '#f97316' },
+                        { label: 'Medium', count: d?.gapReport?.bySeverity?.medium || 0, color: '#eab308' },
+                        { label: 'Low', count: d?.gapReport?.bySeverity?.low || 0, color: '#22c55e' },
+                      ].map((sev) => (
+                        <span
+                          key={sev.label}
+                          className="inline-flex items-center gap-1 text-xs font-mono px-2 py-1 rounded-full"
+                          style={{
+                            backgroundColor: alpha(sev.color, 12),
+                            color: sev.color,
+                            border: `1px solid ${alpha(sev.color, 25)}`,
+                          }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: sev.color }} />
+                          {sev.label}: {sev.count}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Violations List */}
+                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                      {(() => {
+                        const violations = (d?.gapReport?.violations || []) as any[];
+                        const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+                        const sorted = [...violations].sort((a, b) => (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99));
+
+                        if (sorted.length === 0) {
+                          return (
+                            <div className="text-center py-8" style={{ color: colors.textMuted }}>
+                              <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                              <p className="text-sm">No compliance gaps detected</p>
+                              <p className="text-xs mt-1">All evaluated rules are passing</p>
+                            </div>
+                          );
+                        }
+
+                        return sorted.map((v: any) => {
+                          const sevColor = v.severity === 'CRITICAL' ? '#ef4444' : v.severity === 'HIGH' ? '#f97316' : v.severity === 'MEDIUM' ? '#eab308' : '#22c55e';
+                          const fwColor = v.framework === 'GDPR' ? colors.primary : v.framework === 'HIPAA' ? colors.error : v.framework === 'PCI-DSS' ? '#a855f7' : colors.warning;
+                          return (
+                            <div
+                              key={v.id}
+                              className="p-3 rounded-lg border transition-all"
+                              style={{
+                                borderColor: alpha(sevColor, 30),
+                                backgroundColor: alpha(sevColor, 5),
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: alpha(sevColor, 15), color: sevColor }}>
+                                    {v.id}
+                                  </span>
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: alpha(fwColor, 40), color: fwColor }}>
+                                    {v.framework}
+                                  </Badge>
+                                  <span className="font-mono text-[10px] font-semibold" style={{ color: colors.textMuted }}>
+                                    {v.ruleId}
+                                  </span>
+                                </div>
+                                {v.estimatedEffort && (
+                                  <span className="text-[10px] flex items-center gap-1" style={{ color: colors.textMuted }}>
+                                    <Clock className="h-3 w-3" />
+                                    {v.estimatedEffort}
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="text-sm font-semibold mb-1" style={{ color: colors.text }}>{v.title}</h4>
+                              <p className="text-xs line-clamp-2 mb-2" style={{ color: colors.textMuted }}>
+                                {v.description}
+                              </p>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <span className="text-[10px] flex items-center gap-1" style={{ color: colors.textMuted }}>
+                                  <Database className="h-3 w-3" />
+                                  {v.affectedFields} field{v.affectedFields !== 1 ? 's' : ''} affected
+                                </span>
+                                {(v.requiredActions && v.requiredActions.length > 0) && (
+                                  <div className="flex items-center gap-1">
+                                    <Wrench className="h-3 w-3" style={{ color: sevColor }} />
+                                    <span className="text-[10px]" style={{ color: sevColor }}>{v.requiredActions.length} action{v.requiredActions.length !== 1 ? 's' : ''}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {(v.requiredActions && v.requiredActions.length > 0) && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {v.requiredActions.map((action: string, i: number) => (
+                                    <span
+                                      key={i}
+                                      className="text-[10px] px-1.5 py-0.5 rounded"
+                                      style={{
+                                        backgroundColor: alpha(sevColor, 10),
+                                        color: alpha(sevColor, 85),
+                                        border: `1px solid ${alpha(sevColor, 20)}`,
+                                      }}
+                                    >
+                                      {action}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </CardContent>
                 </Card>

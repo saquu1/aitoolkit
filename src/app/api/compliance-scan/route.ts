@@ -934,6 +934,878 @@ function calculatePCIScore(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PHASE 3 — RULE DEFINITIONS & EVALUATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+type RuleStatus = "PASS" | "FAIL" | "WARNING" | "PARTIAL" | "N/A";
+type RuleSeverity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+
+interface RuleDefinition {
+  ruleId: string;
+  name: string;
+  reference: string;
+  severity: RuleSeverity;
+  framework: "GDPR" | "HIPAA" | "PCI-DSS";
+  description: string;
+}
+
+interface RuleEvaluation {
+  ruleId: string;
+  name: string;
+  reference: string;
+  severity: RuleSeverity;
+  status: RuleStatus;
+  description: string;
+  affectedFields: number;
+  requiredActions: string[];
+}
+
+interface Violation {
+  id: string;
+  severity: RuleSeverity;
+  framework: string;
+  ruleId: string;
+  title: string;
+  description: string;
+  affectedFields: number;
+  requiredActions: string[];
+  estimatedEffort: string;
+}
+
+interface GapReport {
+  totalViolations: number;
+  bySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  violations: Violation[];
+}
+
+// ---------------------------------------------------------------------------
+// Rule Definitions (from rules3.md — Phase 3)
+// ---------------------------------------------------------------------------
+
+const GDPR_RULES: RuleDefinition[] = [
+  {
+    ruleId: "G1",
+    name: "Lawful Basis For Processing",
+    reference: "Art. 6",
+    severity: "HIGH",
+    framework: "GDPR",
+    description:
+      "Verify a lawful basis (consent, contract, legal obligation, vital interests, public task, legitimate interests) is documented for all personal data processing activities.",
+  },
+  {
+    ruleId: "G2",
+    name: "Data Minimization",
+    reference: "Art. 5(1)(c)",
+    severity: "MEDIUM",
+    framework: "GDPR",
+    description:
+      "Ensure personal data collected is adequate, relevant, and limited to what is necessary for processing purposes.",
+  },
+  {
+    ruleId: "G3",
+    name: "Storage Limitation / Retention",
+    reference: "Art. 5(1)(e)",
+    severity: "HIGH",
+    framework: "GDPR",
+    description:
+      "Personal data must be kept no longer than necessary for processing purposes; retention policies must be defined and enforced.",
+  },
+  {
+    ruleId: "G4",
+    name: "Right To Erasure",
+    reference: "Art. 17",
+    severity: "CRITICAL",
+    framework: "GDPR",
+    description:
+      "Data subjects have the right to request deletion of their personal data; cascading deletion across all related systems must be supported.",
+  },
+  {
+    ruleId: "G5",
+    name: "Right To Data Portability",
+    reference: "Art. 20",
+    severity: "MEDIUM",
+    framework: "GDPR",
+    description:
+      "Data subjects must be able to receive their personal data in a structured, commonly used, and machine-readable format.",
+  },
+  {
+    ruleId: "G6",
+    name: "Encryption At Rest",
+    reference: "Art. 32",
+    severity: "CRITICAL",
+    framework: "GDPR",
+    description:
+      "Appropriate technical measures including encryption must protect personal data stored in databases, backups, and file systems.",
+  },
+  {
+    ruleId: "G7",
+    name: "Masking In Logs",
+    reference: "Art. 32",
+    severity: "HIGH",
+    framework: "GDPR",
+    description:
+      "Personal data must be masked or redacted in application logs, debug output, and monitoring systems to prevent accidental exposure.",
+  },
+  {
+    ruleId: "G8",
+    name: "Consent Tracking",
+    reference: "Art. 7",
+    severity: "HIGH",
+    framework: "GDPR",
+    description:
+      "Consent must be freely given, specific, informed, and unambiguous; records of consent and withdrawal must be maintained.",
+  },
+  {
+    ruleId: "G9",
+    name: "Cross-Border Transfer Compliance",
+    reference: "Art. 44-49",
+    severity: "CRITICAL",
+    framework: "GDPR",
+    description:
+      "Transfers of personal data to third countries require appropriate safeguards such as Standard Contractual Clauses (SCCs), adequacy decisions, or BCRs.",
+  },
+  {
+    ruleId: "G10",
+    name: "Privacy By Design Check",
+    reference: "Art. 25",
+    severity: "MEDIUM",
+    framework: "GDPR",
+    description:
+      "Data protection must be embedded into the design and architecture of processing systems from the outset (privacy by design and by default).",
+  },
+];
+
+const HIPAA_RULES: RuleDefinition[] = [
+  {
+    ruleId: "H1",
+    name: "Minimum Necessary Standard",
+    reference: "45 CFR § 164.502(b)",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "Protected Health Information (PHI) access must be limited to the minimum necessary for the intended purpose; role-based access controls required.",
+  },
+  {
+    ruleId: "H2",
+    name: "PHI Encryption (In Transit + At Rest)",
+    reference: "45 CFR § 164.312",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "PHI must be encrypted both in transit (TLS 1.2+) and at rest (AES-256 or equivalent) to addressable encryption requirements.",
+  },
+  {
+    ruleId: "H3",
+    name: "Audit Controls / Access Logging",
+    reference: "45 CFR § 164.312(b)",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "Comprehensive audit logging mechanisms must record all PHI access, modifications, and disclosures with user identity, timestamp, and action type.",
+  },
+  {
+    ruleId: "H4",
+    name: "Automatic Logoff",
+    reference: "45 CFR § 164.312(a)(2)(iii)",
+    severity: "HIGH",
+    framework: "HIPAA",
+    description:
+      "Electronic systems containing PHI must automatically log off users after a period of inactivity to prevent unauthorized access.",
+  },
+  {
+    ruleId: "H5",
+    name: "PHI De-identification Standards",
+    reference: "45 CFR § 164.514(b)",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "When PHI is de-identified for research or other purposes, all 18 HIPAA identifiers must be removed or obscured per Safe Harbor or Expert Determination methods.",
+  },
+  {
+    ruleId: "H6",
+    name: "Business Associate Compliance",
+    reference: "45 CFR § 164.308(b)",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "All business associates handling PHI must have executed Business Associate Agreements (BAAs) with appropriate safeguards and compliance obligations.",
+  },
+  {
+    ruleId: "H7",
+    name: "Breach Notification Readiness",
+    reference: "45 CFR §§ 164.400-414",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "Organizations must have a breach notification plan capable of notifying affected individuals within 60 days, the HHS, and media outlets when applicable.",
+  },
+  {
+    ruleId: "H8",
+    name: "Mental Health Extra Protection",
+    reference: "42 CFR Part 2",
+    severity: "CRITICAL",
+    framework: "HIPAA",
+    description:
+      "Substance abuse and mental health records receive additional protections under 42 CFR Part 2, requiring separate consent for disclosure beyond HIPAA rules.",
+  },
+];
+
+const PCI_RULES: RuleDefinition[] = [
+  {
+    ruleId: "P1",
+    name: "CVV/CVC Absolute Prohibition",
+    reference: "Req 3.2.1",
+    severity: "CRITICAL",
+    framework: "PCI-DSS",
+    description:
+      "Storage of Card Verification Values (CVV/CVC/CID) after authorization is strictly prohibited, even if encrypted.",
+  },
+  {
+    ruleId: "P2",
+    name: "PAN Protection",
+    reference: "Req 3.4",
+    severity: "CRITICAL",
+    framework: "PCI-DSS",
+    description:
+      "Primary Account Numbers (PAN) must be rendered unreadable anywhere they are stored using one-way hashing, truncation, index tokens, or strong encryption.",
+  },
+  {
+    ruleId: "P3",
+    name: "PAN Masking In Display",
+    reference: "Req 3.3",
+    severity: "HIGH",
+    framework: "PCI-DSS",
+    description:
+      "PAN must be masked when displayed, showing no more than the first six and last four digits to unauthorized personnel.",
+  },
+  {
+    ruleId: "P4",
+    name: "Network Segmentation",
+    reference: "Req 1",
+    severity: "HIGH",
+    framework: "PCI-DSS",
+    description:
+      "Cardholder data environments must be isolated from the rest of the network via proper network segmentation and access controls.",
+  },
+  {
+    ruleId: "P5",
+    name: "Access Control To Cardholder Data",
+    reference: "Req 7",
+    severity: "CRITICAL",
+    framework: "PCI-DSS",
+    description:
+      "Access to cardholder data must be restricted to authorized individuals on a need-to-know basis with unique user IDs and role-based permissions.",
+  },
+  {
+    ruleId: "P6",
+    name: "Vulnerability Management",
+    reference: "Req 5-6",
+    severity: "CRITICAL",
+    framework: "PCI-DSS",
+    description:
+      "Systems must be protected from malicious software and have regular vulnerability scans and penetration tests performed by qualified parties.",
+  },
+  {
+    ruleId: "P7",
+    name: "PCI Compliance Level Assessment",
+    reference: "PCI DSS",
+    severity: "HIGH",
+    framework: "PCI-DSS",
+    description:
+      "Determine the applicable PCI DSS compliance level based on transaction volume and ensure the appropriate validation requirements are met.",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Evaluation Context (aggregated data from scan)
+// ---------------------------------------------------------------------------
+
+interface EvaluationContext {
+  allMatches: ColumnMatch[];
+  piiFieldCount: number;     // uniquePIIColumns.size
+  phiFieldCount: number;     // uniquePHIColumns.size
+  pciFieldCount: number;     // uniquePCIColumns.size
+  soxFieldCount: number;     // uniqueFinancialColumns.size
+  encryptionRequired: number;
+  maskingRequired: number;
+  auditRequired: number;
+  consentRequired: number;
+  phiMatches: ColumnMatch[];  // raw PHI matches (may include dupes from allMatches)
+  piiOnlyMatches: ColumnMatch[];
+  pciMatches: ColumnMatch[];
+}
+
+// ---------------------------------------------------------------------------
+// GDPR Rule Evaluation
+// ---------------------------------------------------------------------------
+
+function evaluateGDPRRules(ctx: EvaluationContext): RuleEvaluation[] {
+  const { piiFieldCount, encryptionRequired, maskingRequired, consentRequired, allMatches } = ctx;
+  const piiOrPhiMatches = allMatches.filter(m => m.type === "PII" || m.type === "PHI");
+
+  const results: RuleEvaluation[] = [];
+
+  // G1: Lawful Basis For Processing
+  // If piiFields > 0 and piiFields > encryptionRequired → WARNING (basis not documented), else PASS
+  const g1Status: RuleStatus = (piiFieldCount > 0 && piiFieldCount > encryptionRequired)
+    ? "WARNING"
+    : "PASS";
+  results.push({
+    ruleId: "G1",
+    name: "Lawful Basis For Processing",
+    reference: "Art. 6",
+    severity: "HIGH",
+    status: g1Status,
+    description: "Verify a lawful basis is documented for all personal data processing activities.",
+    affectedFields: piiFieldCount,
+    requiredActions: g1Status === "WARNING"
+      ? ["Document lawful basis for each data category", "Update privacy policy with legal basis references", "Implement processing activity register"]
+      : ["Maintain documented lawful basis records"],
+  });
+
+  // G2: Data Minimization
+  // Check if any PII/PHI fields have low confidence (< 0.70) → WARNING
+  const lowConfidenceFields = piiOrPhiMatches.filter(m => m.confidence < 70);
+  // Deduplicate by column key
+  const lowConfKeys = new Set(lowConfidenceFields.map(m => `${m.tableName}.${m.columnName}`));
+  const g2Status: RuleStatus = lowConfKeys.size > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "G2",
+    name: "Data Minimization",
+    reference: "Art. 5(1)(c)",
+    severity: "MEDIUM",
+    status: g2Status,
+    description: "Ensure personal data collected is adequate, relevant, and limited to what is necessary.",
+    affectedFields: lowConfKeys.size,
+    requiredActions: g2Status === "WARNING"
+      ? [`Review ${lowConfKeys.size} field(s) with low detection confidence`, "Assess necessity of each personal data field", "Remove unnecessary data collection points"]
+      : ["Continue periodic data minimization reviews"],
+  });
+
+  // G3: Storage Limitation / Retention
+  // If piiFields > 0 → PARTIAL (retention policy assumed not configured for all), else PASS
+  const g3Status: RuleStatus = piiFieldCount > 0 ? "PARTIAL" : "PASS";
+  results.push({
+    ruleId: "G3",
+    name: "Storage Limitation / Retention",
+    reference: "Art. 5(1)(e)",
+    severity: "HIGH",
+    status: g3Status,
+    description: "Personal data must be kept no longer than necessary; retention policies must be defined.",
+    affectedFields: piiFieldCount,
+    requiredActions: g3Status !== "PASS"
+      ? ["Define retention periods for each data category", "Implement automated data retention enforcement", "Create data disposal procedures"]
+      : [],
+  });
+
+  // G4: Right To Erasure
+  // If piiFields > 0 and piiFields > 5 → WARNING (cascade check needed), else PASS
+  const g4Status: RuleStatus = (piiFieldCount > 0 && piiFieldCount > 5) ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "G4",
+    name: "Right To Erasure",
+    reference: "Art. 17",
+    severity: "CRITICAL",
+    status: g4Status,
+    description: "Data subjects have the right to request deletion; cascading deletion across systems must be supported.",
+    affectedFields: piiFieldCount,
+    requiredActions: g4Status !== "PASS"
+      ? ["Implement cascading delete across all related tables", "Build erasure request workflow for data subjects", "Verify no orphaned PII after deletion"]
+      : ["Maintain erasure capability"],
+  });
+
+  // G5: Right To Data Portability
+  // If piiFields > 0 → PASS (export feature assumed)
+  results.push({
+    ruleId: "G5",
+    name: "Right To Data Portability",
+    reference: "Art. 20",
+    severity: "MEDIUM",
+    status: "PASS",
+    description: "Data subjects must be able to receive their data in a structured, machine-readable format.",
+    affectedFields: piiFieldCount,
+    requiredActions: piiFieldCount > 0
+      ? ["Ensure data export supports JSON/CSV formats", "Test portability workflow end-to-end"]
+      : [],
+  });
+
+  // G6: Encryption At Rest
+  // Use encryptionRequired count vs piiFields → ratio determines PASS/WARNING/FAIL
+  let g6Status: RuleStatus;
+  if (piiFieldCount === 0) {
+    g6Status = "PASS";
+  } else {
+    const encRatio = encryptionRequired / piiFieldCount;
+    if (encRatio > 0.9) g6Status = "PASS";
+    else if (encRatio > 0.6) g6Status = "WARNING";
+    else g6Status = "FAIL";
+  }
+  results.push({
+    ruleId: "G6",
+    name: "Encryption At Rest",
+    reference: "Art. 32",
+    severity: "CRITICAL",
+    status: g6Status,
+    description: "Appropriate technical measures including encryption must protect stored personal data.",
+    affectedFields: piiFieldCount - encryptionRequired,
+    requiredActions: g6Status === "FAIL"
+      ? ["Implement AES-256 encryption for all personal data at rest", "Encrypt database backups and file storage", "Review encryption key management practices"]
+      : g6Status === "WARNING"
+        ? ["Encrypt remaining unencrypted personal data fields", "Verify encryption covers all data stores"]
+        : ["Maintain encryption coverage"],
+  });
+
+  // G7: Masking In Logs
+  // Use maskingRequired count vs piiFields → ratio determines status
+  let g7Status: RuleStatus;
+  if (piiFieldCount === 0) {
+    g7Status = "PASS";
+  } else {
+    const maskRatio = maskingRequired / piiFieldCount;
+    if (maskRatio > 0.9) g7Status = "PASS";
+    else if (maskRatio > 0.6) g7Status = "WARNING";
+    else g7Status = "FAIL";
+  }
+  results.push({
+    ruleId: "G7",
+    name: "Masking In Logs",
+    reference: "Art. 32",
+    severity: "HIGH",
+    status: g7Status,
+    description: "Personal data must be masked in application logs, debug output, and monitoring systems.",
+    affectedFields: piiFieldCount > 0 ? piiFieldCount - maskingRequired : 0,
+    requiredActions: g7Status === "FAIL"
+      ? ["Implement log masking for all sensitive fields", "Configure logging frameworks to redact PII", "Audit existing logs for personal data exposure"]
+      : g7Status === "WARNING"
+        ? ["Extend log masking to remaining sensitive fields", "Review log aggregation pipelines"]
+        : ["Maintain log masking configuration"],
+  });
+
+  // G8: Consent Tracking
+  // If consentRequired > 0 → WARNING (withdrawal not logged), else PASS
+  const g8Status: RuleStatus = consentRequired > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "G8",
+    name: "Consent Tracking",
+    reference: "Art. 7",
+    severity: "HIGH",
+    status: g8Status,
+    description: "Consent records and withdrawal tracking must be maintained for all consent-required data processing.",
+    affectedFields: consentRequired,
+    requiredActions: g8Status !== "PASS"
+      ? ["Implement consent logging with timestamps", "Build consent withdrawal mechanism", "Map consent records to specific data categories"]
+      : [],
+  });
+
+  // G9: Cross-Border Transfer Compliance
+  // PASS (assumed SCCs in place)
+  results.push({
+    ruleId: "G9",
+    name: "Cross-Border Transfer Compliance",
+    reference: "Art. 44-49",
+    severity: "CRITICAL",
+    status: "PASS",
+    description: "Transfers to third countries require appropriate safeguards such as SCCs or adequacy decisions.",
+    affectedFields: piiFieldCount,
+    requiredActions: ["Verify SCCs are in place for all international data flows", "Maintain Transfer Impact Assessments (TIAs)"],
+  });
+
+  // G10: Privacy By Design
+  // If piiFields > 10 → WARNING, else PASS
+  const g10Status: RuleStatus = piiFieldCount > 10 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "G10",
+    name: "Privacy By Design Check",
+    reference: "Art. 25",
+    severity: "MEDIUM",
+    status: g10Status,
+    description: "Data protection must be embedded into system design and architecture from the outset.",
+    affectedFields: piiFieldCount,
+    requiredActions: g10Status !== "PASS"
+      ? ["Conduct Data Protection Impact Assessment (DPIA)", "Review system architecture for privacy by design gaps", "Document privacy controls per data category"]
+      : ["Maintain privacy by design documentation"],
+  });
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// HIPAA Rule Evaluation
+// ---------------------------------------------------------------------------
+
+function evaluateHIPAARules(ctx: EvaluationContext): RuleEvaluation[] {
+  const { phiFieldCount, encryptionRequired, maskingRequired, auditRequired, phiMatches, allMatches } = ctx;
+
+  const results: RuleEvaluation[] = [];
+
+  // H1: Minimum Necessary Standard
+  // If phiFields > 0 → PARTIAL (role-based access assumed basic), else PASS
+  const h1Status: RuleStatus = phiFieldCount > 0 ? "PARTIAL" : "PASS";
+  results.push({
+    ruleId: "H1",
+    name: "Minimum Necessary Standard",
+    reference: "45 CFR § 164.502(b)",
+    severity: "CRITICAL",
+    status: h1Status,
+    description: "PHI access must be limited to the minimum necessary for the intended purpose.",
+    affectedFields: phiFieldCount,
+    requiredActions: h1Status !== "PASS"
+      ? ["Implement role-based access control (RBAC) for PHI", "Define minimum necessary access levels per role", "Audit current PHI access permissions"]
+      : [],
+  });
+
+  // H2: PHI Encryption
+  // Based on encryptionRequired vs phiFields ratio
+  let h2Status: RuleStatus;
+  if (phiFieldCount === 0) {
+    h2Status = "PASS";
+  } else {
+    // Count unique PHI fields that require encryption
+    const phiEncKeys = new Set(phiMatches.filter(m => m.requiresEncryption).map(m => `${m.tableName}.${m.columnName}`));
+    const ratio = phiEncKeys.size / phiFieldCount;
+    if (ratio > 0.9) h2Status = "PASS";
+    else if (ratio > 0.6) h2Status = "WARNING";
+    else h2Status = "FAIL";
+  }
+  results.push({
+    ruleId: "H2",
+    name: "PHI Encryption (In Transit + At Rest)",
+    reference: "45 CFR § 164.312",
+    severity: "CRITICAL",
+    status: h2Status,
+    description: "PHI must be encrypted both in transit and at rest with strong cryptographic standards.",
+    affectedFields: phiFieldCount,
+    requiredActions: h2Status === "FAIL"
+      ? ["Implement AES-256 encryption for PHI at rest", "Enforce TLS 1.2+ for all PHI in transit", "Review cryptographic key rotation policies"]
+      : h2Status === "WARNING"
+        ? ["Encrypt remaining unencrypted PHI fields", "Verify TLS configuration across all services"]
+        : ["Maintain PHI encryption standards"],
+  });
+
+  // H3: Audit Controls / Access Logging
+  // Based on auditRequired vs phiFields ratio
+  let h3Status: RuleStatus;
+  if (phiFieldCount === 0) {
+    h3Status = "PASS";
+  } else {
+    const phiAuditKeys = new Set(phiMatches.filter(m => m.requiresAudit).map(m => `${m.tableName}.${m.columnName}`));
+    const ratio = phiAuditKeys.size / phiFieldCount;
+    if (ratio > 0.9) h3Status = "PASS";
+    else if (ratio > 0.6) h3Status = "WARNING";
+    else h3Status = "FAIL";
+  }
+  results.push({
+    ruleId: "H3",
+    name: "Audit Controls / Access Logging",
+    reference: "45 CFR § 164.312(b)",
+    severity: "CRITICAL",
+    status: h3Status,
+    description: "Comprehensive audit logging must record all PHI access and modifications.",
+    affectedFields: phiFieldCount,
+    requiredActions: h3Status === "FAIL"
+      ? ["Implement audit trail for all PHI access", "Log user identity, timestamp, and action type", "Deploy centralized log aggregation and monitoring"]
+      : h3Status === "WARNING"
+        ? ["Extend audit logging to uncovered PHI data", "Configure real-time audit alerting"]
+        : ["Maintain audit logging and monitoring"],
+  });
+
+  // H4: Automatic Logoff
+  // If phiFields > 0 → WARNING (timeout not verified), else PASS
+  const h4Status: RuleStatus = phiFieldCount > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "H4",
+    name: "Automatic Logoff",
+    reference: "45 CFR § 164.312(a)(2)(iii)",
+    severity: "HIGH",
+    status: h4Status,
+    description: "Systems containing PHI must automatically log off users after a period of inactivity.",
+    affectedFields: phiFieldCount,
+    requiredActions: h4Status !== "PASS"
+      ? ["Configure automatic session timeout (recommended: 15 minutes)", "Implement session management across all PHI-accessing applications", "Test logoff behavior across all access points"]
+      : [],
+  });
+
+  // H5: PHI De-identification Standards
+  // If phiFields > 0 → WARNING (18 identifiers check needed), else PASS
+  const h5Status: RuleStatus = phiFieldCount > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "H5",
+    name: "PHI De-identification Standards",
+    reference: "45 CFR § 164.514(b)",
+    severity: "CRITICAL",
+    status: h5Status,
+    description: "All 18 HIPAA identifiers must be removed or obscured when de-identifying PHI.",
+    affectedFields: phiFieldCount,
+    requiredActions: h5Status !== "PASS"
+      ? ["Map all 18 HIPAA identifiers in the data schema", "Implement Safe Harbor de-identification method", "Validate de-identification output with a qualified expert"]
+      : [],
+  });
+
+  // H6: Business Associate Compliance
+  // If phiFields > 0 → PARTIAL (BAA verification needed), else PASS
+  const h6Status: RuleStatus = phiFieldCount > 0 ? "PARTIAL" : "PASS";
+  results.push({
+    ruleId: "H6",
+    name: "Business Associate Compliance",
+    reference: "45 CFR § 164.308(b)",
+    severity: "CRITICAL",
+    status: h6Status,
+    description: "All business associates handling PHI must have executed Business Associate Agreements (BAAs).",
+    affectedFields: phiFieldCount,
+    requiredActions: h6Status !== "PASS"
+      ? ["Inventory all business associates with PHI access", "Verify BAA execution and compliance terms", "Schedule annual BAA review and renewal"]
+      : [],
+  });
+
+  // H7: Breach Notification Readiness
+  // If phiFields > 0 → PARTIAL (notification system assumed partial), else PASS
+  const h7Status: RuleStatus = phiFieldCount > 0 ? "PARTIAL" : "PASS";
+  results.push({
+    ruleId: "H7",
+    name: "Breach Notification Readiness",
+    reference: "45 CFR §§ 164.400-414",
+    severity: "CRITICAL",
+    status: h7Status,
+    description: "Organizations must have a breach notification plan capable of notifying affected parties within 60 days.",
+    affectedFields: phiFieldCount,
+    requiredActions: h7Status !== "PASS"
+      ? ["Develop formal breach notification procedures", "Define breach severity assessment workflow", "Test notification timeline (target: < 60 days)", "Designate breach response team members"]
+      : [],
+  });
+
+  // H8: Mental Health Extra Protection
+  // Check if any mental_health fields exist → if yes FAIL, else N/A
+  const mentalHealthKeywords = ["mental_health", "psychiatric", "substance_abuse", "rehabilitation", "counseling", "therapy_session", "psychologist", "psychiatrist"];
+  const mentalHealthMatches = allMatches.filter(m => {
+    const norm = normalize(m.columnName);
+    return mentalHealthKeywords.some(kw => norm.includes(kw));
+  });
+  const mentalHealthKeys = new Set(mentalHealthMatches.map(m => `${m.tableName}.${m.columnName}`));
+  const h8Status: RuleStatus = mentalHealthKeys.size > 0 ? "FAIL" : "N/A";
+  results.push({
+    ruleId: "H8",
+    name: "Mental Health Extra Protection",
+    reference: "42 CFR Part 2",
+    severity: "CRITICAL",
+    status: h8Status,
+    description: "Substance abuse and mental health records receive additional protections under 42 CFR Part 2.",
+    affectedFields: mentalHealthKeys.size,
+    requiredActions: h8Status !== "PASS" && h8Status !== "N/A"
+      ? ["Implement separate consent workflow for mental health records", "Restrict access to 42 CFR Part 2 covered data", "Audit system for unauthorized mental health data access"]
+      : h8Status === "N/A"
+        ? ["No mental health fields detected — verify if 42 CFR Part 2 applies"]
+        : [],
+  });
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// PCI-DSS Rule Evaluation
+// ---------------------------------------------------------------------------
+
+function evaluatePCIRules(ctx: EvaluationContext): RuleEvaluation[] {
+  const { pciFieldCount, pciMatches } = ctx;
+
+  const results: RuleEvaluation[] = [];
+
+  // P1: CVV/CVC Absolute Prohibition
+  // If pciFields has restricted category → CRITICAL FAIL, else PASS
+  const restrictedPCIMatches = pciMatches.filter(m => m.category === "restricted");
+  const p1Status: RuleStatus = restrictedPCIMatches.length > 0 ? "FAIL" : "PASS";
+  results.push({
+    ruleId: "P1",
+    name: "CVV/CVC Absolute Prohibition",
+    reference: "Req 3.2.1",
+    severity: "CRITICAL",
+    status: p1Status,
+    description: "Storage of CVV/CVC/CID after authorization is strictly prohibited.",
+    affectedFields: new Set(restrictedPCIMatches.map(m => `${m.tableName}.${m.columnName}`)).size,
+    requiredActions: p1Status !== "PASS"
+      ? ["Immediately remove all stored CVV/CVC values", "Audit payment processing flows for CVV retention", "Implement preventive controls to block CVV storage"]
+      : [],
+  });
+
+  // P2: PAN Protection
+  // If pciFields has prohibited category → CRITICAL FAIL, else PASS
+  const prohibitedPCIMatches = pciMatches.filter(m => m.category === "prohibited");
+  const p2Status: RuleStatus = prohibitedPCIMatches.length > 0 ? "FAIL" : "PASS";
+  results.push({
+    ruleId: "P2",
+    name: "PAN Protection",
+    reference: "Req 3.4",
+    severity: "CRITICAL",
+    status: p2Status,
+    description: "PAN must be rendered unreadable using hashing, truncation, or strong encryption.",
+    affectedFields: new Set(prohibitedPCIMatches.map(m => `${m.tableName}.${m.columnName}`)).size,
+    requiredActions: p2Status !== "PASS"
+      ? ["Implement PAN tokenization or hashing", "Verify no full PAN stored in databases or logs", "Deploy payment card industry approved encryption"]
+      : [],
+  });
+
+  // P3: PAN Masking In Display
+  // If pciFields has minimized category → WARNING, else PASS
+  const minimizedPCIMatches = pciMatches.filter(m => m.category === "minimized");
+  const p3Status: RuleStatus = minimizedPCIMatches.length > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "P3",
+    name: "PAN Masking In Display",
+    reference: "Req 3.3",
+    severity: "HIGH",
+    status: p3Status,
+    description: "PAN must be masked when displayed, showing only first 6 and last 4 digits.",
+    affectedFields: new Set(minimizedPCIMatches.map(m => `${m.tableName}.${m.columnName}`)).size,
+    requiredActions: p3Status !== "PASS"
+      ? ["Implement PAN display masking (show first 6 and last 4 only)", "Audit all UI screens for PAN exposure", "Restrict unmasked PAN access to authorized roles"]
+      : [],
+  });
+
+  // P4: Network Segmentation
+  // If pciFields > 0 → WARNING, else PASS
+  const p4Status: RuleStatus = pciFieldCount > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "P4",
+    name: "Network Segmentation",
+    reference: "Req 1",
+    severity: "HIGH",
+    status: p4Status,
+    description: "Cardholder data environments must be isolated from the rest of the network.",
+    affectedFields: pciFieldCount,
+    requiredActions: p4Status !== "PASS"
+      ? ["Implement network segmentation for cardholder data", "Deploy firewall rules restricting CDE access", "Verify segmentation with annual penetration test"]
+      : [],
+  });
+
+  // P5: Access Control
+  // If pciFields > 0 → WARNING, else PASS
+  const p5Status: RuleStatus = pciFieldCount > 0 ? "WARNING" : "PASS";
+  results.push({
+    ruleId: "P5",
+    name: "Access Control To Cardholder Data",
+    reference: "Req 7",
+    severity: "CRITICAL",
+    status: p5Status,
+    description: "Access to cardholder data must be restricted with unique user IDs and role-based permissions.",
+    affectedFields: pciFieldCount,
+    requiredActions: p5Status !== "PASS"
+      ? ["Implement unique user ID requirement for all CDE access", "Configure role-based access control for cardholder data", "Conduct quarterly access reviews"]
+      : [],
+  });
+
+  // P6: Vulnerability Management
+  // If pciFields > 0 → PARTIAL, else PASS
+  const p6Status: RuleStatus = pciFieldCount > 0 ? "PARTIAL" : "PASS";
+  results.push({
+    ruleId: "P6",
+    name: "Vulnerability Management",
+    reference: "Req 5-6",
+    severity: "CRITICAL",
+    status: p6Status,
+    description: "Systems must be protected from malware with regular vulnerability scans and penetration tests.",
+    affectedFields: pciFieldCount,
+    requiredActions: p6Status !== "PASS"
+      ? ["Deploy anti-malware on all CDE systems", "Schedule quarterly vulnerability scans", "Conduct annual penetration testing by qualified party"]
+      : [],
+  });
+
+  // P7: PCI Compliance Level Assessment
+  // PASS (Level 4 assumed)
+  results.push({
+    ruleId: "P7",
+    name: "PCI Compliance Level Assessment",
+    reference: "PCI DSS",
+    severity: "HIGH",
+    status: "PASS",
+    description: "Determine applicable PCI DSS compliance level based on transaction volume.",
+    affectedFields: pciFieldCount,
+    requiredActions: pciFieldCount > 0
+      ? ["Confirm PCI DSS compliance level (assumed Level 4)", "Complete Self-Assessment Questionnaire (SAQ)", "Submit compliance attestation annually"]
+      : [],
+  });
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Gap Report Generation
+// ---------------------------------------------------------------------------
+
+function generateGapReport(evaluations: {
+  GDPR: RuleEvaluation[];
+  HIPAA: RuleEvaluation[];
+  "PCI-DSS": RuleEvaluation[];
+}): GapReport {
+  const severityOrder: Record<RuleSeverity, number> = {
+    CRITICAL: 0,
+    HIGH: 1,
+    MEDIUM: 2,
+    LOW: 3,
+  };
+
+  const violations: Violation[] = [];
+  let violId = 1;
+
+  for (const [framework, rules] of Object.entries(evaluations)) {
+    for (const rule of rules as RuleEvaluation[]) {
+      // Include non-PASS evaluations as violations
+      if (rule.status !== "PASS") {
+        const idPrefix = rule.severity === "CRITICAL"
+          ? "CRIT"
+          : rule.severity === "HIGH"
+            ? "HIGH"
+            : rule.severity === "MEDIUM"
+              ? "MED"
+              : "LOW";
+
+        violations.push({
+          id: `${idPrefix}-${String(violId).padStart(3, "0")}`,
+          severity: rule.severity,
+          framework,
+          ruleId: rule.ruleId,
+          title: rule.name,
+          description: rule.description,
+          affectedFields: rule.affectedFields,
+          requiredActions: rule.requiredActions,
+          estimatedEffort: rule.severity === "CRITICAL"
+            ? "2-4 weeks"
+            : rule.severity === "HIGH"
+              ? "1-2 weeks"
+              : rule.severity === "MEDIUM"
+                ? "3-5 days"
+                : "1-2 days",
+        });
+        violId++;
+      }
+    }
+  }
+
+  // Sort violations by severity (CRITICAL first), then by framework
+  violations.sort((a, b) => {
+    const sevDiff = (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99);
+    if (sevDiff !== 0) return sevDiff;
+    return a.framework.localeCompare(b.framework);
+  });
+
+  const bySeverity = {
+    critical: violations.filter(v => v.severity === "CRITICAL").length,
+    high: violations.filter(v => v.severity === "HIGH").length,
+    medium: violations.filter(v => v.severity === "MEDIUM").length,
+    low: violations.filter(v => v.severity === "LOW").length,
+  };
+
+  return {
+    totalViolations: violations.length,
+    bySeverity,
+    violations,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // GET HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1162,7 +2034,35 @@ export async function GET() {
         action: m.action,
       }));
 
-    // 9. Build response
+    // 9. Phase 3 — Rule Evaluations
+    const evalContext: EvaluationContext = {
+      allMatches,
+      piiFieldCount: uniquePIIColumns.size,
+      phiFieldCount: uniquePHIColumns.size,
+      pciFieldCount: uniquePCIColumns.size,
+      soxFieldCount: uniqueFinancialColumns.size,
+      encryptionRequired,
+      maskingRequired,
+      auditRequired,
+      consentRequired,
+      phiMatches: phiFields,
+      piiOnlyMatches: piiOnlyFields,
+      pciMatches: pciFields,
+    };
+
+    const gdprEvaluations = evaluateGDPRRules(evalContext);
+    const hipaaEvaluations = evaluateHIPAARules(evalContext);
+    const pciEvaluations = evaluatePCIRules(evalContext);
+
+    const ruleEvaluations = {
+      GDPR: gdprEvaluations,
+      HIPAA: hipaaEvaluations,
+      "PCI-DSS": pciEvaluations,
+    };
+
+    const gapReport = generateGapReport(ruleEvaluations);
+
+    // 10. Build response
     const response = {
       success: true,
       scanTimestamp: new Date().toISOString(),
@@ -1219,6 +2119,8 @@ export async function GET() {
         restricted: sensitivityMap.restricted.size,
       },
       topFindings,
+      ruleEvaluations,
+      gapReport,
     };
 
     return NextResponse.json(response);
