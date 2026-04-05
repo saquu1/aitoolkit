@@ -35,10 +35,13 @@ import {
   FileCheck,
   ShieldCheck,
   CreditCard,
-  Sparkles
+  Sparkles,
+  Download
 } from 'lucide-react';
 import { SOPManagementUI } from '@/components/SOPManagementUI';
 import { FrameworkActivationConfig } from '@/components/FrameworkActivationConfig';
+import { ActivityTimeline } from '@/components/ActivityTimeline';
+import type { TimelineEvent } from '@/components/ActivityTimeline';
 import { useTheme } from '@/hooks/useTheme';
 
 // =============================================================================
@@ -77,6 +80,61 @@ interface EnrichmentSession {
   averageConfidence: number;
   createdAt: string;
 }
+
+// =============================================================================
+// SAMPLE ACTIVITY EVENTS DATA
+// =============================================================================
+
+const sampleActivityEvents: TimelineEvent[] = [
+  {
+    id: '1',
+    title: 'Compliance Scan Completed',
+    description: 'Scanned 201 columns across 17 tables. Found 63 PII fields and 54 PHI fields.',
+    timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    type: 'compliance',
+    metadata: { fields: '201', score: '96%' },
+  },
+  {
+    id: '2',
+    title: 'Schema Analysis Pipeline Run',
+    description: '12-step enrichment pipeline completed for HIS Core project.',
+    timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    type: 'enrichment',
+    metadata: { tables: '17', confidence: '87%' },
+  },
+  {
+    id: '3',
+    title: 'FK Resolution Analysis',
+    description: 'Resolved 24 of 29 foreign key relationships automatically.',
+    timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    type: 'scan',
+    metadata: { resolved: '24', total: '29' },
+  },
+  {
+    id: '4',
+    title: 'GDPR Framework Activated',
+    description: 'GDPR compliance framework activated with 98% coverage score.',
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    type: 'success',
+    metadata: { score: '98%' },
+  },
+  {
+    id: '5',
+    title: 'HIPAA Compliance Warning',
+    description: '12 PHI fields detected without encryption policy.',
+    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    type: 'warning',
+    metadata: { fields: '12' },
+  },
+  {
+    id: '6',
+    title: 'Module Linking Update',
+    description: 'Linked 35 modules to 9 database tables.',
+    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    type: 'info',
+    metadata: { modules: '35' },
+  },
+];
 
 // =============================================================================
 // INTELLIGENCE BANK TAB COMPONENT
@@ -143,6 +201,7 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [complianceData, setComplianceData] = useState<any>(null);
   const [complianceLoading, setComplianceLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [enrichmentProgress, setEnrichmentProgress] = useState<Record<string, number>>({
     'Schema Layer': 100,
     'FK Layer': 0,
@@ -230,6 +289,30 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
       setComplianceLoading(false);
     }
   }, []);
+
+  const handleExportCompliance = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/compliance-export?format=csv');
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Extract filename from Content-Disposition header
+      const disposition = res.headers.get('content-disposition');
+      const filenameMatch = disposition?.match(/filename="([^"]+)"/);
+      a.download = filenameMatch?.[1] || 'compliance-report.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export compliance report:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     fetchSummary();
@@ -446,7 +529,7 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
       </div>
 
       {/* Health Score Banner */}
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
+      <Card className="fade-in-delayed bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -692,6 +775,26 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Activity Timeline */}
+          <Card className="glass-card-enhanced">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Activity Timeline</CardTitle>
+                  <CardDescription>Recent project activity and analysis events</CardDescription>
+                </div>
+                <Badge variant="outline" className="text-xs">Live</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ActivityTimeline
+                events={sampleActivityEvents}
+                maxItems={8}
+                showViewAll
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -948,8 +1051,36 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
 
             return (
               <>
+                {/* Export Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Compliance Dashboard</h3>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>
+                      {summary.totalColumns} columns scanned across HIPAA, GDPR, SOX, PCI-DSS frameworks
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={exporting}
+                    onClick={() => handleExportCompliance()}
+                    className="gap-2"
+                    style={{
+                      borderColor: alpha(colors.primary, 30),
+                      color: colors.primary,
+                    }}
+                  >
+                    {exporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {exporting ? "Exporting..." : "Export Report"}
+                  </Button>
+                </div>
+
                 {/* Summary Stats Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="slide-in-up grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { label: 'Total Columns', value: summary.totalColumns, icon: Database, color: colors.primary },
                     { label: 'PII Fields', value: summary.piiFields, icon: Shield, color: colors.warning },

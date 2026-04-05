@@ -885,12 +885,12 @@ export function FrameworkActivationConfig() {
                 }}
               >
                 {isCompleted ? (
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: alpha(colors.success, 20) }}>
+                  <div className="scale-in w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: alpha(colors.success, 20) }}>
                     <Check className="h-3 w-3" />
                   </div>
                 ) : (
                   <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center border"
+                    className="scale-in w-5 h-5 rounded-full flex items-center justify-center border"
                     style={{
                       borderColor: isActive ? colors.primary : colors.border,
                       backgroundColor: isActive ? alpha(colors.primary, 20) : 'transparent',

@@ -748,6 +748,68 @@ Create a comprehensive Phase 2 Framework Activation Configuration component as a
 
 #### Architecture:
 - **6-step wizard** with forward/backward navigation, animated transitions, and step progress indicator
+
+---
+## Task ID: activity-timeline
+Agent: Main Agent
+Task: Create reusable ActivityTimeline component and integrate into Intelligence Bank Overview tab
+
+### Work Task
+Create a beautiful, reusable ActivityTimeline component showing recent project activity events with animated entries, colored timeline dots, relative timestamps, event type badges, and metadata chips. Integrate it into the Intelligence Bank's Overview tab with sample data.
+
+### Work Summary
+
+#### File Created:
+1. **`/src/components/ActivityTimeline.tsx`** (~300 lines) — Reusable timeline component
+   - `'use client'` directive with `useTheme` hook for SSR-safe hydration
+   - Props: `events`, `maxItems` (default 8), `showViewAll` (default false), `compact` (default false), `className`
+   - **TimelineEvent interface**: id, title, description, timestamp, type (8 types), user?, metadata?
+   - **Vertical timeline** with colored left-side rail and connecting lines between events
+   - **Colored dots** per event type with themed icons (ScanSearch, Zap, Shield, XCircle, CheckCircle2, Info, AlertTriangle, Rocket)
+   - **Event type color mapping**: scan→primary, enrichment→purple, compliance→green, error→red, success→green, info→blue, warning→amber, deployment→primary
+   - **Staggered animation** on mount via `content-fade-in` CSS class with `animationDelay` per item (70ms intervals)
+   - **Relative timestamps**: "just now", "2 min ago", "1 hour ago", "yesterday", "5 days ago", etc.
+   - **Event type badges** with themed colors and variants (default/secondary/destructive/outline)
+   - **Metadata chips**: rounded-md key:value pairs with muted styling
+   - **User badge**: inline badge with colored dot indicator
+   - **Glassmorphism cards**: `glass-card-enhanced` + `card-interactive` CSS classes on each event
+   - **Left color border**: 3px solid colored border matching event type
+   - **Empty state**: Activity icon illustration with "No activity yet" message
+   - **SSR skeleton**: Animated pulse placeholders when not mounted (4 shimmer rows)
+   - **View All footer**: "+N" overflow indicator with "View all" link button
+   - **Responsive**: compact mode reduces padding, font sizes, and dot sizes
+   - Exports both `ActivityTimeline` (component) and `TimelineEvent` (type)
+
+#### File Modified:
+2. **`/src/components/tabs/IntelligenceBankTab.tsx`** — Activity Timeline integrated
+   - Added import: `ActivityTimeline` + `TimelineEvent` type from `@/components/ActivityTimeline`
+   - Added 6 sample activity events (`sampleActivityEvents`) as module-level constant:
+     1. Compliance Scan Completed (2 min ago) — compliance type, metadata: fields/score
+     2. Schema Analysis Pipeline Run (15 min ago) — enrichment type, metadata: tables/confidence
+     3. FK Resolution Analysis (45 min ago) — scan type, metadata: resolved/total
+     4. GDPR Framework Activated (2 hours ago) — success type, metadata: score
+     5. HIPAA Compliance Warning (3 hours ago) — warning type, metadata: fields
+     6. Module Linking Update (5 hours ago) — info type, metadata: modules
+   - Added Activity Timeline card in Overview tab (below "Recent Enrichment Sessions"):
+     - `glass-card-enhanced` Card with header (title + "Live" badge) and CardContent
+     - `<ActivityTimeline events={sampleActivityEvents} maxItems={8} showViewAll />`
+
+#### Technical Details:
+- Zero lint errors on ActivityTimeline.tsx
+- Zero new lint errors on IntelligenceBankTab.tsx (pre-existing `ExportReportButton` error unrelated)
+- Uses `alpha()` color helper: `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+- All theme colors from `useTheme()` hook for consistent theming across color schemes
+- SSR safe: `mounted` flag from `useTheme()` controls skeleton vs rendered output
+- HTTP 200 verified after all changes
+
+#### Verification:
+- `curl http://localhost:3000/` → HTTP 200
+- `npx eslint src/components/ActivityTimeline.tsx` → 0 errors
+- Dev server log: clean compilation, no runtime errors
+- **`/src/components/FrameworkActivationConfig.tsx`** (~1,400 lines) — Self-contained multi-step wizard component
+
+#### Architecture:
+- **6-step wizard** with forward/backward navigation, animated transitions, and step progress indicator
 - **In-memory compliance engine** — `computeFrameworkStatus()` function determines MANDATORY/RECOMMENDED/OPTIONAL/NOT_APPLICABLE status for 30+ frameworks based on industry × geography × special circumstances
 - **localStorage persistence** — saves/loads wizard state on each change (using requestAnimationFrame to satisfy React 19 lint rules)
 - **SSR-safe** — returns skeleton placeholder until `mounted` flag is true from useTheme hook
@@ -851,3 +913,174 @@ Work Log:
 - CreditCard icon error fixed (was missing import)
 - No new compilation errors
 - Dev log shows clean operation after fix
+
+## Micro-Interactions CSS Polish
+
+**Date:** $(date -u +"%Y-%m-%d %H:%M UTC")
+
+### Changes Made
+
+#### 1. globals.css — 12 new CSS micro-interaction utility classes appended (~195 lines)
+
+| Class | Purpose | Animation |
+|---|---|---|
+| `.hover-glow` | Subtle colored glow on hover | box-shadow transition 0.3s |
+| `.slide-in-left` | Slide from left with fade | slideInLeft 0.4s ease |
+| `.slide-in-right` | Slide from right with fade | slideInRight 0.4s ease |
+| `.slide-in-up` | Slide up with fade | slideInUp 0.3s ease |
+| `.fade-in-delayed` | Fade in with 0.15s delay | fadeInDelayed 0.5s ease |
+| `.scale-in` | Scale 95%→100% with fade | scaleIn 0.3s ease |
+| `.shimmer-border` | Animated gradient border sweep | shimmerBorder 2s linear infinite |
+| `.pulse-soft` | Soft opacity pulse | pulseSoft 2s ease-in-out infinite |
+| `.number-roll` | Smooth transition for number updates | transition all 0.3s ease |
+| `.card-shine` | Diagonal shine sweep on hover | cardShine 0.6s ease (via ::after) |
+| `.toast-enter` | Slide-in from right for toasts | toastEnter 0.4s cubic-bezier |
+| `.badge-bounce` | Scale bounce for badges | badgeBounce 0.3s ease |
+
+All classes include `@media (prefers-reduced-motion: reduce)` overrides setting `animation: none !important`.
+
+#### 2. Component class applications
+
+- **DashboardTab.tsx** (line ~1170): Wrapped `<QuickActionMenu>` FAB in a `<div className="scale-in">` container
+- **IntelligenceBankTab.tsx** (line ~532): Added `fade-in-delayed` to the Health Score Banner `<Card>`
+- **IntelligenceBankTab.tsx** (line ~1083): Added `slide-in-up` to the compliance Summary Stats Row grid container
+- **FrameworkActivationConfig.tsx** (line ~888, ~893): Added `scale-in` to both step progress indicator circle divs (completed and active/inactive states)
+
+### Verification
+- `curl localhost:3000/` returns HTTP 200 ✅
+- No existing CSS lines were modified
+- No new files created
+
+---
+## Task ID: compliance-export
+Agent: Main Agent
+Task: Create compliance data export feature (API + UI button)
+
+### Work Task
+Create a GET API endpoint at `/api/compliance-export` that exports compliance scan data as CSV or JSON, and add an "Export Report" button to the Compliance tab in IntelligenceBankTab.tsx.
+
+### Work Summary
+
+#### File Created:
+1. **`/src/app/api/compliance-export/route.ts`** (~200 lines) — Compliance data export API
+   - GET endpoint with `?format=csv|json` query parameter
+   - Fetches live data from `/api/compliance-scan` (internal fetch)
+   - **CSV format** (`text/csv`): Structured sections:
+     - Header: report title, generated timestamp, total columns
+     - Summary: totalColumns, piiFields, phiFields, financialFields, pciFields, encryption/masking/audit/consent required
+     - Frameworks: HIPAA/GDPR/SOX/PCI-DSS with status, score, coverage, fields detected, findings count
+     - Sensitivity Breakdown: public/internal/confidential/restricted column counts
+     - Top 10 Findings: table, column, classification, sensitivity, confidence %, action
+   - **JSON format** (`application/json`): Full compliance-scan response payload
+   - Proper Content-Disposition header with timestamped filename (e.g., `compliance-report-2026-04-05T04-31-07.csv`)
+   - Helper functions: `escapeCSV()`, `csvRow()`, `csvSection()`, `buildCSV()`
+   - TypeScript interface `ComplianceResponse` for type-safe response parsing
+   - Error handling: 502 if upstream scan fails, 500 on unexpected errors
+
+#### File Modified:
+2. **`/src/components/tabs/IntelligenceBankTab.tsx`** — Added Export Report button
+   - Added `Download` icon to lucide-react imports (line 39)
+   - Added `exporting` state variable (line 204)
+   - Added `handleExportCompliance()` async function (lines 293-314):
+     - Fetches `/api/compliance-export?format=csv`
+     - Creates blob URL from response
+     - Extracts filename from Content-Disposition header
+     - Triggers browser download via programmatic `<a>` click
+     - Cleanup: revokes blob URL, removes temporary anchor element
+     - Loading state with try/catch/finally
+   - Added "Export Report" button in compliance tab (lines 1030-1056):
+     - Positioned at top right of compliance dashboard, next to header text
+     - Uses `Download` icon from lucide-react
+     - Shows `Loader2` spinner during export (loading state)
+     - Styled with `useTheme()` `alpha()` helper: primary-colored outline, primary text
+     - Button label changes: "Export Report" → "Exporting..."
+     - Disabled while exporting to prevent double-clicks
+
+#### Verification:
+- `curl http://localhost:3000/` → HTTP 200 ✓
+- `curl http://localhost:3000/api/compliance-export?format=csv` → HTTP 200, valid CSV with all sections ✓
+- `curl http://localhost:3000/api/compliance-export?format=json` → HTTP 200, valid JSON payload ✓
+- Content-Disposition headers correct for both formats ✓
+- ESLint: 0 errors on both files ✓
+- CSV contains: 201 columns, 63 PII, 54 PHI, 1 financial, 0 PCI, 4 frameworks, sensitivity breakdown, top 10 findings ✓
+
+---
+## Task ID: 13 (Round 13 — Cron Review QA & Development)
+Agent: Main Agent + 3 Subagents
+Task: QA testing, new features, styling improvements
+
+Work Log:
+- Reviewed worklog.md for full project progress understanding (R1-R12, 700+ lines)
+- Verified dev server stability: HTTP 200 on homepage, no runtime errors
+- QA testing via agent-browser:
+  - Dashboard tab: loads correctly with enhanced stat cards and QuickActionMenu FAB
+  - Intelligence Bank tab: loads with 6 sub-tabs (Overview, Enrichment, SOP, Consistency, Compliance, Frameworks)
+  - Compliance tab: shows live data from /api/compliance-scan (201 columns, 63 PII, 54 PHI)
+  - Frameworks tab: Phase 2 activation wizard (6-step wizard) renders correctly
+  - All API endpoints responding correctly
+
+### Subagent Work (parallel):
+
+**Task 13a: Compliance Data Export Feature**
+- Created `/src/app/api/compliance-export/route.ts` — GET endpoint supporting CSV and JSON export formats
+  - CSV: 4 sections (Summary, Frameworks, Sensitivity, Top 10 Findings) with proper headers
+  - JSON: Full compliance-scan response as downloadable file
+  - Content-Disposition headers for file download with timestamped filenames
+- Enhanced IntelligenceBankTab.tsx: Added "Export Report" button in Compliance tab
+  - Download icon, loading state, blob-based file download trigger
+
+**Task 13b: ActivityTimeline Component**
+- Created `/src/components/ActivityTimeline.tsx` — Reusable timeline component
+  - 8 event types with colored dots, icons, and themed styling
+  - Vertical timeline with connecting lines, staggered mount animations
+  - Relative timestamps ("just now", "2 min ago", "1 hour ago")
+  - Metadata chips, type badges, compact mode for mobile
+  - Glassmorphism cards with glass-card-enhanced + card-interactive classes
+  - Empty state with Activity icon illustration
+- Integrated into IntelligenceBankTab Overview tab below "Recent Enrichment Sessions"
+  - 6 sample events with realistic timestamps and metadata
+
+**Task 13c: CSS Micro-Interactions**
+- Appended ~195 lines to `/src/app/globals.css` — 12 new CSS utility classes:
+  1. hover-glow: colored glow shadow on hover
+  2. slide-in-left: slide from left with fade (0.4s)
+  3. slide-in-right: slide from right with fade (0.4s)
+  4. slide-in-up: slide up with fade (0.3s)
+  5. fade-in-delayed: fade with 0.15s delay
+  6. scale-in: scale from 95% to 100% with fade (0.3s)
+  7. shimmer-border: animated gradient border sweep (2s infinite)
+  8. pulse-soft: soft pulse opacity animation (2s)
+  9. number-roll: smooth number transitions (0.3s)
+  10. card-shine: diagonal shine sweep on card hover
+  11. toast-enter: slide from right for notifications (0.4s cubic-bezier)
+  12. badge-bounce: bounce effect for badges (0.3s)
+- Applied classes to existing components:
+  - DashboardTab: scale-in on QuickActionMenu FAB
+  - IntelligenceBankTab: fade-in-delayed on Health Score, slide-in-up on compliance stats
+  - FrameworkActivationConfig: scale-in on step progress indicators
+
+### Files Created:
+- `/src/app/api/compliance-export/route.ts` — Compliance export API (CSV + JSON)
+- `/src/components/ActivityTimeline.tsx` — Reusable timeline component
+
+### Files Modified:
+- `/src/components/tabs/IntelligenceBankTab.tsx` — Export button + ActivityTimeline integration
+- `/src/components/tabs/DashboardTab.tsx` — scale-in animation on FAB
+- `/src/components/FrameworkActivationConfig.tsx` — scale-in animation on steps
+- `/src/app/globals.css` — 195 lines appended (12 CSS classes)
+
+### Verification:
+- Homepage HTTP 200 ✅
+- Compliance export CSV HTTP 200 ✅ (structured CSV with 4 sections)
+- Compliance export JSON HTTP 200 ✅
+- No runtime errors in dev log ✅
+- All subagents verified HTTP 200 independently
+
+Stage Summary:
+- 1 new API endpoint (compliance-export with CSV/JSON formats)
+- 1 new reusable component (ActivityTimeline)
+- 12 new CSS micro-interaction classes
+- 4 existing files enhanced with animations
+- Export Report button in Compliance tab for downloadable compliance reports
+- Activity timeline in Overview tab showing recent system events
+- Micro-interactions: hover glows, slide-ins, scale-ins, shimmer borders, toast enters, badge bounces

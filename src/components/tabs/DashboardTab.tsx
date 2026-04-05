@@ -1167,6 +1167,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
       <RealtimeEventFeed />
 
       {/* Quick Action Menu (Floating FAB) */}
+      <div className="scale-in">
       <QuickActionMenu
         actions={[
           {
@@ -1213,6 +1214,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
           },
         ]}
       />
+      </div>
     </div>
   )
 }
