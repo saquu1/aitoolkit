@@ -45,6 +45,10 @@ import { SOPManagementUI } from '@/components/SOPManagementUI';
 import { FrameworkActivationConfig } from '@/components/FrameworkActivationConfig';
 import { ActivityTimeline } from '@/components/ActivityTimeline';
 import type { TimelineEvent } from '@/components/ActivityTimeline';
+import { ComplianceScoreRing } from '@/components/ComplianceScoreRing';
+import { ComplianceAlertBanner } from '@/components/ComplianceAlertBanner';
+import { ComplianceTrendCard } from '@/components/ComplianceTrendCard';
+import { ComplianceHistoryChart } from '@/components/ComplianceHistoryChart';
 import { useTheme } from '@/hooks/useTheme';
 
 // =============================================================================
@@ -204,6 +208,7 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [complianceData, setComplianceData] = useState<any>(null);
   const [complianceLoading, setComplianceLoading] = useState(false);
+  const [complianceHistory, setComplianceHistory] = useState<any[]|null>(null);
   const [exporting, setExporting] = useState(false);
   const [enrichmentProgress, setEnrichmentProgress] = useState<Record<string, number>>({
     'Schema Layer': 100,
@@ -321,6 +326,13 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
     fetchSummary();
     fetchEntities();
     fetchComplianceData();
+    // Fetch compliance history
+    fetch('/api/compliance-history')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.records) setComplianceHistory(data.records);
+      })
+      .catch(() => { /* silent */ });
   }, [fetchSummary, fetchEntities, fetchComplianceData, scope.type, scope.activeProjectId]);
 
   // Run enrichment
@@ -838,6 +850,29 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
             </CardContent>
           </Card>
 
+          {/* Compliance Overview Widget */}
+          {complianceData && (
+            <div className="rounded-xl p-4 glass-card-enhanced">
+              <h4 className="text-sm font-semibold mb-3" style={{ color: colors.text }}>Compliance Status</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {['HIPAA', 'GDPR', 'SOX', 'PCI-DSS'].map((name) => {
+                  const fw = complianceData?.frameworks?.[name];
+                  const score = fw?.score || 0;
+                  const status = fw?.status || 'inactive';
+                  return (
+                    <div key={name} className="flex items-center gap-2">
+                      <ComplianceScoreRing score={score} label="" status={status as 'active' | 'partial' | 'inactive'} size={48} strokeWidth={4} />
+                      <div>
+                        <div className="text-xs font-semibold" style={{ color: colors.text }}>{name}</div>
+                        <div className="text-xs" style={{ color: colors.textMuted }}>{score}%</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Activity Timeline */}
           <Card className="glass-card-enhanced">
             <CardHeader>
@@ -1139,6 +1174,16 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                   </Button>
                 </div>
 
+                {/* Compliance Violation Alert Banner */}
+                <ComplianceAlertBanner
+                  violations={((d?.gapReport?.violations || []) as any[]).map((v: any) => ({
+                    severity: (v.severity || 'medium').toLowerCase(),
+                    ruleId: v.ruleId || v.id || '',
+                    title: v.title || 'Unknown violation',
+                    framework: v.framework || '',
+                  }))}
+                />
+
                 {/* Summary Stats Row */}
                 <div className="slide-in-up grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
@@ -1283,7 +1328,7 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                   </Card>
                 </div>
 
-                {/* Regulatory Frameworks Grid */}
+                {/* Regulatory Frameworks Grid — Compliance Score Rings */}
                 <Card className="glass-card-enhanced">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1294,52 +1339,18 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {frameworksArray.map((fw: any) => {
-                        const IconComp = frameworkIcons[fw.icon] || Shield;
-                        const statusColor = fw.status === 'active' ? colors.success : fw.status === 'partial' ? colors.warning : colors.textMuted;
-                        return (
-                          <div
-                            key={fw.name}
-                            className="p-4 rounded-lg border text-center transition-all"
-                            style={{
-                              borderColor: alpha(colors.border, 80),
-                              backgroundColor: alpha(colors.bgTertiary, 15),
-                            }}
-                          >
-                            <div
-                              className="p-2 rounded-lg w-fit mx-auto mb-3"
-                              style={{ backgroundColor: alpha(statusColor, 12) }}
-                            >
-                              <IconComp className="h-6 w-6" style={{ color: statusColor }} />
-                            </div>
-                            <h4 className="font-semibold text-sm" style={{ color: colors.text }}>{fw.name}</h4>
-                            <Badge
-                              variant={frameworkStatusVariant[fw.status] || 'outline'}
-                              className="mt-2"
-                            >
-                              {fw.status}
-                            </Badge>
-                            <div className="mt-3">
-                              <div className="flex justify-between text-xs mb-1">
-                                <span style={{ color: colors.textMuted }}>Score</span>
-                                <span className="font-mono font-semibold" style={{ color: colors.text }}>{fw.score}%</span>
-                              </div>
-                              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
-                                <div
-                                  className="h-full rounded-full transition-all duration-700"
-                                  style={{
-                                    width: `${fw.coverage}%`,
-                                    backgroundColor: statusColor,
-                                  }}
-                                />
-                              </div>
-                              <p className="text-[10px] mt-1" style={{ color: colors.textMuted }}>
-                                {fw.coverage}% coverage
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {frameworksArray.map((fw: any) => (
+                        <div key={fw.name} className="flex flex-col items-center p-4 rounded-xl glass-card-enhanced">
+                          <ComplianceScoreRing
+                            score={fw.score}
+                            label={fw.name}
+                            status={fw.status as 'active' | 'partial' | 'inactive'}
+                            size={100}
+                            strokeWidth={6}
+                          />
+                          <Badge variant={frameworkStatusVariant[fw.status] || 'outline'} className="mt-2">{fw.status}</Badge>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -1720,6 +1731,68 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* Compliance History Trend Section */}
+                <div className="mt-4 rounded-xl p-4 glass-card-enhanced">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-semibold" style={{ color: colors.text }}>
+                      <span className="inline-flex items-center gap-2">
+                        <svg className="w-4 h-4" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                        Compliance Score Trends
+                      </span>
+                    </h4>
+                    <button
+                      className="snapshot-btn"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/compliance-snapshot');
+                          if (res.ok) {
+                            const snapshot = await res.json();
+                            if (snapshot.success) {
+                              setComplianceHistory(prev => [snapshot.record, ...(prev || [])].slice(0, 20));
+                            }
+                          }
+                        } catch (e) { /* silent */ }
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      Take Snapshot
+                    </button>
+                  </div>
+                  
+                  {/* Trend Cards Row */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 stagger-in">
+                    {['HIPAA', 'GDPR', 'SOX', 'PCI-DSS'].map((name) => {
+                      const fw = d?.frameworks?.[name];
+                      const score = fw?.score || 0;
+                      const status = fw?.status || 'inactive';
+                      const prevScore = complianceHistory?.[1]?.[`${name.toLowerCase()}Score` as keyof typeof complianceHistory[1]] as number || null;
+                      return (
+                        <ComplianceTrendCard
+                          key={name}
+                          title={name}
+                          currentScore={score}
+                          previousScore={prevScore ?? score}
+                          history={(complianceHistory || []).map((h: any) => h[`${name.toLowerCase()}Score`] ?? 0).reverse()}
+                          status={status as 'active' | 'partial' | 'inactive'}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* History Chart */}
+                  {complianceHistory && complianceHistory.length > 1 && (
+                    <ComplianceHistoryChart
+                      history={complianceHistory.map((h: any) => ({
+                        scanTimestamp: h.scanTimestamp,
+                        hipaaScore: h.hipaaScore ?? 0,
+                        gdprScore: h.gdprScore ?? 0,
+                        soxScore: h.soxScore ?? 0,
+                        pciScore: h.pciScore ?? 0,
+                      })).reverse()}
+                    />
+                  )}
                 </div>
               </>
             );

@@ -2491,3 +2491,106 @@ textarea:focus-visible,
     transform: translateX(-50%) scale(1) !important;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   Task 16b: Compliance History Chart Styles
+   ═══════════════════════════════════════════════ */
+
+/* Compliance History Chart Styles */
+.compliance-trend-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 16px;
+}
+.compliance-trend-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-success));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.compliance-trend-card:hover::before {
+  opacity: 1;
+}
+
+/* Score change animation */
+@keyframes scoreCountUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.score-animate {
+  animation: scoreCountUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Chart line draw animation */
+@keyframes drawLine {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+.chart-line-animate {
+  stroke-dasharray: 1000;
+  animation: drawLine 2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Framework legend dot */
+.framework-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Snapshot button */
+.snapshot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-primary);
+}
+.snapshot-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* History empty state */
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* Card hover glow */
+.card-glow-primary:hover {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+.card-glow-success:hover {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+.card-glow-warning:hover {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-warning) 15%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-animate { animation: none; }
+  .chart-line-animate { animation: none; stroke-dashoffset: 0; }
+  .compliance-trend-card::before { transition: none; }
+  .snapshot-btn { transition: none; }
+}
