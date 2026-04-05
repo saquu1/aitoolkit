@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,9 +32,12 @@ import {
   Loader2,
   XCircle,
   Lock,
-  FileCheck
+  FileCheck,
+  ShieldCheck,
+  CreditCard
 } from 'lucide-react';
 import { SOPManagementUI } from '@/components/SOPManagementUI';
+import { useTheme } from '@/hooks/useTheme';
 
 // =============================================================================
 // TYPES
@@ -93,6 +96,12 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
     fkResolvedPercent: sharedFkPercent,
     refreshDbStats
   } = useSchema()
+
+  const { colors } = useTheme();
+
+  // Helper for alpha blending
+  const alpha = (color: string, opacity: number) =>
+    `color-mix(in srgb, ${color} ${opacity}%, transparent)`;
   
   // Connect to scope context for scope-aware queries
   const { 
@@ -130,6 +139,8 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
   const [loading, setLoading] = useState(false);
   const [isRunningEnrichment, setIsRunningEnrichment] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [complianceData, setComplianceData] = useState<any>(null);
+  const [complianceLoading, setComplianceLoading] = useState(false);
   const [enrichmentProgress, setEnrichmentProgress] = useState<Record<string, number>>({
     'Schema Layer': 100,
     'FK Layer': 0,
@@ -205,10 +216,24 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
     }
   }, [getScopeParams]);
 
+  const fetchComplianceData = useCallback(async () => {
+    setComplianceLoading(true);
+    try {
+      const res = await fetch('/api/compliance-scan');
+      const data = await res.json();
+      if (data.success) setComplianceData(data);
+    } catch (err) {
+      console.error('Failed to fetch compliance data:', err);
+    } finally {
+      setComplianceLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSummary();
     fetchEntities();
-  }, [fetchSummary, fetchEntities, scope.type, scope.activeProjectId]);
+    fetchComplianceData();
+  }, [fetchSummary, fetchEntities, fetchComplianceData, scope.type, scope.activeProjectId]);
 
   // Run enrichment
   const runEnrichment = async () => {
@@ -830,108 +855,414 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
         </TabsContent>
 
         {/* Compliance Tab */}
-        <TabsContent value="compliance" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lock className="h-5 w-5 text-red-500" />
-                  HIPAA Compliance
-                </CardTitle>
-                <CardDescription>Protected Health Information tracking</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span>PHI Fields Detected</span>
-                    <Badge variant="destructive">{summary?.phiFields || 0}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Encryption Enabled</span>
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Audit Trail Configured</span>
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  </div>
-                  <Progress value={summary?.phiFields ? 85 : 100} className="mt-2" />
-                  <p className="text-sm text-muted-foreground">
-                    {summary?.phiFields ? '85%' : '100%'} HIPAA compliant
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+        <TabsContent value="compliance" className="space-y-4 content-fade-in">
+          {/* Compliance Dashboard IIFE */}
+          {(() => {
+            const frameworkIcons: Record<string, typeof Lock> = {
+              Lock,
+              Shield,
+              FileCheck,
+              ShieldCheck,
+            };
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-500" />
-                  GDPR Compliance
-                </CardTitle>
-                <CardDescription>Personal data protection</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span>PII Fields Detected</span>
-                    <Badge variant="secondary">{summary?.piiFields || 0}</Badge>
+            // Loading skeleton
+            if (complianceLoading) {
+              return (
+                <div className="space-y-4 animate-pulse">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className="h-24 rounded-xl" style={{ backgroundColor: alpha(colors.border, 30) }} />
+                    ))}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span>Consent Tracking</span>
-                    {summary?.piiFields ? (
-                      <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                    ) : (
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="h-64 rounded-xl" style={{ backgroundColor: alpha(colors.border, 30) }} />
+                    <div className="h-64 rounded-xl" style={{ backgroundColor: alpha(colors.border, 30) }} />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span>Data Retention Policy</span>
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  </div>
-                  <Progress value={summary?.piiFields ? 70 : 100} className="mt-2" />
-                  <p className="text-sm text-muted-foreground">
-                    {summary?.piiFields ? '70%' : '100%'} GDPR compliant
-                  </p>
+                  <div className="h-80 rounded-xl" style={{ backgroundColor: alpha(colors.border, 30) }} />
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              );
+            }
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Regulatory Frameworks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-4 gap-4">
-                {[
-                  { name: 'HIPAA', status: summary?.phiFields ? 'active' : 'inactive', coverage: summary?.phiFields ? 85 : 0, icon: Lock },
-                  { name: 'GDPR', status: summary?.piiFields ? 'active' : 'inactive', coverage: summary?.piiFields ? 70 : 0, icon: Shield },
-                  { name: 'SOX', status: 'inactive', coverage: 0, icon: FileCheck },
-                  { name: 'PCI-DSS', status: 'inactive', coverage: 0, icon: Shield },
-                ].map((framework) => (
-                  <div key={framework.name} className="p-4 border rounded-lg text-center">
-                    <framework.icon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <h4 className="font-semibold">{framework.name}</h4>
-                    <Badge
-                      variant={
-                        framework.status === 'active'
-                          ? 'default'
-                          : framework.status === 'partial'
-                          ? 'secondary'
-                          : 'outline'
-                      }
-                      className="mt-2"
-                    >
-                      {framework.status}
-                    </Badge>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {framework.coverage}% coverage
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            const d = complianceData;
+            const apiSummary = d?.summary || {};
+            const summary = {
+              totalColumns: apiSummary.totalColumns || 0,
+              piiFields: apiSummary.piiFields || 0,
+              phiFields: apiSummary.phiFields || 0,
+              financialFields: (apiSummary.financialFields || 0) + (apiSummary.soxFields || 0),
+              pciFields: apiSummary.pciFields || 0,
+            };
+            const hipaa = d?.frameworks?.HIPAA || { fieldsDetected: 0, score: 100, controls: {} };
+            const hipaaFields = hipaa.phiFields || apiSummary.phiFields || 0;
+            const hipaaControls = {
+              encryption: hipaa.controls?.encryptionEnabled || false,
+              auditTrail: hipaa.controls?.auditTrailConfigured || false,
+              accessControl: hipaa.controls?.accessControlImplemented || false,
+            };
+            const gdpr = d?.frameworks?.GDPR || { fieldsDetected: 0, score: 100, controls: {} };
+            const gdprFields = gdpr.piiFields || apiSummary.piiFields || 0;
+            const gdprControls = {
+              consentTracking: gdpr.controls?.consentManagement || false,
+              dataRetention: gdpr.controls?.retentionPolicy || false,
+              dsarHandling: gdpr.controls?.rightToErasure || false,
+              encryption: gdpr.controls?.dataProcessingRegister || false,
+            };
+            // Build framework array from nested object
+            const frameworksArray = d?.frameworks
+              ? Object.entries(d.frameworks).map(([name, fw]: [string, any]) => ({
+                  name,
+                  status: fw.status || 'inactive',
+                  score: fw.score || 0,
+                  coverage: parseInt(String(fw.coverage || '0')),
+                  icon: name === 'HIPAA' ? 'Lock' : name === 'GDPR' ? 'Shield' : name === 'SOX' ? 'FileCheck' : 'ShieldCheck',
+                }))
+              : [];
+            const sensitivity = d?.sensitivityBreakdown || { public: 0, internal: 0, confidential: 0, restricted: 0 };
+            const findings = d?.topFindings || [];
+
+            const classificationColors: Record<string, string> = {
+              PHI: '#ef4444',
+              PII: '#eab308',
+              SOX: '#3b82f6',
+              PCI: '#a855f7',
+            };
+
+            const sensitivityColors: Record<string, string> = {
+              public: '#22c55e',
+              internal: '#3b82f6',
+              confidential: '#eab308',
+              restricted: '#ef4444',
+            };
+
+            const frameworkStatusVariant: Record<string, 'default' | 'secondary' | 'outline'> = {
+              active: 'default',
+              partial: 'secondary',
+              inactive: 'outline',
+            };
+
+            return (
+              <>
+                {/* Summary Stats Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Columns', value: summary.totalColumns, icon: Database, color: colors.primary },
+                    { label: 'PII Fields', value: summary.piiFields, icon: Shield, color: colors.warning },
+                    { label: 'PHI Fields', value: summary.phiFields, icon: Lock, color: colors.error },
+                    { label: 'Financial Fields', value: summary.financialFields, icon: CreditCard, color: colors.accent },
+                  ].map((stat) => (
+                    <Card key={stat.label} className="glass-card-enhanced">
+                      <CardContent className="pt-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs" style={{ color: colors.textMuted }}>{stat.label}</p>
+                            <p className="text-2xl font-bold" style={{ color: colors.text }}>{stat.value}</p>
+                          </div>
+                          <div
+                            className="p-2 rounded-lg"
+                            style={{ backgroundColor: alpha(stat.color, 15) }}
+                          >
+                            <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* HIPAA + GDPR Main Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* HIPAA Card */}
+                  <Card className="glass-card-enhanced">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Lock className="h-5 w-5" style={{ color: colors.error }} />
+                        HIPAA Compliance
+                      </CardTitle>
+                      <CardDescription>Protected Health Information tracking</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>PHI Fields Detected</span>
+                          <Badge variant="destructive">{hipaaFields}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>Encryption Enabled</span>
+                          {hipaaControls.encryption
+                            ? <CheckCircle2 className="h-5 w-5" style={{ color: colors.success }} />
+                            : <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                          }
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>Audit Trail</span>
+                          {hipaaControls.auditTrail
+                            ? <CheckCircle2 className="h-5 w-5" style={{ color: colors.success }} />
+                            : <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                          }
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>Access Controls</span>
+                          {hipaaControls.accessControl
+                            ? <CheckCircle2 className="h-5 w-5" style={{ color: colors.success }} />
+                            : <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                          }
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span style={{ color: colors.textMuted }}>Compliance Score</span>
+                            <span className="font-semibold" style={{ color: hipaa.score >= 80 ? colors.success : hipaa.score >= 60 ? colors.warning : colors.error }}>
+                              {hipaa.score}%
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: `${hipaa.score}%`,
+                                backgroundColor: hipaa.score >= 80 ? colors.success : hipaa.score >= 60 ? colors.warning : colors.error,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* GDPR Card */}
+                  <Card className="glass-card-enhanced">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5" style={{ color: colors.primary }} />
+                        GDPR Compliance
+                      </CardTitle>
+                      <CardDescription>Personal data protection (EU)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>PII Fields Detected</span>
+                          <Badge variant="secondary">{gdprFields}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>Consent Tracking</span>
+                          {gdprControls.consentTracking
+                            ? <CheckCircle2 className="h-5 w-5" style={{ color: colors.success }} />
+                            : <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                          }
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>Data Retention</span>
+                          {gdprControls.dataRetention
+                            ? <CheckCircle2 className="h-5 w-5" style={{ color: colors.success }} />
+                            : <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                          }
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm" style={{ color: colors.textMuted }}>DSAR Handling</span>
+                          {gdprControls.dsarHandling
+                            ? <CheckCircle2 className="h-5 w-5" style={{ color: colors.success }} />
+                            : <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                          }
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span style={{ color: colors.textMuted }}>Compliance Score</span>
+                            <span className="font-semibold" style={{ color: gdpr.score >= 80 ? colors.success : gdpr.score >= 60 ? colors.warning : colors.error }}>
+                              {gdpr.score}%
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: `${gdpr.score}%`,
+                                backgroundColor: gdpr.score >= 80 ? colors.success : gdpr.score >= 60 ? colors.warning : colors.error,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Regulatory Frameworks Grid */}
+                <Card className="glass-card-enhanced">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5" style={{ color: colors.primary }} />
+                      Regulatory Frameworks
+                    </CardTitle>
+                    <CardDescription>Compliance coverage across industry standards</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {frameworksArray.map((fw: any) => {
+                        const IconComp = frameworkIcons[fw.icon] || Shield;
+                        const statusColor = fw.status === 'active' ? colors.success : fw.status === 'partial' ? colors.warning : colors.textMuted;
+                        return (
+                          <div
+                            key={fw.name}
+                            className="p-4 rounded-lg border text-center transition-all"
+                            style={{
+                              borderColor: alpha(colors.border, 80),
+                              backgroundColor: alpha(colors.bgTertiary, 15),
+                            }}
+                          >
+                            <div
+                              className="p-2 rounded-lg w-fit mx-auto mb-3"
+                              style={{ backgroundColor: alpha(statusColor, 12) }}
+                            >
+                              <IconComp className="h-6 w-6" style={{ color: statusColor }} />
+                            </div>
+                            <h4 className="font-semibold text-sm" style={{ color: colors.text }}>{fw.name}</h4>
+                            <Badge
+                              variant={frameworkStatusVariant[fw.status] || 'outline'}
+                              className="mt-2"
+                            >
+                              {fw.status}
+                            </Badge>
+                            <div className="mt-3">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span style={{ color: colors.textMuted }}>Score</span>
+                                <span className="font-mono font-semibold" style={{ color: colors.text }}>{fw.score}%</span>
+                              </div>
+                              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                                <div
+                                  className="h-full rounded-full transition-all duration-700"
+                                  style={{
+                                    width: `${fw.coverage}%`,
+                                    backgroundColor: statusColor,
+                                  }}
+                                />
+                              </div>
+                              <p className="text-[10px] mt-1" style={{ color: colors.textMuted }}>
+                                {fw.coverage}% coverage
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Sensitivity Breakdown + Top Findings */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Sensitivity Breakdown */}
+                  <Card className="glass-card-enhanced">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Lock className="h-5 w-5" style={{ color: colors.primary }} />
+                        Sensitivity Breakdown
+                      </CardTitle>
+                      <CardDescription>Data classification distribution</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {Object.entries(sensitivity).map(([level, count]) => {
+                          const maxVal = Math.max(summary.totalColumns, 1);
+                          const pct = Math.round((count as number / maxVal) * 100);
+                          const color = sensitivityColors[level] || colors.textMuted;
+                          return (
+                            <div key={level}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-sm font-medium capitalize" style={{ color: colors.text }}>{level}</span>
+                                <span className="text-xs font-mono" style={{ color: colors.textMuted }}>{count as number} columns ({pct}%)</span>
+                              </div>
+                              <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 50) }}>
+                                <div
+                                  className="h-full rounded-full transition-all duration-700"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor: color,
+                                    opacity: 0.85,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Findings */}
+                  <Card className="glass-card-enhanced">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5" style={{ color: colors.warning }} />
+                        Top Findings
+                      </CardTitle>
+                      <CardDescription>Compliance-sensitive fields detected</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                        {findings.length === 0 ? (
+                          <div className="text-center py-6" style={{ color: colors.textMuted }}>
+                            <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">No compliance findings detected</p>
+                          </div>
+                        ) : (
+                          findings.map((f: any, i: number) => (
+                            <div
+                              key={i}
+                              className="p-3 rounded-lg border transition-all"
+                              style={{
+                                borderColor: alpha(colors.border, 60),
+                                backgroundColor: alpha(colors.bgTertiary, 10),
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-sm font-mono font-medium" style={{ color: colors.text }}>
+                                  {f.table}.{f.column}
+                                </span>
+                                <span className="text-[10px] font-mono" style={{ color: colors.textMuted }}>
+                                  {f.confidence}%
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {f.frameworks.map((fw: string) => (
+                                  <Badge
+                                    key={fw}
+                                    variant={
+                                      fw === 'PHI' ? 'destructive' :
+                                      fw === 'PII' ? 'secondary' :
+                                      'outline'
+                                    }
+                                    className="text-[10px] px-1.5 py-0"
+                                    style={
+                                      fw === 'SOX'
+                                        ? { borderColor: alpha(colors.primary, 40), color: colors.primary }
+                                        : fw === 'PCI'
+                                        ? { borderColor: alpha('#a855f7', 40), color: '#a855f7' }
+                                        : undefined
+                                    }
+                                  >
+                                    {fw}
+                                  </Badge>
+                                ))}
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0"
+                                  style={{
+                                    borderColor: alpha(sensitivityColors[f.sensitivity] || colors.textMuted, 40),
+                                    color: sensitivityColors[f.sensitivity] || colors.textMuted,
+                                  }}
+                                >
+                                  {f.sensitivity}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>
