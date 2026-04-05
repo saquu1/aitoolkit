@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,7 @@ import {
   Brain,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Check,
   X,
   AlertTriangle,
@@ -57,6 +58,12 @@ import {
   Accessibility,
   BadgeCheck,
   CreditCard,
+  Clock,
+  RotateCcw,
+  LayoutDashboard,
+  Download,
+  AlertCircle,
+  CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -600,7 +607,45 @@ const STEPS = [
   { number: 6, label: 'Review', icon: ClipboardCheck },
 ];
 
+// ── Compliance Scan Data (from /api/compliance-scan) ──
+interface ComplianceScanData {
+  success: boolean;
+  scanTimestamp: string;
+  summary: {
+    totalColumns: number;
+    piiFields: number;
+    phiFields: number;
+    financialFields: number;
+    soxFields: number;
+    pciFields: number;
+    encryptionRequired: number;
+    maskingRequired: number;
+    auditRequired: number;
+    consentRequired: number;
+  };
+  frameworks: Record<string, {
+    status: string;
+    score: number;
+    coverage: string;
+    findings: Array<{ rule: string; status: string; severity: string }>;
+  }>;
+  sensitivityBreakdown: {
+    public: number;
+    internal: number;
+    confidential: number;
+    restricted: number;
+  };
+  topFindings: Array<{
+    table: string;
+    column: string;
+    classification: string[];
+    sensitivity: string;
+    confidence: number;
+  }>;
+}
+
 const STORAGE_KEY = 'framework-activation-config';
+const ACTIVATION_STORAGE_KEY = 'framework-activation-timestamp';
 
 // =============================================================================
 // MAIN COMPONENT
@@ -765,7 +810,11 @@ export function FrameworkActivationConfig() {
   }, []);
 
   const handleActivate = useCallback(() => {
+    const ts = new Date().toISOString();
     setWizardState((prev) => ({ ...prev, activated: true }));
+    try {
+      localStorage.setItem(ACTIVATION_STORAGE_KEY, ts);
+    } catch { /* ignore */ }
   }, []);
 
   const handleSaveDraft = useCallback(() => {
@@ -968,6 +1017,7 @@ export function FrameworkActivationConfig() {
             mandatoryCount={mandatoryCount}
             onActivate={handleActivate}
             onSaveDraft={handleSaveDraft}
+            onGoBack={prevStep}
           />
         )}
       </div>
@@ -1059,8 +1109,8 @@ function StepIndustry({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="space-y-4 content-fade-in">
+      <div className="section-header flex items-center gap-3 pb-3 mb-1">
         <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
           <Building className="h-5 w-5" style={{ color: colors.primary }} />
         </div>
@@ -1072,7 +1122,7 @@ function StepIndustry({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {INDUSTRIES.map((industry) => {
           const isSelected = selectedIndustry === industry.id;
           const Icon = industry.icon;
@@ -1080,11 +1130,12 @@ function StepIndustry({
             <button
               key={industry.id}
               onClick={() => onSelect(industry.id)}
-              className="text-left rounded-xl p-5 transition-all duration-200 card-hover-lift cursor-pointer"
+              className="text-left rounded-xl p-5 transition-all duration-200 card-interactive glass-card-enhanced cursor-pointer"
               style={{
-                backgroundColor: isSelected ? alpha(colors.primary, 10) : alpha(colors.card, 80),
+                backgroundColor: isSelected ? alpha(colors.primary, 10) : undefined,
                 border: `2px solid ${isSelected ? colors.primary : alpha(colors.border, 50)}`,
-                boxShadow: isSelected ? `0 0 20px ${alpha(colors.primary, 15)}` : 'none',
+                boxShadow: isSelected ? `0 0 20px ${alpha(colors.primary, 15)}` : undefined,
+                borderLeft: isSelected ? `4px solid ${colors.primary}` : undefined,
               }}
             >
               <div className="flex items-start justify-between mb-3">
@@ -1170,8 +1221,8 @@ function StepGeography({
   onToggle: (id: string) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="space-y-4 content-fade-in">
+      <div className="section-header flex items-center gap-3 pb-3 mb-1">
         <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
           <Globe className="h-5 w-5" style={{ color: colors.primary }} />
         </div>
@@ -1209,18 +1260,19 @@ function StepGeography({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {GEOGRAPHIES.map((geo) => {
           const isSelected = selectedGeographies.includes(geo.id);
           return (
             <button
               key={geo.id}
               onClick={() => onToggle(geo.id)}
-              className="text-left rounded-xl p-4 transition-all duration-200 card-hover-lift cursor-pointer"
+              className="text-left rounded-xl p-4 transition-all duration-200 card-interactive glass-card-enhanced cursor-pointer"
               style={{
-                backgroundColor: isSelected ? alpha(colors.primary, 10) : alpha(colors.card, 80),
+                backgroundColor: isSelected ? alpha(colors.primary, 10) : undefined,
                 border: `2px solid ${isSelected ? colors.primary : alpha(colors.border, 50)}`,
-                boxShadow: isSelected ? `0 0 16px ${alpha(colors.primary, 12)}` : 'none',
+                boxShadow: isSelected ? `0 0 16px ${alpha(colors.primary, 12)}` : undefined,
+                borderLeft: isSelected ? `4px solid ${colors.primary}` : undefined,
               }}
             >
               <div className="flex items-start gap-3">
@@ -1303,18 +1355,16 @@ function StepFrameworks({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
-            <Shield className="h-5 w-5" style={{ color: colors.primary }} />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Compliance Frameworks</h3>
-            <p className="text-sm" style={{ color: colors.textMuted }}>
-              Auto-computed based on your industry and geography selections.
-            </p>
-          </div>
+    <div className="space-y-4 content-fade-in">
+      <div className="section-header flex items-center gap-3 pb-3 mb-1">
+        <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
+          <Shield className="h-5 w-5" style={{ color: colors.primary }} />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Compliance Frameworks</h3>
+          <p className="text-sm" style={{ color: colors.textMuted }}>
+            Auto-computed based on your industry and geography selections.
+          </p>
         </div>
       </div>
 
@@ -1396,7 +1446,7 @@ function StepFrameworks({
             return (
               <div
                 key={fw.id}
-                className="rounded-xl p-4 transition-all duration-200"
+                className="rounded-xl p-4 transition-all duration-200 glass-card-enhanced"
                 style={{
                   backgroundColor: enabled ? alpha(colors.primary, 6) : alpha(colors.card, 80),
                   border: `1px solid ${enabled ? alpha(colors.primary, 30) : alpha(colors.border, 40)}`,
@@ -1484,8 +1534,8 @@ function StepSensitivity({
   onSelect: (policy: SensitivityPolicy) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="space-y-4 content-fade-in">
+      <div className="section-header flex items-center gap-3 pb-3 mb-1">
         <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
           <Eye className="h-5 w-5" style={{ color: colors.primary }} />
         </div>
@@ -1539,7 +1589,7 @@ function StepSensitivity({
             <button
               key={policy.id}
               onClick={() => onSelect(policy.id)}
-              className="text-left rounded-xl p-5 transition-all duration-200 card-hover-lift cursor-pointer"
+              className="text-left rounded-xl p-5 transition-all duration-200 card-interactive glass-card-enhanced cursor-pointer"
               style={{
                 backgroundColor: isSelected ? alpha(policyColor, 8) : alpha(colors.card, 80),
                 border: `2px solid ${isSelected ? policyColor : alpha(colors.border, 50)}`,
@@ -1624,8 +1674,8 @@ function StepSpecialCircumstances({
   const yesCount = Object.values(circumstances).filter(Boolean).length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="space-y-4 content-fade-in">
+      <div className="section-header flex items-center gap-3 pb-3 mb-1">
         <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
           <AlertTriangle className="h-5 w-5" style={{ color: colors.primary }} />
         </div>
@@ -1735,7 +1785,7 @@ function StepSpecialCircumstances({
 }
 
 // =============================================================================
-// STEP 6 — Configuration Review
+// STEP 6 — Configuration Review (Enhanced)
 // =============================================================================
 
 function StepReview({
@@ -1749,6 +1799,7 @@ function StepReview({
   mandatoryCount,
   onActivate,
   onSaveDraft,
+  onGoBack,
 }: {
   colors: any;
   alpha: (c: string, o: number) => string;
@@ -1760,15 +1811,57 @@ function StepReview({
   mandatoryCount: number;
   onActivate: () => void;
   onSaveDraft: () => void;
+  onGoBack: () => void;
 }) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    industry: true,
-    geography: true,
+    summary: true,
     frameworks: true,
-    sensitivity: true,
+    compliance: true,
+    residency: false,
     circumstances: true,
-    impact: true,
   });
+
+  const [complianceData, setComplianceData] = useState<ComplianceScanData | null>(null);
+  const [complianceLoading, setComplianceLoading] = useState(true);
+  const [complianceError, setComplianceError] = useState(false);
+  const [activationTimestamp, setActivationTimestamp] = useState<string | null>(null);
+  const fetchedRef = useRef(false);
+
+  // Fetch compliance scan data once on mount
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    const rafId = requestAnimationFrame(() => {
+      setComplianceLoading(true);
+      fetch('/api/compliance-scan')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setComplianceData(data as ComplianceScanData);
+          } else {
+            setComplianceError(true);
+          }
+        })
+        .catch(() => {
+          setComplianceError(true);
+        })
+        .finally(() => {
+          setComplianceLoading(false);
+        });
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  // Check for stored activation timestamp
+  useEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      try {
+        const ts = localStorage.getItem(ACTIVATION_STORAGE_KEY);
+        if (ts) setActivationTimestamp(ts);
+      } catch { /* ignore */ }
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [wizardState.activated]);
 
   const toggleSection = (key: string) => {
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -1782,98 +1875,176 @@ function StepReview({
   const answeredCircumstances = SPECIAL_CIRCUMSTANCES.filter((c) => wizardState.specialCircumstances[c.id]);
   const enabledFrameworks = FRAMEWORKS.filter((fw) => isFrameworkEnabled(fw.id, frameworkStatuses[fw.id] || 'NOT_APPLICABLE'));
 
-  // Group enabled frameworks by category
-  const frameworksByCategory: Record<string, typeof enabledFrameworks> = {};
-  enabledFrameworks.forEach((fw) => {
-    if (!frameworksByCategory[fw.category]) frameworksByCategory[fw.category] = [];
-    frameworksByCategory[fw.category].push(fw);
+  // Count by status
+  const mandatoryFws = enabledFrameworks.filter((fw) => frameworkStatuses[fw.id] === 'MANDATORY');
+  const recommendedFws = enabledFrameworks.filter((fw) => frameworkStatuses[fw.id] === 'RECOMMENDED');
+  const optionalFws = enabledFrameworks.filter((fw) => frameworkStatuses[fw.id] === 'OPTIONAL');
+
+  // Strictness level for indicator
+  const strictnessLevel = selectedPolicy?.strictnessLevel || 0;
+
+  // Data residency rules from selected geographies
+  const residencyRules = selectedGeos.flatMap((geo) => {
+    const rules: Array<{ flag: string; region: string; rule: string; severity: 'critical' | 'high' | 'medium' }> = [];
+    if (geo.id === 'eu') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'EU data must stay in EU servers or adequacy-approved countries', severity: 'critical' });
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'Standard Contractual Clauses (SCCs) required for transfers outside EU', severity: 'high' });
+    }
+    if (geo.id === 'uk') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'UK data subject to UK GDPR — ICO enforcement applies', severity: 'high' });
+    }
+    if (geo.id === 'china') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'Data localization required — sensitive data MUST stay in China', severity: 'critical' });
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'Cross-border transfer: security assessment by CAC required', severity: 'critical' });
+    }
+    if (geo.id === 'usa' || geo.id === 'california') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'Sector-specific regulations apply (HIPAA, GLBA, FERPA, CCPA)', severity: 'medium' });
+    }
+    if (geo.id === 'brazil') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'LGPD requires legal basis for all data processing', severity: 'high' });
+    }
+    if (geo.id === 'india') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'DPDP Act 2023: data localization for sensitive personal data', severity: 'high' });
+    }
+    if (geo.id === 'singapore') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'PDPA: consent obligation and purpose limitation apply', severity: 'medium' });
+    }
+    if (geo.id === 'japan') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'APPI: cross-border transfer rules require consent', severity: 'medium' });
+    }
+    if (geo.id === 'global') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'GDPR baseline applied — strictest rule per data field', severity: 'critical' });
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'Multi-region database architecture recommended', severity: 'high' });
+    }
+    if (geo.id === 'south_korea') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'PIPA: one of strictest in Asia — consent required', severity: 'high' });
+    }
+    if (geo.id === 'australia') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'Privacy Act 1988 — Australian Privacy Principles apply', severity: 'medium' });
+    }
+    if (geo.id === 'canada') {
+      rules.push({ flag: geo.flag, region: geo.name, rule: 'PIPEDA — knowledge and consent required for collection', severity: 'medium' });
+    }
+    return rules;
   });
 
-  // Dummy impact data
-  const impactData = {
-    phiFields: selectedIndustry?.id === 'healthcare' ? 54 : 0,
-    piiFields: 63,
-    pciFields: ['financial', 'retail', 'hospitality'].includes(selectedIndustry?.id || '') ? 12 : 0,
-    soxFields: ['financial', 'legal'].includes(selectedIndustry?.id || '') ? 8 : 0,
-  };
-  const complianceGaps = [
-    { severity: 'warning', framework: 'SOX', issue: 'Access review schedule not configured' },
-    { severity: 'info', framework: 'GDPR', issue: 'Cookie consent banner needs update' },
-    ...(selectedIndustry?.id === 'healthcare' ? [{ severity: 'error', framework: 'HIPAA', issue: 'Breach notification workflow missing' }] : []),
-    ...(wizardState.specialCircumstances.automated_decisions ? [{ severity: 'warning', framework: 'EU AI Act', issue: 'AI impact assessment pending' }] : []),
-  ];
-
+  // ── Activation Success State ──
   if (wizardState.activated) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 content-fade-in">
+        {/* Success Banner */}
         <div
-          className="rounded-2xl p-8 text-center"
+          className="glass-card-enhanced rounded-2xl p-8 text-center relative overflow-hidden"
           style={{
-            background: `linear-gradient(135deg, ${alpha(colors.success, 10)}, ${alpha(colors.primary, 10)})`,
+            background: `linear-gradient(135deg, ${alpha(colors.success, 10)}, ${alpha(colors.primary, 8)})`,
             border: `2px solid ${alpha(colors.success, 30)}`,
           }}
         >
+          {/* Animated checkmark */}
           <div
-            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ backgroundColor: alpha(colors.success, 20) }}
+            className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 relative"
+            style={{ backgroundColor: alpha(colors.success, 15) }}
           >
-            <Check className="h-8 w-8" style={{ color: colors.success }} />
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                backgroundColor: alpha(colors.success, 8),
+                animation: 'ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite',
+              }}
+            />
+            <Check className="h-10 w-10 relative" style={{ color: colors.success }} />
           </div>
+
           <h3 className="text-xl font-bold mb-2" style={{ color: colors.text }}>
             Framework Configuration Activated
           </h3>
-          <p className="text-sm mb-6" style={{ color: colors.textMuted }}>
+          <p className="text-sm mb-1" style={{ color: colors.textMuted }}>
             {activeFrameworkCount} compliance frameworks have been activated with your chosen sensitivity policy.
-            Your schema will now be scanned for compliance violations against all active frameworks.
           </p>
-          <div className="flex justify-center gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.success }}>{activeFrameworkCount}</div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>Active Frameworks</div>
-            </div>
+          <p className="text-sm mb-6" style={{ color: colors.textMuted }}>
+            Your schema will now be continuously scanned for compliance violations.
+          </p>
+
+          {/* Activation timestamp */}
+          {activationTimestamp && (
             <div
-              className="w-px"
-              style={{ backgroundColor: alpha(colors.border, 50) }}
-            />
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.warning }}>{mandatoryCount}</div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>Mandatory</div>
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs mb-6"
+              style={{
+                backgroundColor: alpha(colors.success, 10),
+                border: `1px solid ${alpha(colors.success, 20)}`,
+                color: colors.success,
+              }}
+            >
+              <Clock className="h-3 w-3" />
+              Activated {new Date(activationTimestamp).toLocaleString()}
             </div>
-            <div
-              className="w-px"
-              style={{ backgroundColor: alpha(colors.border, 50) }}
-            />
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.primary }}>
-                {selectedGeos.length}
-              </div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>Regions</div>
-            </div>
-            <div
-              className="w-px"
-              style={{ backgroundColor: alpha(colors.border, 50) }}
-            />
-            <div className="text-center">
-              <div className="text-2xl font-bold" style={{ color: colors.accent }}>
-                {selectedPolicy?.name}
-              </div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>Policy</div>
-            </div>
+          )}
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
+            {[
+              { label: 'Active Frameworks', value: activeFrameworkCount, color: colors.success, icon: Shield },
+              { label: 'Mandatory', value: mandatoryCount, color: colors.error, icon: Lock },
+              { label: 'Regions', value: selectedGeos.length, color: colors.primary, icon: Globe },
+              { label: 'Policy', value: selectedPolicy?.name || '—', color: colors.warning, icon: selectedPolicy?.icon || Eye },
+            ].map((stat) => {
+              const StatIcon = stat.icon;
+              return (
+                <div
+                  key={stat.label}
+                  className="p-3 rounded-xl"
+                  style={{ backgroundColor: alpha(stat.color, 6), border: `1px solid ${alpha(stat.color, 15)}` }}
+                >
+                  <StatIcon className="h-4 w-4 mx-auto mb-1.5" style={{ color: stat.color }} />
+                  <div className="number-highlight text-xl" style={{ color: stat.color }}>{stat.value}</div>
+                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>{stat.label}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
+        {/* Action Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Button
+            className="h-12 text-sm font-semibold"
+            style={{
+              backgroundColor: colors.primary,
+              color: '#fff',
+              boxShadow: `0 4px 14px ${alpha(colors.primary, 25)}`,
+            }}
+          >
+            <LayoutDashboard className="h-4 w-4 mr-2" />
+            View Compliance Dashboard
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 text-sm font-medium"
+            style={{
+              borderColor: colors.border,
+              color: colors.text,
+              backgroundColor: alpha(colors.card, 60),
+            }}
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Edit Configuration
+          </Button>
+        </div>
+
+        {/* Next Steps Info */}
         <div
-          className="rounded-xl p-4 flex items-center gap-3"
+          className="glass-card-enhanced rounded-xl p-4 flex items-start gap-3"
           style={{
-            backgroundColor: alpha(colors.primary, 8),
-            border: `1px solid ${alpha(colors.primary, 20)}`,
+            backgroundColor: alpha(colors.primary, 6),
+            border: `1px solid ${alpha(colors.primary, 15)}`,
           }}
         >
-          <Target className="h-5 w-5 shrink-0" style={{ color: colors.primary }} />
+          <Target className="h-5 w-5 shrink-0 mt-0.5" style={{ color: colors.primary }} />
           <div>
-            <p className="text-sm font-medium" style={{ color: colors.text }}>Next Steps</p>
-            <p className="text-xs" style={{ color: colors.textMuted }}>
-              Navigate to the Compliance tab to view real-time compliance scan results across your schema. The system will continuously monitor all {activeFrameworkCount} active frameworks.
+            <p className="text-sm font-medium mb-1" style={{ color: colors.text }}>What Happens Next</p>
+            <p className="text-xs leading-relaxed" style={{ color: colors.textMuted }}>
+              Navigate to the <span className="font-medium" style={{ color: colors.primary }}>Compliance</span> tab in the Intelligence Bank to view real-time compliance scan results across your schema.
+              The system will continuously monitor all {activeFrameworkCount} active frameworks and flag any violations.
             </p>
           </div>
         </div>
@@ -1881,158 +2052,424 @@ function StepReview({
     );
   }
 
+  // ── Pre-Activation Review State ──
+  // Derive compliance data from API or fallback
+  const totalFields = complianceData?.summary.totalColumns || 0;
+  const piiFields = complianceData?.summary.piiFields || 0;
+  const phiFields = complianceData?.summary.phiFields || 0;
+  const encryptionReq = complianceData?.summary.encryptionRequired || 0;
+  const maskingReq = complianceData?.summary.maskingRequired || 0;
+  const auditReq = complianceData?.summary.auditRequired || 0;
+  const consentReq = complianceData?.summary.consentRequired || 0;
+  const affectedFields = totalFields > 0 ? totalFields : piiFields + phiFields;
+
+  // Count critical gaps from framework findings
+  const criticalGaps = complianceData
+    ? Object.values(complianceData.frameworks).reduce((count, fw) => {
+        return count + fw.findings.filter((f) => f.status === 'FAIL' || f.severity === 'critical').length;
+      }, 0)
+    : 0;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="space-y-4 content-fade-in">
+      {/* ── Section Header ── */}
+      <div className="section-header flex items-center gap-3 pb-3 mb-1">
         <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
           <ClipboardCheck className="h-5 w-5" style={{ color: colors.primary }} />
         </div>
         <div>
           <h3 className="text-lg font-semibold" style={{ color: colors.text }}>Configuration Review</h3>
           <p className="text-sm" style={{ color: colors.textMuted }}>
-            Review all your selections before activating the compliance framework configuration.
+            Review your selections and impact before activating compliance frameworks.
           </p>
         </div>
       </div>
 
-      <ScrollArea className="max-h-[600px]">
-        <div className="space-y-3 pr-2 pb-2">
-          {/* ── Industry Summary ── */}
-          <ReviewSection
-            title="Selected Industry"
-            expanded={expandedSections.industry}
-            onToggle={() => toggleSection('industry')}
-            colors={colors}
-            alpha={alpha}
-            icon={selectedIndustry?.icon || Building}
-            badgeText={selectedIndustry?.name || 'None'}
-            badgeColor={colors.primary}
+      <ScrollArea className="max-h-[650px]">
+        <div className="space-y-4 pr-2 pb-4">
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* 1. ACTIVATION SUMMARY CARD                        */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          <div
+            className="glass-card-enhanced rounded-xl p-5 space-y-4"
+            style={{ borderLeft: `4px solid ${colors.primary}` }}
           >
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold" style={{ color: colors.text }}>Activation Summary</h4>
+              <Badge
+                className="badge-soft text-xs"
+                style={{
+                  backgroundColor: alpha(colors.primary, 12),
+                  color: colors.primary,
+                }}
+              >
+                {activeFrameworkCount} frameworks active
+              </Badge>
+            </div>
+
+            {/* Industry + Icon */}
             {selectedIndustry && (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedIndustry.subTypes.map((sub) => (
-                    <span key={sub} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.bgTertiary, 60), color: colors.textMuted }}>
-                      {sub}
-                    </span>
-                  ))}
+              <div className="flex items-center gap-3 p-3 rounded-lg" style={{ backgroundColor: alpha(colors.bgTertiary, 30) }}>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: alpha(colors.primary, 15) }}>
+                  {React.createElement(selectedIndustry.icon, { className: 'h-5 w-5', style: { color: colors.primary } })}
                 </div>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {selectedIndustry.autoFrameworks.map((fw) => (
-                    <span key={fw} className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: alpha(colors.warning, 12), color: colors.warning, border: `1px solid ${alpha(colors.warning, 25)}` }}>
-                      {fw}
-                    </span>
-                  ))}
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: colors.text }}>{selectedIndustry.name}</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedIndustry.subTypes.slice(0, 4).map((sub) => (
+                      <span key={sub} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: alpha(colors.bgTertiary, 60), color: colors.textMuted }}>
+                        {sub}
+                      </span>
+                    ))}
+                    {selectedIndustry.subTypes.length > 4 && (
+                      <span className="text-xs" style={{ color: colors.textMuted }}>+{selectedIndustry.subTypes.length - 4}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
-          </ReviewSection>
 
-          {/* ── Geography Summary ── */}
-          <ReviewSection
-            title="Selected Geographies"
-            expanded={expandedSections.geography}
-            onToggle={() => toggleSection('geography')}
-            colors={colors}
-            alpha={alpha}
-            icon={Globe}
-            badgeText={`${selectedGeos.length} regions`}
-            badgeColor={colors.primary}
-          >
-            <div className="space-y-2">
+            {/* Geographies with Flags */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Regions:</span>
               {selectedGeos.map((geo) => (
-                <div key={geo.id} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: alpha(colors.bgTertiary, 30) }}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{geo.flag}</span>
-                    <span className="text-sm font-medium" style={{ color: colors.text }}>{geo.name}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {geo.regulations.map((reg) => (
-                      <span key={reg} className="text-xs px-1.5 py-0.5 rounded" style={{ color: reg.includes('MANDATORY') ? colors.error : colors.textMuted, fontWeight: reg.includes('MANDATORY') ? 600 : 400 }}>
-                        {reg}
-                      </span>
-                    ))}
-                  </div>
+                <span
+                  key={geo.id}
+                  className="text-xs px-2 py-1 rounded-full font-medium"
+                  style={{
+                    backgroundColor: alpha(colors.primary, 10),
+                    color: colors.primary,
+                    border: `1px solid ${alpha(colors.primary, 20)}`,
+                  }}
+                >
+                  {geo.flag} {geo.name}
+                </span>
+              ))}
+            </div>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Mandatory', value: mandatoryFws.length, color: colors.error },
+                { label: 'Recommended', value: recommendedFws.length, color: colors.warning },
+                { label: 'Optional', value: optionalFws.length, color: colors.textMuted },
+                { label: 'Total Active', value: activeFrameworkCount, color: colors.success },
+              ].map((stat) => (
+                <div key={stat.label} className="text-center p-2.5 rounded-lg" style={{ backgroundColor: alpha(stat.color, 6) }}>
+                  <div className="number-highlight text-lg" style={{ color: stat.color }}>{stat.value}</div>
+                  <div className="text-xs" style={{ color: colors.textMuted }}>{stat.label}</div>
                 </div>
               ))}
             </div>
-          </ReviewSection>
 
-          {/* ── Frameworks Summary ── */}
+            {/* Sensitivity Policy with Strictness Indicator */}
+            {selectedPolicy && (
+              <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: alpha(colors.bgTertiary, 30) }}>
+                <div className="flex items-center gap-2">
+                  {React.createElement(selectedPolicy.icon, { className: 'h-4 w-4', style: { color: colors.warning } })}
+                  <span className="text-sm font-medium" style={{ color: colors.text }}>
+                    {selectedPolicy.name} Policy
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Strictness:</span>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className="h-1.5 rounded-full transition-all duration-300"
+                        style={{
+                          width: level <= strictnessLevel ? '20px' : '10px',
+                          backgroundColor: level <= strictnessLevel
+                            ? [colors.success, colors.warning, colors.primary, colors.error][level - 1]
+                            : alpha(colors.border, 40),
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Active Special Circumstances */}
+            {answeredCircumstances.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Special Circumstances:</span>
+                {answeredCircumstances.map((c) => (
+                  <Badge
+                    key={c.id}
+                    className="badge-soft badge-soft-warning text-xs"
+                    style={{
+                      backgroundColor: alpha(colors.warning, 12),
+                      color: colors.warning,
+                    }}
+                  >
+                    {c.question.length > 40 ? c.question.slice(0, 40) + '…' : c.question}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* 2. FRAMEWORK IMPACT PREVIEW                         */}
+          {/* ═══════════════════════════════════════════════════════ */}
           <ReviewSection
-            title="Active Frameworks"
+            title="Framework Impact Preview"
             expanded={expandedSections.frameworks}
             onToggle={() => toggleSection('frameworks')}
             colors={colors}
             alpha={alpha}
             icon={Shield}
             badgeText={`${activeFrameworkCount} active`}
-            badgeColor={colors.success}
+            badgeColor={colors.primary}
           >
-            <div className="space-y-3">
-              {Object.entries(frameworksByCategory).map(([category, frameworks]) => (
-                <div key={category}>
-                  <p className="text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: colors.textMuted }}>
-                    {category}
-                  </p>
-                  <div className="space-y-1">
-                    {frameworks.map((fw) => {
-                      const status = frameworkStatuses[fw.id];
-                      const Icon = fw.icon;
-                      return (
-                        <div key={fw.id} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: alpha(colors.bgTertiary, 30) }}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="h-3.5 w-3.5" style={{ color: colors.primary }} />
-                            <span className="text-sm" style={{ color: colors.text }}>{fw.name}</span>
-                            <span className="text-xs" style={{ color: colors.textMuted }}>— {fw.fullName}</span>
+            <div className="space-y-2">
+              {enabledFrameworks.map((fw) => {
+                const status = frameworkStatuses[fw.id];
+                const Icon = fw.icon;
+                const statusColor = status === 'MANDATORY' ? colors.error : status === 'RECOMMENDED' ? colors.primary : colors.textMuted;
+                const borderColor = status === 'MANDATORY' ? colors.error : status === 'RECOMMENDED' ? colors.primary : alpha(colors.border, 40);
+
+                // Map framework to expected impact
+                const impactMap: Record<string, string> = {
+                  gdpr: `${Math.min(piiFields, 63)} PII fields will require consent tracking & right to erasure`,
+                  ccpa: `${Math.min(piiFields, 63)} PII fields need "Do Not Sell" compliance`,
+                  hipaa_privacy: `${Math.min(phiFields, 54)} PHI fields need minimum necessary standard`,
+                  hipaa_security: `${Math.min(phiFields, 54)} PHI fields require encryption at rest & in transit`,
+                  hitech: `Breach notification required within 60 days for ${Math.min(phiFields, 54)} PHI fields`,
+                  pci_dss: `No stored PAN/CVV — encryption in transit required`,
+                  sox: `Audit trail integrity required on financial records`,
+                  soc2: `Trust service criteria evaluation needed`,
+                  iso_27001: `ISMS framework & risk assessment controls apply`,
+                };
+                const impactText = impactMap[fw.id] || `${fw.enforces.length} controls will be enforced`;
+
+                return (
+                  <div
+                    key={fw.id}
+                    className="rounded-lg p-3 transition-all duration-200 card-interactive"
+                    style={{
+                      backgroundColor: alpha(colors.card, 80),
+                      border: `1px solid ${alpha(borderColor, 30)}`,
+                      borderLeft: `3px solid ${borderColor}`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1.5 rounded" style={{ backgroundColor: alpha(statusColor, 12) }}>
+                          <Icon className="h-3.5 w-3.5" style={{ color: statusColor }} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold" style={{ color: colors.text }}>{fw.name}</span>
+                            <Badge
+                              className="badge-soft text-xs"
+                              style={{
+                                backgroundColor: alpha(statusColor, 12),
+                                color: statusColor,
+                              }}
+                            >
+                              {status === 'MANDATORY' && <Lock className="h-2.5 w-2.5 inline mr-0.5" />}
+                              {status}
+                            </Badge>
                           </div>
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                          <span className="text-xs" style={{ color: colors.textMuted }}>{fw.fullName}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enforces */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {fw.enforces.map((e) => (
+                        <span
+                          key={e}
+                          className="text-xs px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: alpha(colors.bgTertiary, 50), color: colors.textMuted }}
+                        >
+                          {e}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Impact line */}
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="h-3 w-3 shrink-0" style={{ color: statusColor }} />
+                      <span className="text-xs" style={{ color: colors.textMuted }}>{impactText}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ReviewSection>
+
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* 3. COMPLIANCE GAP PREVIEW (from API)                */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          <ReviewSection
+            title="Compliance Gap Preview"
+            expanded={expandedSections.compliance}
+            onToggle={() => toggleSection('compliance')}
+            colors={colors}
+            alpha={alpha}
+            icon={Database}
+            badgeText={complianceLoading ? 'Loading…' : complianceError ? 'Unavailable' : `${affectedFields} fields`}
+            badgeColor={complianceError ? colors.textMuted : colors.accent}
+          >
+            {complianceLoading ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-20 rounded-lg animate-pulse" style={{ backgroundColor: alpha(colors.border, 15) }} />
+                  ))}
+                </div>
+                <div className="h-3 w-3/4 rounded animate-pulse" style={{ backgroundColor: alpha(colors.border, 15) }} />
+              </div>
+            ) : complianceError ? (
+              <div
+                className="rounded-lg p-4 flex items-center gap-3"
+                style={{ backgroundColor: alpha(colors.warning, 8), border: `1px solid ${alpha(colors.warning, 20)}` }}
+              >
+                <AlertCircle className="h-5 w-5 shrink-0" style={{ color: colors.warning }} />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: colors.text }}>Scan Unavailable</p>
+                  <p className="text-xs" style={{ color: colors.textMuted }}>Could not reach the compliance scan API. Gaps will be shown after activation.</p>
+                </div>
+              </div>
+            ) : complianceData ? (
+              <div className="space-y-4">
+                {/* Field Impact Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Total Fields', value: complianceData.summary.totalColumns, color: colors.text },
+                    { label: 'PII Detected', value: complianceData.summary.piiFields, color: colors.warning },
+                    { label: 'PHI Detected', value: complianceData.summary.phiFields, color: colors.error },
+                    { label: 'Critical Gaps', value: criticalGaps, color: criticalGaps > 0 ? colors.error : colors.success },
+                  ].map((stat) => (
+                    <div key={stat.label} className="text-center p-3 rounded-lg" style={{ backgroundColor: alpha(stat.color, 6) }}>
+                      <div className="number-highlight text-xl" style={{ color: stat.color }}>{stat.value}</div>
+                      <div className="text-xs" style={{ color: colors.textMuted }}>{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Progress Bars */}
+                <div className="space-y-3">
+                  {[
+                    { label: 'Fields Requiring Encryption', value: encryptionReq, max: Math.max(totalFields, 1), color: colors.error },
+                    { label: 'Fields Requiring Masking', value: maskingReq, max: Math.max(totalFields, 1), color: colors.warning },
+                    { label: 'Fields Needing Audit Trail', value: auditReq, max: Math.max(totalFields, 1), color: colors.primary },
+                    { label: 'Fields Requiring Consent', value: consentReq, max: Math.max(totalFields, 1), color: colors.accent },
+                  ].map((bar) => (
+                    <div key={bar.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs" style={{ color: colors.textMuted }}>{bar.label}</span>
+                        <span className="number-highlight text-xs" style={{ color: bar.color }}>
+                          {bar.value} <span style={{ color: colors.textMuted, fontFamily: 'inherit', fontWeight: 400 }}>/ {bar.max}</span>
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 30) }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${Math.min((bar.value / bar.max) * 100, 100)}%`,
+                            backgroundColor: bar.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Framework Scores */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textMuted }}>Framework Scores</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Object.entries(complianceData.frameworks).map(([name, fw]) => {
+                      const scoreColor = fw.score >= 95 ? colors.success : fw.score >= 80 ? colors.warning : colors.error;
+                      return (
+                        <div key={name} className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: alpha(colors.bgTertiary, 30) }}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium" style={{ color: colors.text }}>{name}</span>
+                              <span className="number-highlight text-xs" style={{ color: scoreColor }}>{fw.score}%</span>
+                            </div>
+                            <Progress value={fw.score} className="h-1.5" />
+                          </div>
+                          <Badge
+                            className="badge-soft text-xs shrink-0"
                             style={{
-                              backgroundColor: status === 'MANDATORY' ? alpha(colors.error, 12) : alpha(colors.success, 12),
-                              color: status === 'MANDATORY' ? colors.error : colors.success,
+                              backgroundColor: alpha(scoreColor, 12),
+                              color: scoreColor,
                             }}
                           >
-                            {status === 'MANDATORY' && <Lock className="h-2.5 w-2.5 inline mr-1" />}
-                            {status}
-                          </span>
+                            {fw.status}
+                          </Badge>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : null}
           </ReviewSection>
 
-          {/* ── Sensitivity Policy Summary ── */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* 4. DATA RESIDENCY RULES                             */}
+          {/* ═══════════════════════════════════════════════════════ */}
           <ReviewSection
-            title="Sensitivity Policy"
-            expanded={expandedSections.sensitivity}
-            onToggle={() => toggleSection('sensitivity')}
+            title="Data Residency Rules"
+            expanded={expandedSections.residency}
+            onToggle={() => toggleSection('residency')}
             colors={colors}
             alpha={alpha}
-            icon={selectedPolicy?.icon || Eye}
-            badgeText={selectedPolicy?.name || 'None'}
-            badgeColor={colors.warning}
+            icon={MapPin}
+            badgeText={`${residencyRules.length} rules`}
+            badgeColor={residencyRules.some((r) => r.severity === 'critical') ? colors.error : colors.primary}
           >
-            {selectedPolicy && (
+            {residencyRules.length === 0 ? (
+              <div className="text-xs text-center py-4" style={{ color: colors.textMuted }}>
+                No specific data residency rules for selected regions.
+              </div>
+            ) : (
               <div className="space-y-2">
-                <p className="text-xs" style={{ color: colors.textMuted }}>{selectedPolicy.philosophy}</p>
-                <p className="text-xs font-medium" style={{ color: colors.text }}>Confidence Threshold: {selectedPolicy.confidenceThreshold}</p>
-                <div className="space-y-1 mt-2">
-                  {selectedPolicy.protectionRules.map((rule, idx) => (
-                    <div key={idx} className="flex items-start gap-2">
-                      <Check className="h-3 w-3 mt-0.5 shrink-0" style={{ color: colors.success }} />
-                      <span className="text-xs" style={{ color: colors.textMuted }}>{rule}</span>
+                {residencyRules.map((rule, idx) => {
+                  const severityColor = rule.severity === 'critical' ? colors.error : rule.severity === 'high' ? colors.warning : colors.primary;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2.5 p-2.5 rounded-lg"
+                      style={{
+                        backgroundColor: alpha(severityColor, 4),
+                        borderLeft: `3px solid ${severityColor}`,
+                      }}
+                    >
+                      <span className="text-base mt-0.5">{rule.flag}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-medium" style={{ color: colors.text }}>{rule.region}</span>
+                          <Badge
+                            className="badge-soft text-xs"
+                            style={{
+                              backgroundColor: alpha(severityColor, 12),
+                              color: severityColor,
+                            }}
+                          >
+                            {rule.severity.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <p className="text-xs" style={{ color: colors.textMuted }}>{rule.rule}</p>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             )}
           </ReviewSection>
 
-          {/* ── Special Circumstances Summary ── */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* 5. SPECIAL CIRCUMSTANCES SUMMARY                     */}
+          {/* ═══════════════════════════════════════════════════════ */}
           <ReviewSection
             title="Special Circumstances"
             expanded={expandedSections.circumstances}
@@ -2040,91 +2477,65 @@ function StepReview({
             colors={colors}
             alpha={alpha}
             icon={AlertTriangle}
-            badgeText={`${answeredCircumstances.length} yes`}
+            badgeText={`${answeredCircumstances.length} active`}
             badgeColor={answeredCircumstances.length > 0 ? colors.warning : colors.success}
           >
             <div className="space-y-1.5">
-              {SPECIAL_CIRCUMSTANCES.map((item) => (
-                <div key={item.id} className="flex items-center gap-2 p-1.5">
-                  {wizardState.specialCircumstances[item.id] ? (
-                    <Badge variant="destructive" className="text-xs">YES</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs">NO</Badge>
-                  )}
-                  <span className="text-xs" style={{ color: colors.text }}>{item.question}</span>
-                </div>
-              ))}
-            </div>
-          </ReviewSection>
-
-          {/* ── Impact Summary ── */}
-          <ReviewSection
-            title="Fields & Impact"
-            expanded={expandedSections.impact}
-            onToggle={() => toggleSection('impact')}
-            colors={colors}
-            alpha={alpha}
-            icon={Database}
-            badgeText={`${impactData.phiFields + impactData.piiFields + impactData.pciFields + impactData.soxFields} fields`}
-            badgeColor={colors.accent}
-          >
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { label: 'PHI Fields', value: impactData.phiFields, color: colors.error },
-                  { label: 'PII Fields', value: impactData.piiFields, color: colors.warning },
-                  { label: 'PCI Fields', value: impactData.pciFields, color: colors.primary },
-                  { label: 'SOX Fields', value: impactData.soxFields, color: colors.accent },
-                ].map((stat) => (
-                  <div key={stat.label} className="text-center p-3 rounded-lg" style={{ backgroundColor: alpha(stat.color, 8) }}>
-                    <div className="text-xl font-bold" style={{ color: stat.color }}>{stat.value}</div>
-                    <div className="text-xs" style={{ color: colors.textMuted }}>{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {complianceGaps.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold mb-2" style={{ color: colors.warning }}>
-                    Compliance Gaps Detected
-                  </p>
-                  <div className="space-y-1">
-                    {complianceGaps.map((gap, idx) => (
-                      <div key={idx} className="flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: alpha(gap.severity === 'error' ? colors.error : gap.severity === 'warning' ? colors.warning : colors.primary, 8) }}>
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" style={{ color: gap.severity === 'error' ? colors.error : gap.severity === 'warning' ? colors.warning : colors.primary }} />
-                        <span className="text-xs font-medium" style={{ color: colors.text }}>{gap.framework}</span>
-                        <span className="text-xs" style={{ color: colors.textMuted }}>{gap.issue}</span>
+              {SPECIAL_CIRCUMSTANCES.map((item) => {
+                const isActive = wizardState.specialCircumstances[item.id];
+                return (
+                  <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ backgroundColor: isActive ? alpha(colors.warning, 6) : 'transparent' }}>
+                    {isActive ? (
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: alpha(colors.warning, 20) }}>
+                        <Check className="h-3 w-3" style={{ color: colors.warning }} />
                       </div>
-                    ))}
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border shrink-0" style={{ borderColor: alpha(colors.border, 50) }} />
+                    )}
+                    <span className="text-xs" style={{ color: isActive ? colors.text : colors.textMuted }}>{item.question}</span>
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </ReviewSection>
+
         </div>
       </ScrollArea>
 
-      {/* ── Action Buttons ── */}
-      <div className="flex items-center gap-3 pt-4" style={{ borderTop: `1px solid ${alpha(colors.border, 50)}` }}>
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* ACTION BUTTONS                                        */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      <div className="divider-gradient my-2" />
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
         <Button
           onClick={onActivate}
-          className="flex-1"
+          className="h-12 text-sm font-bold flex-1 sm:flex-initial sm:px-8"
           style={{
             backgroundColor: colors.success,
             color: '#fff',
-            boxShadow: `0 4px 14px ${alpha(colors.success, 30)}`,
+            boxShadow: `0 4px 20px ${alpha(colors.success, 30)}`,
           }}
         >
           <Zap className="h-4 w-4 mr-2" />
-          Confirm & Activate {activeFrameworkCount} Frameworks
+          ACTIVATE {activeFrameworkCount} FRAMEWORKS
         </Button>
         <Button
           variant="outline"
           onClick={onSaveDraft}
+          className="h-12 text-sm font-medium"
           style={{ borderColor: colors.border, color: colors.text }}
         >
-          <Target className="h-4 w-4 mr-2" />
+          <Download className="h-4 w-4 mr-2" />
           Save as Draft
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={onGoBack}
+          className="h-12 text-sm font-medium"
+          style={{ color: colors.textMuted }}
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Go Back and Edit
         </Button>
       </div>
     </div>
@@ -2132,7 +2543,7 @@ function StepReview({
 }
 
 // =============================================================================
-// REVIEW SECTION HELPER
+// REVIEW SECTION HELPER (Enhanced)
 // =============================================================================
 
 function ReviewSection({
@@ -2158,42 +2569,42 @@ function ReviewSection({
 }) {
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="glass-card-enhanced rounded-xl overflow-hidden transition-all duration-200"
       style={{
-        backgroundColor: alpha(colors.card, 80),
         border: `1px solid ${alpha(colors.border, 40)}`,
       }}
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 cursor-pointer"
+        className="w-full flex items-center justify-between p-4 cursor-pointer hover:bg-opacity-50 transition-colors"
         style={{ color: colors.text }}
       >
         <div className="flex items-center gap-3">
-          <Icon className="h-4 w-4" style={{ color: badgeColor }} />
+          <div className="p-1.5 rounded" style={{ backgroundColor: alpha(badgeColor, 12) }}>
+            <Icon className="h-4 w-4" style={{ color: badgeColor }} />
+          </div>
           <span className="font-semibold text-sm">{title}</span>
-          <span
-            className="text-xs px-2 py-0.5 rounded-full font-medium"
+          <Badge
+            className="badge-soft text-xs"
             style={{
               backgroundColor: alpha(badgeColor, 12),
               color: badgeColor,
-              border: `1px solid ${alpha(badgeColor, 25)}`,
             }}
           >
             {badgeText}
-          </span>
+          </Badge>
         </div>
-        <ChevronRight
+        <ChevronDown
           className="h-4 w-4 transition-transform duration-200"
           style={{
             color: colors.textMuted,
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
           }}
         />
       </button>
       {expanded && (
         <div className="px-4 pb-4" style={{ borderTop: `1px solid ${alpha(colors.border, 30)}` }}>
-          <div className="pt-3">{children}</div>
+          <div className="pt-3 content-fade-in">{children}</div>
         </div>
       )}
     </div>

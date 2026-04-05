@@ -39,7 +39,10 @@ import {
   Download,
   ChevronRight,
   AlertOctagon,
-  Clock
+  Clock,
+  Grid3X3,
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { SOPManagementUI } from '@/components/SOPManagementUI';
 import { FrameworkActivationConfig } from '@/components/FrameworkActivationConfig';
@@ -149,6 +152,266 @@ const sampleActivityEvents: TimelineEvent[] = [
 
 interface IntelligenceBankTabProps {
   projectId?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Field Action Matrix Section — Phase 3 Component
+// ═══════════════════════════════════════════════════════════════════════════
+
+function FieldActionMatrixSection({ data, colors, alpha }: { data: any; colors: any; alpha: (color: string, opacity: number) => string }) {
+  const [expandedField, setExpandedField] = useState<string | null>(null);
+  const [classificationFilter, setClassificationFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const fam = data?.gapReport?.fieldActionMatrix || [];
+
+  if (fam.length === 0) {
+    return (
+      <div className="text-center py-8" style={{ color: colors.textMuted }}>
+        <Grid3X3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">No field action data available</p>
+        <p className="text-xs mt-1">Run a compliance scan to populate the field action matrix</p>
+      </div>
+    );
+  }
+
+  // Apply filters
+  const filtered = fam.filter((f: any) => {
+    if (classificationFilter !== 'all') {
+      if (!f.classification?.includes(classificationFilter)) return false;
+    }
+    if (statusFilter !== 'all') {
+      const hasStatus = f.applicableRules?.some((r: any) => r.status === statusFilter);
+      if (!hasStatus) return false;
+    }
+    return true;
+  });
+
+  const statusColors: Record<string, string> = {
+    PASS: '#22c55e',
+    FAIL: '#ef4444',
+    WARNING: '#eab308',
+    PARTIAL: '#f97316',
+    'N/A': colors.textMuted,
+  };
+
+  const classificationColors: Record<string, string> = {
+    PHI: '#ef4444',
+    PII: '#eab308',
+    PCI: '#a855f7',
+    SOX: '#3b82f6',
+  };
+
+  const sensitivityColors: Record<string, string> = {
+    RESTRICTED: '#ef4444',
+    SENSITIVE: '#f97316',
+    INTERNAL: '#3b82f6',
+    PUBLIC: '#22c55e',
+  };
+
+  const uniqueClassifications = [...new Set(fam.map((f: any) => f.classification).filter(Boolean).flatMap((c: string) => c.split('+')))].filter(Boolean);
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-3.5 w-3.5" style={{ color: colors.textMuted }} />
+          <span className="text-xs font-medium" style={{ color: colors.textMuted }}>Filters:</span>
+        </div>
+        <select
+          value={classificationFilter}
+          onChange={(e) => setClassificationFilter(e.target.value)}
+          className="text-xs px-2.5 py-1.5 rounded-lg border bg-transparent focus:outline-none"
+          style={{ borderColor: alpha(colors.border, 60), color: colors.text }}
+        >
+          <option value="all">All Classifications</option>
+          {uniqueClassifications.map((c: string) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="text-xs px-2.5 py-1.5 rounded-lg border bg-transparent focus:outline-none"
+          style={{ borderColor: alpha(colors.border, 60), color: colors.text }}
+        >
+          <option value="all">All Statuses</option>
+          <option value="FAIL">FAIL only</option>
+          <option value="WARNING">WARNING only</option>
+          <option value="PARTIAL">PARTIAL only</option>
+          <option value="PASS">PASS only</option>
+        </select>
+        <span className="text-xs font-mono ml-auto" style={{ color: colors.textMuted }}>
+          {filtered.length} of {fam.length} fields
+        </span>
+      </div>
+
+      {/* Field list */}
+      <div className="max-h-96 overflow-y-auto space-y-1.5 pr-1">
+        {filtered.length === 0 ? (
+          <div className="text-center py-6" style={{ color: colors.textMuted }}>
+            <p className="text-sm">No fields match the selected filters</p>
+          </div>
+        ) : (
+          filtered.map((field: any, idx: number) => {
+            const fieldKey = `${field.tableName}.${field.columnName}`;
+            const isExpanded = expandedField === fieldKey;
+            const hasFail = field.applicableRules?.some((r: any) => r.status === 'FAIL');
+            const hasWarning = field.applicableRules?.some((r: any) => r.status === 'WARNING');
+            const hasPartial = field.applicableRules?.some((r: any) => r.status === 'PARTIAL');
+            const failCount = field.applicableRules?.filter((r: any) => r.status === 'FAIL').length || 0;
+            const warnCount = field.applicableRules?.filter((r: any) => r.status === 'WARNING' || r.status === 'PARTIAL').length || 0;
+            const passCount = field.applicableRules?.filter((r: any) => r.status === 'PASS').length || 0;
+
+            const classParts = (field.classification || '').split('+');
+            const sensColor = sensitivityColors[field.sensitivityLevel] || colors.textMuted;
+
+            return (
+              <div key={fieldKey}>
+                <button
+                  className="w-full text-left p-3 rounded-lg border transition-all"
+                  style={{
+                    borderColor: alpha(hasFail ? '#ef4444' : hasWarning ? '#eab308' : colors.border, hasFail ? 50 : 30),
+                    backgroundColor: alpha(hasFail ? '#ef4444' : hasWarning ? '#eab308' : colors.border, hasFail ? 6 : 10),
+                  }}
+                  onClick={() => setExpandedField(isExpanded ? null : fieldKey)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                      <ChevronDown
+                        className="h-3.5 w-3.5 flex-shrink-0 transition-transform"
+                        style={{
+                          color: colors.textMuted,
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        }}
+                      />
+                      <span className="text-sm font-mono font-medium truncate" style={{ color: colors.text }}>
+                        {fieldKey}
+                      </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {classParts.map((c: string) => (
+                          <span
+                            key={c}
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor: alpha(classificationColors[c] || colors.textMuted, 12),
+                              color: classificationColors[c] || colors.textMuted,
+                              border: `1px solid ${alpha(classificationColors[c] || colors.textMuted, 25)}`,
+                            }}
+                          >
+                            {c}
+                          </span>
+                        ))}
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: alpha(sensColor, 10),
+                            color: sensColor,
+                            border: `1px solid ${alpha(sensColor, 20)}`,
+                          }}
+                        >
+                          {field.sensitivityLevel}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      {failCount > 0 && (
+                        <span className="text-[10px] font-mono font-bold" style={{ color: '#ef4444' }}>
+                          {failCount} FAIL
+                        </span>
+                      )}
+                      {warnCount > 0 && (
+                        <span className="text-[10px] font-mono font-bold" style={{ color: '#eab308' }}>
+                          {warnCount} WARN
+                        </span>
+                      )}
+                      <span className="text-[10px] font-mono" style={{ color: colors.textMuted }}>
+                        {field.applicableRules?.length || 0} rules
+                      </span>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Expanded rules view */}
+                {isExpanded && field.applicableRules && (
+                  <div className="ml-7 mt-1 mb-1 space-y-1">
+                    {field.applicableRules.map((rule: any, rIdx: number) => {
+                      const rColor = statusColors[rule.status] || colors.textMuted;
+                      const fwColor = rule.framework === 'GDPR' ? colors.primary
+                        : rule.framework === 'HIPAA' ? colors.error
+                        : rule.framework === 'PCI-DSS' ? '#a855f7'
+                        : colors.warning;
+                      return (
+                        <div
+                          key={rIdx}
+                          className="p-2.5 rounded-lg border"
+                          style={{
+                            borderColor: alpha(rColor, 20),
+                            backgroundColor: alpha(rColor, 4),
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded" style={{
+                                backgroundColor: alpha(rColor, 15),
+                                color: rColor,
+                              }}>
+                                {rule.status}
+                              </span>
+                              <span className="text-[10px] font-mono font-semibold" style={{ color: colors.textMuted }}>
+                                {rule.ruleId}
+                              </span>
+                              <span className="text-[10px]" style={{ color: colors.text }}>{rule.name}</span>
+                            </div>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0" style={{
+                              borderColor: alpha(fwColor, 40),
+                              color: fwColor,
+                            }}>
+                              {rule.framework}
+                            </Badge>
+                          </div>
+                          {rule.action && (
+                            <p className="text-[11px] mt-1" style={{ color: alpha(rColor, 85) }}>
+                              <Wrench className="h-3 w-3 inline mr-1" style={{ color: rColor }} />
+                              {rule.action}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {field.requiredActions && field.requiredActions.length > 0 && (
+                      <div className="p-2.5 rounded-lg border mt-1" style={{
+                        borderColor: alpha(colors.warning, 20),
+                        backgroundColor: alpha(colors.warning, 5),
+                      }}>
+                        <span className="text-[10px] font-semibold" style={{ color: colors.warning }}>Required Actions ({field.requiredActions.length}):</span>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {field.requiredActions.map((action: string, aIdx: number) => (
+                            <span
+                              key={aIdx}
+                              className="text-[10px] px-1.5 py-0.5 rounded"
+                              style={{
+                                backgroundColor: alpha(colors.warning, 10),
+                                color: alpha(colors.warning, 85),
+                                border: `1px solid ${alpha(colors.warning, 20)}`,
+                              }}
+                            >
+                              {action}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
@@ -1570,6 +1833,11 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                                   <span className="font-mono text-[10px] font-semibold" style={{ color: colors.textMuted }}>
                                     {v.ruleId}
                                   </span>
+                                  {v.deadline && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: alpha(sevColor, 12), color: sevColor, border: `1px solid ${alpha(sevColor, 20)}` }}>
+                                      {v.deadline}
+                                    </span>
+                                  )}
                                 </div>
                                 {v.estimatedEffort && (
                                   <span className="text-[10px] flex items-center gap-1" style={{ color: colors.textMuted }}>
@@ -1582,6 +1850,15 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                               <p className="text-xs line-clamp-2 mb-2" style={{ color: colors.textMuted }}>
                                 {v.description}
                               </p>
+                              {(v.affectedFieldNames && v.affectedFieldNames.length > 0) && (
+                                <div className="mb-2">
+                                  <span className="text-[10px] font-medium" style={{ color: colors.textMuted }}>Affected: </span>
+                                  <span className="text-[10px] font-mono" style={{ color: alpha(colors.text, 70) }}>
+                                    {v.affectedFieldNames.slice(0, 4).join(', ')}
+                                    {v.affectedFieldNames.length > 4 && ` +${v.affectedFieldNames.length - 4} more`}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-3 flex-wrap">
                                 <span className="text-[10px] flex items-center gap-1" style={{ color: colors.textMuted }}>
                                   <Database className="h-3 w-3" />
@@ -1594,6 +1871,16 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                                   </div>
                                 )}
                               </div>
+                              {/* Remediation Steps */}
+                              {(v.remediationSteps && v.remediationSteps.length > 0) && (
+                                <div className="mt-2 space-y-0.5">
+                                  {v.remediationSteps.map((step: string, si: number) => (
+                                    <p key={si} className="text-[10px]" style={{ color: alpha(colors.text, 65) }}>
+                                      {step}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
                               {(v.requiredActions && v.requiredActions.length > 0) && (
                                 <div className="mt-2 flex flex-wrap gap-1">
                                   {v.requiredActions.map((action: string, i: number) => (
@@ -1732,6 +2019,40 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Field Action Matrix Section — Phase 3 */}
+                <Card className="glass-card-enhanced content-fade-in">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Grid3X3 className="h-5 w-5" style={{ color: colors.primary }} />
+                          Field Action Matrix
+                        </CardTitle>
+                        <CardDescription>Per-field compliance rule evaluation and required actions</CardDescription>
+                      </div>
+                      {(() => {
+                        const fam = d?.gapReport?.fieldActionMatrix;
+                        if (!fam || fam.length === 0) return null;
+                        const imm = fam.filter((f: any) => f.applicableRules?.some((r: any) => r.status === 'FAIL')).length;
+                        const part = fam.filter((f: any) => !f.applicableRules?.some((r: any) => r.status === 'FAIL') && f.applicableRules?.some((r: any) => r.status === 'WARNING' || r.status === 'PARTIAL')).length;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] px-2 py-1 rounded-full font-medium" style={{ backgroundColor: alpha('#ef4444', 12), color: '#ef4444', border: `1px solid ${alpha('#ef4444', 25)}` }}>
+                              {imm} need attention
+                            </span>
+                            <span className="text-[10px] px-2 py-1 rounded-full font-medium" style={{ backgroundColor: alpha('#eab308', 12), color: '#eab308', border: `1px solid ${alpha('#eab308', 25)}` }}>
+                              {part} partially compliant
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <FieldActionMatrixSection data={d} colors={colors} alpha={alpha} />
+                  </CardContent>
+                </Card>
 
                 {/* Compliance History Trend Section */}
                 <div className="mt-4 rounded-xl p-4 glass-card-enhanced">

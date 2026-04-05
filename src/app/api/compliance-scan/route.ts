@@ -968,8 +968,28 @@ interface Violation {
   title: string;
   description: string;
   affectedFields: number;
+  affectedFieldNames: string[];
   requiredActions: string[];
+  remediationSteps: string[];
   estimatedEffort: string;
+  deadline: string;
+}
+
+interface FieldActionMatrixEntry {
+  tableName: string;
+  columnName: string;
+  classification: string;
+  confidence: number;
+  sensitivityLevel: string;
+  applicableRules: {
+    ruleId: string;
+    name: string;
+    framework: string;
+    severity: RuleSeverity;
+    status: RuleStatus;
+    action: string | null;
+  }[];
+  requiredActions: string[];
 }
 
 interface GapReport {
@@ -985,6 +1005,7 @@ interface GapReport {
   criticalViolations: Violation[];
   highViolations: Violation[];
   mediumViolations: Violation[];
+  fieldActionMatrix: FieldActionMatrixEntry[];
 }
 
 interface ExecutiveSummary {
@@ -2037,8 +2058,257 @@ function generateFieldRuleEvaluations(
 }
 
 // ---------------------------------------------------------------------------
-// Gap Report Generation (Enhanced)
+// Field Action Matrix Generation
 // ---------------------------------------------------------------------------
+
+/**
+ * Generate the Field-Level Action Matrix: for each detected field, list
+ * ALL applicable rules and their compliance status.
+ */
+function generateFieldActionMatrix(
+  fieldEvals: FieldRuleEvaluation[],
+  allMatches: ColumnMatch[]
+): FieldActionMatrixEntry[] {
+  // Group field evaluations by field key
+  const fieldEvalMap = new Map<string, FieldRuleEvaluation[]>();
+  for (const fe of fieldEvals) {
+    if (!fieldEvalMap.has(fe.field)) fieldEvalMap.set(fe.field, []);
+    fieldEvalMap.get(fe.field)!.push(fe);
+  }
+
+  // Build a lookup for field metadata from allMatches
+  const fieldMetaMap = new Map<string, ColumnMatch>();
+  for (const m of allMatches) {
+    const key = `${m.tableName}.${m.columnName}`;
+    if (!fieldMetaMap.has(key)) fieldMetaMap.set(key, m);
+  }
+
+  const matrix: FieldActionMatrixEntry[] = [];
+
+  for (const [fieldKey, evals] of fieldEvalMap) {
+    const meta = fieldMetaMap.get(fieldKey);
+    if (!meta) continue;
+
+    // Determine classification string
+    const classifications = new Set<string>();
+    if (meta.type === "PHI") classifications.add("PHI");
+    if (meta.type === "PII") classifications.add("PII");
+    if (meta.type === "PCI-DSS") classifications.add("PCI");
+    if (meta.frameworks.includes("SOX")) classifications.add("SOX");
+    const classification = Array.from(classifications).join("+");
+
+    // Sensitivity level label
+    const sensitivityLevel =
+      meta.sensitivity === "restricted" ? "RESTRICTED" :
+      meta.sensitivity === "confidential" ? "SENSITIVE" :
+      meta.sensitivity === "internal" ? "INTERNAL" : "PUBLIC";
+
+    // Build applicable rules (filter out N/A)
+    const applicableRules = evals
+      .filter(e => e.status !== "N/A")
+      .map(e => ({
+        ruleId: e.ruleId,
+        name: e.ruleName,
+        framework: e.framework,
+        severity: e.severity,
+        status: e.status,
+        action: e.status !== "PASS"
+          ? buildFieldActionFromRule(e)
+          : null,
+      }));
+
+    // Collect required actions from non-PASS rules
+    const requiredActions: string[] = [];
+    for (const e of evals) {
+      if (e.status !== "PASS" && e.status !== "N/A") {
+        const action = buildFieldActionFromRule(e);
+        if (action && !requiredActions.includes(action)) {
+          requiredActions.push(action);
+        }
+      }
+    }
+
+    matrix.push({
+      tableName: meta.tableName,
+      columnName: meta.columnName,
+      classification,
+      confidence: meta.confidence,
+      sensitivityLevel,
+      applicableRules,
+      requiredActions,
+    });
+  }
+
+  // Sort: restricted first, then by number of applicable rules desc
+  const sensOrder: Record<string, number> = { restricted: 4, confidential: 3, internal: 2, public: 1 };
+  matrix.sort((a, b) => {
+    const aMeta = fieldMetaMap.get(`${a.tableName}.${a.columnName}`);
+    const bMeta = fieldMetaMap.get(`${b.tableName}.${b.columnName}`);
+    const sDiff = (sensOrder[bMeta?.sensitivity ?? "public"] ?? 0) - (sensOrder[aMeta?.sensitivity ?? "public"] ?? 0);
+    if (sDiff !== 0) return sDiff;
+    return b.applicableRules.length - a.applicableRules.length;
+  });
+
+  return matrix;
+}
+
+/**
+ * Build a human-readable action string from a field rule evaluation.
+ */
+function buildFieldActionFromRule(fe: FieldRuleEvaluation): string {
+  const fieldKey = fe.field;
+  const fw = fe.framework;
+  const rid = fe.ruleId;
+
+  const actionMap: Record<string, string> = {
+    "G1": `Document lawful basis for ${fieldKey}`,
+    "G2": `Review necessity of ${fieldKey} — consider removal if unused`,
+    "G3": `Define retention policy for ${fieldKey}`,
+    "G4": `Add ${fieldKey} to erasure cascade`,
+    "G5": `Include ${fieldKey} in data export`,
+    "G6": `Implement encryption at rest for ${fieldKey}`,
+    "G7": `Mask ${fieldKey} in application logs`,
+    "G8": `Implement consent tracking for ${fieldKey}`,
+    "G9": `Verify cross-border transfer safeguards for ${fieldKey}`,
+    "G10": `Review privacy-by-design controls for ${fieldKey}`,
+    "H1": `Implement field-level access control for ${fieldKey}`,
+    "H2": `Implement AES-256 encryption for ${fieldKey}`,
+    "H3": `Enable audit trail logging for ${fieldKey}`,
+    "H4": `Configure session timeout for ${fieldKey} access`,
+    "H5": `Map ${fieldKey} in de-identification checklist`,
+    "H6": `Verify BAA covers ${fieldKey} data sharing`,
+    "H7": `Include ${fieldKey} in breach notification plan`,
+    "H8": `Apply 42 CFR Part 2 extra protections for ${fieldKey}`,
+    "P1": `Immediately remove CVV/CVC field ${fieldKey}`,
+    "P2": `Implement tokenization for ${fieldKey}`,
+    "P3": `Mask ${fieldKey} in all displays`,
+    "P4": `Isolate ${fieldKey} in network CDE segment`,
+    "P5": `Restrict access to ${fieldKey} by role`,
+    "P6": `Run vulnerability scan on ${fieldKey} systems`,
+    "P7": `Assess PCI compliance level for ${fieldKey}`,
+  };
+
+  return actionMap[rid] || `Address ${fw} ${rid}: ${fieldKey}`;
+}
+
+// ---------------------------------------------------------------------------
+// Gap Report Generation (Enhanced Phase 3)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate detailed remediation steps from a rule evaluation.
+ */
+function buildRemediationSteps(rule: RuleEvaluation): string[] {
+  const steps: string[] = [];
+
+  switch (rule.ruleId) {
+    case "G1": // Lawful Basis
+      steps.push("Step 1: Inventory all PII/PHI fields requiring lawful basis documentation");
+      steps.push("Step 2: Determine appropriate legal basis per field (consent, contract, legal obligation, etc.)");
+      steps.push("Step 3: Document basis in Data Processing Register");
+      steps.push("Step 4: Update privacy policy to reflect documented bases");
+      break;
+    case "G3": // Retention
+      steps.push("Step 1: Define retention periods for each data category");
+      steps.push("Step 2: Implement automated data retention enforcement");
+      steps.push("Step 3: Create data disposal and anonymization procedures");
+      steps.push("Step 4: Schedule periodic retention policy reviews");
+      break;
+    case "G4": // Right to Erasure
+      steps.push("Step 1: Map all tables containing the affected PII fields");
+      steps.push("Step 2: Implement cascading delete across all related tables");
+      steps.push("Step 3: Build erasure request workflow for data subjects");
+      steps.push("Step 4: Test erasure completeness — verify no orphaned PII");
+      break;
+    case "G6": // Encryption at Rest
+      steps.push("Step 1: Enable Transparent Data Encryption (TDE) on database");
+      steps.push("Step 2: Add column-level encryption for RESTRICTED/SENSITIVE fields");
+      steps.push("Step 3: Implement encryption key management system");
+      steps.push("Step 4: Configure key rotation schedule");
+      break;
+    case "G7": // Masking in Logs
+      steps.push("Step 1: Add log masking middleware to logging layer");
+      steps.push("Step 2: Configure masking rules per field type (email, SSN, phone, etc.)");
+      steps.push("Step 3: Audit existing logs for personal data exposure");
+      steps.push("Step 4: Add automated log scrubbing job for historical data");
+      break;
+    case "G8": // Consent Tracking
+      steps.push("Step 1: Implement consent logging with timestamps per field/purpose");
+      steps.push("Step 2: Build consent withdrawal mechanism");
+      steps.push("Step 3: Log consent withdrawal events");
+      steps.push("Step 4: Link consent records to specific data categories");
+      break;
+    case "H1": // Minimum Necessary
+      steps.push("Step 1: Map PHI fields to appropriate role sets");
+      steps.push("Step 2: Implement field-level access control (RBAC)");
+      steps.push("Step 3: Audit existing PHI access permissions");
+      steps.push("Step 4: Configure least-privilege access per role");
+      break;
+    case "H2": // PHI Encryption
+      steps.push("Step 1: Implement AES-256 encryption for PHI columns");
+      steps.push("Step 2: Enable TDE on database");
+      steps.push("Step 3: Upgrade TLS to 1.3 for all PHI in transit");
+      steps.push("Step 4: Document encryption in Security Risk Assessment");
+      break;
+    case "H3": // Audit Controls
+      steps.push("Step 1: Implement PHI access audit table");
+      steps.push("Step 2: Add audit triggers to all PHI tables");
+      steps.push("Step 3: Log: who, what, when, where, why, action");
+      steps.push("Step 4: Set 6-year log retention and review schedule");
+      break;
+    case "H4": // Automatic Logoff
+      steps.push("Step 1: Configure session timeout (15 min clinical, 30 min admin)");
+      steps.push("Step 2: Implement session management across all PHI apps");
+      steps.push("Step 3: Clear PHI from screen/cache on timeout");
+      break;
+    case "H5": // De-identification
+      steps.push("Step 1: Map all 18 HIPAA identifiers in the data schema");
+      steps.push("Step 2: Implement Safe Harbor de-identification method");
+      steps.push("Step 3: Validate de-identification output with qualified expert");
+      break;
+    case "H6": // BAA
+      steps.push("Step 1: Inventory all business associates with PHI access");
+      steps.push("Step 2: Verify BAA execution and compliance terms");
+      steps.push("Step 3: Schedule annual BAA review and renewal");
+      break;
+    case "H7": // Breach Notification
+      steps.push("Step 1: Develop formal breach notification procedures");
+      steps.push("Step 2: Define breach severity assessment workflow");
+      steps.push("Step 3: Test notification timeline (target: < 60 days)");
+      steps.push("Step 4: Designate breach response team members");
+      break;
+    case "P1": // CVV Prohibition
+      steps.push("Step 1: Remove CVV field from database schema");
+      steps.push("Step 2: Remove CVV from all API endpoints");
+      steps.push("Step 3: Remove CVV from all logs immediately");
+      steps.push("Step 4: Purge any stored CVV values");
+      steps.push("Step 5: Document remediation for PCI auditor");
+      break;
+    case "P2": // PAN Protection
+      steps.push("Step 1: Implement tokenization (Stripe/Braintree)");
+      steps.push("Step 2: Replace stored PANs with tokens");
+      steps.push("Step 3: Purge plain text card numbers");
+      steps.push("Step 4: Verify no PAN in logs or backups");
+      break;
+    default:
+      steps.push("Step 1: Review current implementation");
+      steps.push("Step 2: Identify gaps against compliance requirement");
+      steps.push("Step 3: Implement required controls");
+      steps.push("Step 4: Test and validate compliance");
+      break;
+  }
+
+  return steps;
+}
+
+function getDeadlineForSeverity(severity: RuleSeverity): string {
+  switch (severity) {
+    case "CRITICAL": return "Immediately";
+    case "HIGH": return "Within 30 days";
+    case "MEDIUM": return "Within 90 days";
+    case "LOW": return "When possible";
+  }
+}
 
 function generateGapReport(
   evaluations: {
@@ -2047,7 +2317,11 @@ function generateGapReport(
     "PCI-DSS": RuleEvaluation[];
   },
   scores: { gdpr: number; hipaa: number; pci: number; sox: number },
-  frameworkStatuses: Record<string, string>
+  frameworkStatuses: Record<string, string>,
+  fieldData: {
+    fieldEvaluations: FieldRuleEvaluation[];
+    allMatches: ColumnMatch[];
+  }
 ): GapReport {
   const severityOrder: Record<RuleSeverity, number> = {
     CRITICAL: 0,
@@ -2055,6 +2329,18 @@ function generateGapReport(
     MEDIUM: 2,
     LOW: 3,
   };
+
+  // Build per-rule field name lookups from fieldEvaluations
+  const fieldNamesByRule = new Map<string, string[]>();
+  for (const fe of fieldData.fieldEvaluations) {
+    if (fe.status !== "PASS" && fe.status !== "N/A") {
+      const key = `${fe.framework}-${fe.ruleId}`;
+      if (!fieldNamesByRule.has(key)) fieldNamesByRule.set(key, []);
+      if (!fieldNamesByRule.get(key)!.includes(fe.field)) {
+        fieldNamesByRule.get(key)!.push(fe.field);
+      }
+    }
+  }
 
   const violations: Violation[] = [];
   let violId = 1;
@@ -2070,6 +2356,12 @@ function generateGapReport(
               ? "MED"
               : "LOW";
 
+        const affectedKey = `${framework}-${rule.ruleId}`;
+        const affectedFieldNames = fieldNamesByRule.get(affectedKey) || [];
+        // Show max 8 field names, then +N more
+        const maxShow = 8;
+        const displayNames = affectedFieldNames.slice(0, maxShow);
+
         violations.push({
           id: `${idPrefix}-${String(violId).padStart(3, "0")}`,
           severity: rule.severity,
@@ -2078,7 +2370,9 @@ function generateGapReport(
           title: rule.name,
           description: rule.description,
           affectedFields: rule.affectedFields,
+          affectedFieldNames: displayNames,
           requiredActions: rule.requiredActions,
+          remediationSteps: buildRemediationSteps(rule),
           estimatedEffort: rule.severity === "CRITICAL"
             ? "2-4 weeks"
             : rule.severity === "HIGH"
@@ -2086,6 +2380,7 @@ function generateGapReport(
               : rule.severity === "MEDIUM"
                 ? "3-5 days"
                 : "1-2 days",
+          deadline: getDeadlineForSeverity(rule.severity),
         });
         violId++;
       }
@@ -2129,6 +2424,12 @@ function generateGapReport(
     frameworkStatuses,
   };
 
+  // Generate Field Action Matrix
+  const fieldActionMatrix = generateFieldActionMatrix(
+    fieldData.fieldEvaluations,
+    fieldData.allMatches
+  );
+
   return {
     totalViolations: violations.length,
     bySeverity,
@@ -2137,6 +2438,7 @@ function generateGapReport(
     criticalViolations,
     highViolations,
     mediumViolations,
+    fieldActionMatrix,
   };
 }
 
@@ -2463,7 +2765,8 @@ export async function GET() {
     const gapReport = generateGapReport(
       ruleEvaluations,
       { gdpr: gdprResult.score, hipaa: hipaaResult.score, pci: pciResult.score, sox: soxResult.score },
-      frameworkStatuses
+      frameworkStatuses,
+      { fieldEvaluations: fieldEvaluations, allMatches }
     );
 
     // 10. Build response

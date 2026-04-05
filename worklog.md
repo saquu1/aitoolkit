@@ -2161,3 +2161,234 @@ Stage Summary:
 - Note: Dev server (Turbopack) crashes during compilation of page.tsx - use production build instead
 - Note: Bun runtime unstable for standalone server - use Node.js runtime
 
+---
+## Task ID: 13 — Phase 3 Automatic Rule Application Enhancement
+Agent: compliance-engineer subagent
+Task: Enhance compliance scan API gap report, create field-actions endpoint, add Field Action Matrix UI
+
+### Work Task
+Enhance the existing compliance scan API with a comprehensive Phase 3 Automatic Rule Application system. Three deliverables: (1) enhanced gap report with executive summary, severity categorization, detailed remediation steps, estimated effort, affected field names, and field-level action matrix; (2) new `/api/compliance-field-actions` GET endpoint returning per-field compliance action recommendations; (3) Field Action Matrix section in the IntelligenceBankTab Compliance tab.
+
+### Work Summary
+
+#### 1. Enhanced Gap Report (`/src/app/api/compliance-scan/route.ts`)
+
+**New interfaces added:**
+- `FieldActionMatrixEntry` — per-field rule evaluation with applicable rules, status, and actions
+- Extended `Violation` with `affectedFieldNames: string[]`, `remediationSteps: string[]`, `deadline: string`
+- Extended `GapReport` with `fieldActionMatrix: FieldActionMatrixEntry[]`
+
+**New functions:**
+- `generateFieldActionMatrix(fieldEvals, allMatches)` — Groups field evaluations by field, maps to column metadata, produces sorted matrix entries
+- `buildFieldActionFromRule(fe)` — Maps rule IDs to human-readable per-field action strings (25 rules mapped)
+- `buildRemediationSteps(rule)` — Generates 3-5 step remediation plans per rule (G1, G3, G4, G6, G7, G8, H1-H7, P1, P2 + default)
+- `getDeadlineForSeverity(severity)` — Maps CRITICAL→"Immediately", HIGH→"Within 30 days", MEDIUM→"Within 90 days", LOW→"When possible"
+
+**Updated `generateGapReport()` signature:**
+- Added 4th parameter: `fieldData: { fieldEvaluations, allMatches }`
+- Generates `affectedFieldNames` per violation (up to 8 field names from field evaluations)
+- Generates `remediationSteps` per violation via `buildRemediationSteps()`
+- Generates `deadline` per violation via `getDeadlineForSeverity()`
+- Generates `fieldActionMatrix` via `generateFieldActionMatrix()`
+
+**Call site updated** at GET handler to pass `{ fieldEvaluations, allMatches }`.
+
+#### 2. New API Endpoint (`/src/app/api/compliance-field-actions/route.ts`)
+
+**GET `/api/compliance-field-actions`** — Returns per-field compliance action data:
+- Scans all ToolkitTable columns using pattern matching (mirrors compliance-scan patterns)
+- Evaluates all 25 rules (10 GDPR + 8 HIPAA + 7 PCI-DSS) per field
+- Filters out N/A rules (only returns applicable rules per field)
+- Returns: `success`, `scanTimestamp`, `totalFields`, `summary` (immediateAttention, partiallyCompliant, fullyCompliant), `fieldActions` array
+- Each entry: tableName, columnName, classification (PII+PHI), confidence, sensitivityLevel, applicableRules[], requiredActions[]
+
+**Response example:**
+```json
+{
+  "success": true,
+  "totalFields": 63,
+  "summary": { "immediateAttention": 0, "partiallyCompliant": 54, "fullyCompliant": 9 },
+  "fieldActions": [
+    {
+      "tableName": "patients",
+      "columnName": "email",
+      "classification": "PHI",
+      "confidence": 90,
+      "sensitivityLevel": "RESTRICTED",
+      "applicableRules": [
+        { "ruleId": "G1", "name": "Lawful Basis For Processing", "framework": "GDPR", "severity": "HIGH", "status": "PASS", "action": null },
+        { "ruleId": "G3", "name": "Storage Limitation / Retention", "framework": "GDPR", "severity": "HIGH", "status": "PARTIAL", "action": "Define retention policy for patients.email" },
+        ...
+      ],
+      "requiredActions": ["Define retention policy for patients.email", "Add patients.email to erasure cascade", ...]
+    }
+  ]
+}
+```
+
+#### 3. Enhanced IntelligenceBankTab.tsx (Compliance Tab)
+
+**New imports:** `Grid3X3`, `ChevronDown`, `Filter` from lucide-react
+
+**New component: `FieldActionMatrixSection`** (~250 lines)
+- Collapsible/expandable field list showing each detected field
+- For each field row: `table.column` (font-mono), classification badges (PHI/PII/PCI), sensitivity badge, rule counts (FAIL/WARN/total)
+- Click to expand: shows all applicable rules with status badges (PASS=green, FAIL=red, WARNING=yellow, PARTIAL=orange)
+- Each rule shows: status badge, rule ID, rule name, framework badge, action text
+- Required Actions section at bottom of expanded view
+- **Filter by classification**: dropdown with PHI, PII, PCI options
+- **Filter by status**: dropdown with FAIL, WARNING, PARTIAL, PASS options
+- Summary: "X of Y fields" counter, header badges showing "N need attention, M partially compliant"
+- Empty state with Grid3X3 icon and helpful message
+
+**Enhanced Gap Report violations display:**
+- Added `deadline` badge next to each violation
+- Added `affectedFieldNames` section showing up to 4 field names with "+N more" overflow
+- Added `remediationSteps` section with numbered step-by-step instructions
+
+**Position:** Field Action Matrix Card placed between the Sensitivity/Top Findings grid and the Compliance History Trend section
+
+### Technical Details
+- All lint checks pass (0 errors on all 3 files)
+- `FieldActionMatrixSection` uses `useState` for expanded field and filters (no polling, fetch-once pattern)
+- Uses existing `useTheme()` and `alpha()` helper throughout
+- Follows same glass-card-enhanced, content-fade-in patterns
+- Max-height scrollable list (max-h-96 overflow-y-auto)
+- Select elements styled with theme colors for dark/light mode compatibility
+- No existing functionality broken — only additive changes
+
+### Files Created:
+- `/src/app/api/compliance-field-actions/route.ts` (~430 lines)
+
+### Files Modified:
+- `/src/app/api/compliance-scan/route.ts` — Enhanced Violation interface, GapReport interface, added FieldActionMatrixEntry, added 4 new functions, updated generateGapReport signature and call site
+- `/src/components/tabs/IntelligenceBankTab.tsx` — Added 3 lucide-react imports, added FieldActionMatrixSection component (~250 lines), added Field Action Matrix Card in Compliance tab, enhanced gap report violation display with deadline/fieldNames/remediationSteps
+
+
+---
+## Task ID: 14 — Proxy Migration + Bug Fixes + Rules Implementation
+Agent: Main Agent + 3 Subagents
+Task: Replace middleware with proxy.ts, fix upload page, implement rules3.md enhancements, polish FrameworkActivationConfig
+
+### Work Log:
+- Read previous session context and assessed pending tasks
+- Identified 6 pending items from conversation history
+
+### 1. Proxy Migration (middleware.ts → proxy.ts)
+- Created `/src/proxy.ts` as Next.js 16 compliant proxy (replaces deprecated middleware.ts)
+- Removed `/src/middleware.ts` — eliminates "middleware is deprecated" warning
+- Proxy handles: static file skipping, public route passthrough (/api/auth/, /login), auth checking
+- Auth checking delegated to individual API routes (avoids Edge Runtime compatibility issues)
+- Verified: No deprecation warning in dev log, `proxy.ts: 4ms` in response timing
+
+### 2. Upload Page Fix (by subagent)
+- Root cause: Missing `classify-files` action handler in `/api/parsers/route.ts`
+- Missing JavaScript/TypeScript file parsing support
+- Missing `sql.results` combined array
+- Fix: Added `classifyFiles()` function, JS/TS parsing via EnhancedJSParserEngine, sql.results aggregation
+- Result: File classification, SQL parsing, and JS/TS analysis all working
+
+### 3. ActivityTimeline Bug (line 410)
+- Already fixed: `(events ?? []).slice(0, maxItems)` handles null/undefined properly
+- No action needed
+
+### 4. Rules3.md — Phase 3 Automatic Rule Application (by subagent)
+Enhanced compliance-scan API with comprehensive gap report:
+
+- **New functions in compliance-scan/route.ts**:
+  - `generateFieldActionMatrix()` — Per-field action matrix with all applicable rules
+  - `buildFieldActionFromRule()` — Maps 25 rules to field-specific action strings
+  - `buildRemediationSteps()` — 3-5 step remediation plans for 14 rule types
+  - `getDeadlineForSeverity()` — Maps severity to deadline
+
+- **Enhanced GapReport**:
+  - `affectedFieldNames` per violation (specific column names)
+  - `remediationSteps` per violation (step-by-step instructions)
+  - `deadline` per violation (CRITICAL→"Immediately", HIGH→"30 days", etc.)
+  - `fieldActionMatrix` — Complete per-field rule evaluation matrix
+
+- **New API endpoint**: `/api/compliance-field-actions/route.ts` (~430 lines)
+  - GET endpoint returning per-field compliance action recommendations
+  - Evaluates all 25 rules (10 GDPR + 8 HIPAA + 7 PCI-DSS) against each detected field
+  - Summary counts: immediateAttention, partiallyCompliant, fullyCompliant
+
+- **Enhanced IntelligenceBankTab Compliance tab**:
+  - New `FieldActionMatrixSection` component (~250 lines)
+  - Collapsible field list with filter by classification and rule status
+  - Each field shows applicable rules with color-coded status badges
+  - Required actions section per expanded field
+  - Enhanced gap report violations with deadline badges and remediation steps
+
+### 5. FrameworkActivationConfig Enhancement (by subagent)
+- File grew from ~2,201 → ~2,612 lines (+411 lines)
+- **Enhanced Review Step (Step 6)**:
+  - Activation Summary Card with industry, geographies, framework counts, sensitivity policy
+  - Framework Impact Preview showing what each framework enforces + expected field impact
+  - Compliance Gap Preview fetching live data from /api/compliance-scan
+  - Data Residency Rules generated from selected geographies (13 regions)
+  - Action Buttons: Activate, Save Draft, Go Back
+- **Activation Success State**:
+  - Animated checkmark with CSS ping animation
+  - Activation timestamp persisted in localStorage
+  - 4-stat grid + action buttons
+- **Visual Polish**:
+  - glass-card-enhanced, content-fade-in, section-header, badge-soft, number-highlight, card-interactive, divider-gradient applied throughout
+  - Colored left borders on selected items
+  - Mobile responsive grids
+
+### 6. Cron Job Setup
+- Created 15-minute recurring cron job (ID: 64661) for webDevReview
+- Runs continuously for automated QA and development
+
+### Files Created:
+- `/src/proxy.ts` — Next.js 16 proxy route handler
+- `/src/app/api/compliance-field-actions/route.ts` — Per-field compliance action API
+
+### Files Modified:
+- `/src/middleware.ts` — DELETED (replaced by proxy.ts)
+- `/src/app/api/parsers/route.ts` — Added classify-files handler + JS/TS parsing
+- `/src/app/api/compliance-scan/route.ts` — Enhanced gap report with field action matrix
+- `/src/components/tabs/IntelligenceBankTab.tsx` — Field Action Matrix section
+- `/src/components/FrameworkActivationConfig.tsx` — Enhanced review step + success state
+
+### Verification:
+- Dev server running HTTP 200, all APIs returning 200
+- No middleware deprecation warning
+- All existing tabs functional
+- 0 new lint errors on modified files
+
+### Stage Summary:
+- ✅ Proxy migration: middleware.ts → proxy.ts (Next.js 16 compliant)
+- ✅ Upload page fixed: classify-files handler + JS/TS parsing
+- ✅ ActivityTimeline bug: already fixed (null coalescing)
+- ✅ Rules3.md implemented: field action matrix, enhanced gap report, per-field API
+- ✅ Rules2.md polished: comprehensive review step, activation success state, visual enhancements
+- ✅ Cron job active for continuous development (ID: 64661)
+
+---
+## Current Project Status Assessment
+
+### Health: STABLE
+- Homepage loads HTTP 200
+- Dev server running with proxy.ts (no deprecation warnings)
+- All 26 tabs functional
+- Database: 2 projects, 17 tables, 201 columns, 9 modules, 6 agent runs
+- Compliance scan: 63 PII, 54 PHI detected across 4 frameworks
+
+### Completed This Session:
+1. Replaced middleware.ts with proxy.ts (Next.js 16 convention)
+2. Fixed upload page (classify-files handler + JS/TS file parsing)
+3. Enhanced compliance gap report with remediation steps and field action matrix
+4. Created /api/compliance-field-actions endpoint
+5. Added Field Action Matrix section to Compliance tab
+6. Enhanced FrameworkActivationConfig review step with activation success state
+7. Applied visual polish (glass-card, badge-soft, number-highlight, etc.)
+8. Set up 15-minute cron job for continuous development
+
+### Priority Recommendations for Next Round:
+1. **HIGH**: QA via agent-browser on all tabs (especially upload, compliance, frameworks)
+2. **HIGH**: Test field action matrix with real data
+3. **MEDIUM**: Add compliance export to PDF/CSV
+4. **MEDIUM**: Enhance data residency rules with actual server location awareness
+5. **MEDIUM**: Add compliance score trend tracking over time
+6. **LOW**: Fix pre-existing lint errors in lib/ files

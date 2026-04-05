@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { parseLaravelBlade, parseLaravelModel, parseLaravelMigration, generateLaravelSQL } from '@/lib/laravel-parser'
+import { fileClassifier } from '@/lib/parsers/file-classifier'
+import { EnhancedJSParserEngine } from '@/lib/parsers/enhanced-js-parser'
 
 // SQL Parser - extracts tables, procedures, views
 function parseSQLContent(content: string) {
@@ -818,7 +820,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { action, files, projectId, file } = body
 
-    if (action === 'parse-all' && files) {
+    if (action === 'classify-files' && files) {
+      return await classifyFiles(files)
+    } else if (action === 'parse-all' && files) {
       return await parseAllFiles(files, projectId)
     } else if (action === 'parse-single' && file) {
       return await parseSingleFile(file, projectId)
@@ -833,10 +837,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function classifyFiles(files: Array<{ name: string; content: string; path?: string }>) {
+  try {
+    const classifications = fileClassifier.classifyBatch(
+      files.map(f => ({ name: f.name, content: f.content }))
+    )
+    return NextResponse.json({ success: true, classifications })
+  } catch (error: any) {
+    console.error('Classification error:', error)
+    return NextResponse.json({ success: false, error: error.message || 'Classification failed' }, { status: 500 })
+  }
+}
+
 async function parseAllFiles(files: Array<{ name: string; content: string; path?: string }>, projectId?: string) {
   const results = {
-    sql: { tables: [] as any[], procedures: [] as any[], views: [] as any[], functions: [] as any[], summary: { totalTables: 0, totalProcedures: 0, totalViews: 0 } },
+    sql: { tables: [] as any[], procedures: [] as any[], views: [] as any[], functions: [] as any[], results: [] as any[], summary: { totalTables: 0, totalProcedures: 0, totalViews: 0 } },
     cshtml: { results: [] as any[], summary: { totalFiles: 0, totalFields: 0, totalTables: 0, totalEventHandlers: 0 } },
+    javascript: { results: [] as any[], summary: { totalAjaxCalls: 0, totalEventHandlers: 0, totalEndpoints: 0 } },
     laravel: { results: [] as any[], tables: [] as any[], summary: { totalFiles: 0, totalTables: 0, totalFields: 0 } },
     summary: { totalFiles: files.length, totalTables: 0, totalProcedures: 0, totalEventHandlers: 0 }
   }
@@ -869,8 +886,47 @@ async function parseAllFiles(files: Array<{ name: string; content: string; path?
       const parsed = parseLaravelMigration(file.content, file.name)
       results.laravel.results.push(parsed)
       results.laravel.tables.push(...parsed.tables)
+    } else if (ext === 'js' || ext === 'jsx') {
+      // JavaScript parsing
+      const jsParser = new EnhancedJSParserEngine(file.name)
+      const jsResult = jsParser.analyze(file.content, file.name)
+      results.javascript.results.push({
+        fileName: file.name,
+        analysis: {
+          ajaxCalls: jsResult.ajaxCalls,
+          eventHandlers: jsResult.eventHandlers,
+          complexity: jsResult.complexity,
+          jqueryPlugins: jsResult.jqueryPlugins,
+          dependencies: jsResult.dependencies,
+          discoveredEndpoints: jsResult.discoveredEndpoints,
+          summary: jsResult.summary
+        }
+      })
+    } else if (ext === 'ts' || ext === 'tsx') {
+      // TypeScript files can also contain JS patterns (AJAX, events)
+      const jsParser = new EnhancedJSParserEngine(file.name)
+      const jsResult = jsParser.analyze(file.content, file.name)
+      results.javascript.results.push({
+        fileName: file.name,
+        analysis: {
+          ajaxCalls: jsResult.ajaxCalls,
+          eventHandlers: jsResult.eventHandlers,
+          complexity: jsResult.complexity,
+          jqueryPlugins: jsResult.jqueryPlugins,
+          dependencies: jsResult.dependencies,
+          discoveredEndpoints: jsResult.discoveredEndpoints,
+          summary: jsResult.summary
+        }
+      })
     }
   }
+
+  // Build sql.results array (combined procedures, views, functions for consumer compatibility)
+  results.sql.results = [
+    ...results.sql.procedures.map(p => ({ ...p, type: 'procedure' })),
+    ...results.sql.views.map(v => ({ ...v, type: 'view' })),
+    ...results.sql.functions.map(f => ({ ...f, type: 'function' }))
+  ]
 
   // Calculate summaries
   results.sql.summary = {
@@ -892,11 +948,28 @@ async function parseAllFiles(files: Array<{ name: string; content: string; path?
     totalFields: results.laravel.tables.reduce((sum, t) => sum + t.columns.length, 0)
   }
   
+  // Calculate JavaScript summary
+  const jsResults = results.javascript.results
+  let totalAjaxCalls = 0
+  let totalJSEventHandlers = 0
+  let totalEndpoints = 0
+  for (const js of jsResults) {
+    const analysis = js.analysis || {}
+    totalAjaxCalls += (analysis.ajaxCalls || []).length
+    totalJSEventHandlers += (analysis.eventHandlers || []).length
+    totalEndpoints += (analysis.discoveredEndpoints || []).length
+  }
+  results.javascript.summary = {
+    totalAjaxCalls,
+    totalEventHandlers: totalJSEventHandlers,
+    totalEndpoints
+  }
+
   results.summary = {
     totalFiles: files.length,
     totalTables: results.sql.summary.totalTables + results.cshtml.summary.totalTables + results.laravel.summary.totalTables,
     totalProcedures: results.sql.summary.totalProcedures,
-    totalEventHandlers: results.cshtml.summary.totalEventHandlers
+    totalEventHandlers: results.cshtml.summary.totalEventHandlers + totalJSEventHandlers
   }
 
   // Store to database if projectId is provided
