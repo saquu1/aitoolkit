@@ -407,7 +407,7 @@ export function ActivityTimeline({
     );
   }
 
-  const displayEvents = events.slice(0, maxItems);
+  const displayEvents = (events ?? []).slice(0, maxItems);
   const hasEvents = displayEvents.length > 0;
 
   return (
@@ -431,7 +431,7 @@ export function ActivityTimeline({
           </div>
 
           {/* View All footer */}
-          {showViewAll && events.length > maxItems && (
+          {showViewAll && (events ?? []).length > maxItems && (
             <div className="relative flex gap-3 md:gap-4 mt-1">
               <div className="relative flex flex-col items-center">
                 <div

@@ -1587,3 +1587,171 @@ Stage Summary:
 4. **MEDIUM**: Create compliance notification system for new violations
 5. **MEDIUM**: Export gap report as PDF with formatted sections
 6. **LOW**: Fix pre-existing lint errors in lib/ files
+
+---
+Task ID: 5d
+Agent: frontend-styling-expert subagent
+Task: Add new CSS utility classes and animations to globals.css for enhanced visual polish
+
+Work Log:
+- Appended 281 lines of new CSS to /src/app/globals.css (no existing lines modified)
+- 12 new CSS feature sections added at end of file:
+  1. Score Ring Animation (.score-ring-animated, .score-ring-glow)
+  2. Alert Banner Styles (.alert-banner, .alert-banner-critical/warning/info)
+  3. Expandable Panel Animation (.expandable-content, .expanded)
+  4. Trend Indicator Styles (.trend-up/down/stable, .trend-arrow)
+  5. Compliance Dashboard Grid (.compliance-grid, .compliance-grid-dense)
+  6. Violation Card Styles (.violation-card, critical/high/medium/low variants)
+  7. Pulse Dot for Active Status (.status-dot, active/partial/inactive, @keyframes statusPulse)
+  8. Metric Trend Sparkline Container (.metric-trend)
+  9. Slide-in Stagger Animation (.stagger-in with 8-child delays, @keyframes staggerFadeSlide)
+  10. Floating Label Input (.input-group with label positioning)
+  11. Gradient Border Card (.gradient-border-card with primary→success gradient mask)
+  12. Tooltip v2 (.tooltip-v2 with data-tooltip attr, scale+opacity transition)
+- All new animations include @media (prefers-reduced-motion: reduce) overrides
+- All CSS uses custom properties (--color-primary, --color-border, --color-bg, etc.)
+- Zero existing lines modified — pure append operation
+- HTTP 200 verified after changes
+
+Stage Summary:
+- 281 lines appended to globals.css (2212 → 2493 lines)
+- 12 new CSS utility/animation sections with accessibility support
+- All new keyframes (statusPulse, staggerFadeSlide) and transitions covered by reduced-motion media query
+- No regressions — server returns HTTP 200
+
+---
+## Task ID: 5a
+Agent: component-builder subagent
+Task: Create ComplianceScoreRing and ComplianceAlertBanner reusable components
+
+### Work Task
+Create 2 new reusable components: ComplianceScoreRing (SVG circular progress ring with animated fill) and ComplianceAlertBanner (notification banner for compliance violation alerts).
+
+### Work Summary
+
+#### Files Created:
+
+1. **`/src/components/ComplianceScoreRing.tsx`** — Animated SVG circular progress ring for compliance scores
+   - 'use client' directive with useTheme hook for theme-aware colors
+   - Props: `score` (0-100), `label`, `size` (default 120), `strokeWidth` (default 8), `status` ('active'|'partial'|'inactive'), `className`
+   - SVG circle with animated stroke-dashoffset drawing animation (1s ease-out transition, 100ms delay after mount)
+   - Score number displayed in center using AnimatedCounter from Sparkline component
+   - Percentage symbol in smaller muted text beside the score
+   - Label below the score, status indicator dot with glow below that
+   - Color coding: active=success(green), partial=warning(amber), inactive=textMuted(gray)
+   - Pulsing glow effect on hover via CSS keyframe animation (ring-pulse) with prefers-reduced-motion support
+   - SVG gradient fill on progress arc (linear gradient from solid color to 70% opacity)
+   - Background track circle in border color at 40% opacity
+   - SSR-safe: renders skeleton placeholder (animated pulse circle) when `mounted` is false
+   - ARIA attributes: `role="meter"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-label`
+   - Responsive font sizing based on `size` prop
+   - All colors from useTheme's `colors` object with `alpha()` helper for opacity blending
+
+2. **`/src/components/ComplianceAlertBanner.tsx`** — Expandable compliance violation notification banner
+   - 'use client' directive with useTheme hook for theme-aware colors
+   - Props: `violations` (array of `{severity, ruleId, title, framework}`), `className`
+   - Summary bar: "6 Critical • 5 High • 1 Medium violations detected" using bullet separators
+   - Stacked severity icons in summary bar (overlapping circular badges with colored backgrounds)
+   - Severity icons: Critical=AlertTriangle (red/error), High=AlertCircle (amber/warning), Medium=Info (blue/primary)
+   - Clickable summary bar to expand/collapse violation details list
+   - Keyboard accessible: Enter/Space to toggle, proper tabIndex and aria-expanded
+   - Each violation detail row shows:
+     - Severity icon in colored rounded square
+     - Severity badge (uppercase, tracking-wider, colored bg)
+     - Rule ID in font-mono with border bg
+     - Framework badge with colored border (HIPAA=error, GDPR=warning, SOX=primary, PCI-DSS=success)
+     - Title text in textSecondary color
+   - Smooth expand/collapse animation via max-height + opacity CSS transition (300ms ease-out)
+   - Scrollable violation list (max-h-96 overflow-y-auto)
+   - Glass-card-enhanced CSS class for glassmorphism card styling
+   - Closeable with X button (stopPropagation to prevent toggle, animated collapse before hiding)
+   - Banner accent color matches highest severity present
+   - content-fade-in CSS animation on mount
+   - SSR-safe: renders skeleton placeholder with pulse animation when `mounted` is false
+   - Empty state: "No compliance violations detected" when violations array is empty
+   - All colors from useTheme's `colors` object with `alpha()` helper for opacity blending
+
+#### Technical Details:
+- Both components import `useTheme` from `@/hooks/useTheme` (note: .tsx extension, not .ts)
+- Both use the `alpha()` helper pattern: `color-mix(in srgb, ${color} ${opacity}%, transparent)`
+- ComplianceScoreRing uses `AnimatedCounter` from `@/components/Sparkline`
+- ComplianceAlertBanner uses lucide-react icons: AlertTriangle, AlertCircle, Info, X, ChevronDown, ChevronUp
+- Fixed ESLint error: removed ref access during render (`ringRef.current`) in ComplianceScoreRing
+- Zero lint errors on both files (verified with npx eslint)
+- HTTP 200 verified after all changes
+- Dev server logs clean, no runtime errors
+
+#### Verification:
+- `curl http://localhost:3000/` → HTTP 200
+- `npx eslint src/components/ComplianceScoreRing.tsx src/components/ComplianceAlertBanner.tsx` → 0 errors
+- Dev log: clean compilation, no errors
+---
+## Task ID: 5b
+Agent: api-developer subagent
+Task: Create /api/compliance-history endpoint for compliance scan history tracking
+
+### Work Task
+Create a compliance scan history system with three parts: (1) Prisma schema model, (2) POST/GET endpoints with trend analysis, (3) A one-click snapshot endpoint.
+
+### Work Summary
+
+#### Schema Changes:
+- Added ComplianceScanRecord model to prisma/schema.prisma (15 fields, index on scanTimestamp)
+- Ran bun run db:push to sync schema
+
+#### API Endpoints Created:
+
+1. /src/app/api/compliance-history/route.ts (POST + GET)
+   - POST: Creates scan records via raw SQL (avoids stale Prisma client cache), auto-prunes beyond 50 records
+   - GET: Returns all records DESC with trend analysis (direction: up/down/stable per framework)
+
+2. /src/app/api/compliance-snapshot/route.ts (GET)
+   - Calls compliance-scan internally, extracts scores and violations, saves snapshot
+
+#### Verification:
+- All endpoints return HTTP 200 with correct data
+- Trend directions correctly computed from scan history
+- Zero ESLint errors on created files
+- Homepage HTTP 200 confirmed
+
+---
+## Task ID: 15 (Round 15 - Bug Fix Round)
+Agent: Main Agent
+Task: Fix runtime TypeError in ActivityTimeline, fix NextAuth v4/v5 compatibility, pass build
+
+Work Log:
+- Killed all dev servers and background processes
+- Fixed **ActivityTimeline.tsx runtime error** (`Cannot read properties of undefined (reading 'slice')`):
+  - Root cause: DashboardTab.tsx passed `activities={activities}` but component expected `events` prop
+  - Fix 1: Changed `<ActivityTimeline activities={activities}>` → `<ActivityTimeline events={activities}>` in DashboardTab.tsx
+  - Fix 2: Added null safety `(events ?? []).slice(0, maxItems)` in ActivityTimeline.tsx for defensive coding
+- Fixed **NextAuth v4/v5 incompatibility** causing build failure:
+  - Root cause: `next-auth@^4.24.11` installed but code used v5 API (`handlers`, `auth`, `trustHost`, `trigger` in JWT callback)
+  - Fix 1: Changed `export const { handlers, signIn, signOut, auth } = NextAuth({...})` → `export const authOptions = NextAuth({...})` in `/src/lib/auth.ts`
+  - Fix 2: Updated `[...nextauth]/route.ts` to use v4 pattern: `const handler = NextAuth(authOptions); export { handler as GET, handler as POST }`
+  - Fix 3: Changed `getCurrentUser()` and `requireAuth()` to use `getServerSession(authOptions)` instead of `auth()`
+  - Fix 4: Removed unused `signIn` import from `/api/auth/dev-login/verify/route.ts`
+  - Fix 5: Changed `declare module "@auth/core/jwt"` → `declare module "next-auth/jwt"` (v4 module path)
+  - Fix 6: Removed `trustHost: true` option (v5 only)
+  - Fix 7: Removed `trigger` and `session` params from JWT callback (v5 only)
+- Ran `bun run build` — **BUILD PASSED** successfully (previously segfaulted)
+- Verified dev server: Homepage HTTP 200, Compliance API returns correct data (201 columns)
+
+### Files Modified:
+- `/src/components/tabs/DashboardTab.tsx` — Fixed `activities` → `events` prop name
+- `/src/components/ActivityTimeline.tsx` — Added null safety for `events` prop
+- `/src/lib/auth.ts` — Converted from v5 to v4 API pattern
+- `/src/app/api/auth/[...nextauth]/route.ts` — Converted to v4 handler export
+- `/src/app/api/auth/dev-login/verify/route.ts` — Removed unused signIn import
+
+### Verification:
+- `bun run build` → **SUCCESS** (previously Segfault exit code 139)
+- Homepage → HTTP 200
+- Compliance API → HTTP 200, 201 columns, 25 rules
+- Dev server logs clean, no runtime errors
+
+Stage Summary:
+- 1 runtime TypeError fixed (ActivityTimeline events prop mismatch)
+- NextAuth v4/v5 compatibility fully resolved — build now passes
+- 5 files modified across auth system and component layer
+- Zero new lint errors

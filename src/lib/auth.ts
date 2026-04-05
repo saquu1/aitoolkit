@@ -24,7 +24,7 @@ declare module "next-auth" {
   }
 }
 
-declare module "@auth/core/jwt" {
+declare module "next-auth/jwt" {
   interface JWT {
     id: string
     email: string
@@ -34,8 +34,7 @@ declare module "@auth/core/jwt" {
   }
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,
+export const authOptions = NextAuth({
   session: { 
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -147,7 +146,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     })
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       // Initial sign in - add user data to token
       if (user) {
         token.id = user.id
@@ -155,13 +154,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.name = user.name
         token.role = user.role
         token.companyId = user.companyId
-      }
-      
-      // Update session if triggered
-      if (trigger === "update" && session) {
-        token.name = session.user.name
-        token.role = session.user.role
-        token.companyId = session.user.companyId
       }
       
       return token
@@ -195,19 +187,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   debug: true
 })
 
+export default authOptions
+
 // Helper function to get current user
 export async function getCurrentUser() {
-  const session = await auth()
+  const { getServerSession } = await import("next-auth/next")
+  const session = await getServerSession(authOptions)
   return session?.user
 }
 
 // Helper function to require authentication
 export async function requireAuth() {
-  const user = await getCurrentUser()
-  if (!user) {
+  const { getServerSession } = await import("next-auth/next")
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
     throw new Error("Unauthorized")
   }
-  return user
+  return session.user
 }
 
 // Helper function to check if user is admin

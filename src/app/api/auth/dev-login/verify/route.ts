@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { signIn } from '@/lib/auth'
 
 /**
  * GET /api/auth/dev-login/verify?token=xxx&email=xxx

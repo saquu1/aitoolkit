@@ -660,7 +660,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
-          <ActivityTimeline activities={activities} maxItems={8} />
+          <ActivityTimeline events={activities} maxItems={8} />
         </div>
       </div>
 

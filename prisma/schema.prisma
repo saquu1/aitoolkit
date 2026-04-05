@@ -4459,3 +4459,24 @@ model ComputedColumnModel {
   createdAt DateTime @default(now())
   updatedAt DateTime
 }
+
+model ComplianceScanRecord {
+  id            String   @id @default(cuid())
+  scanTimestamp DateTime @default(now())
+  totalColumns  Int
+  piiFields     Int
+  phiFields     Int
+  soxFields     Int
+  pciFields     Int
+  hipaaScore    Int
+  gdprScore     Int
+  soxScore      Int
+  pciScore      Int
+  criticalCount Int
+  highCount     Int
+  mediumCount   Int
+  lowCount      Int
+  summaryJson   String
+
+  @@index([scanTimestamp])
+}
