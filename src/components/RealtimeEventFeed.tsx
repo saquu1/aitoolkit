@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useTheme } from '@/hooks/useTheme'
 import { useEventStream, type StreamEvent } from '@/hooks/useEventStream'
 import {
@@ -40,7 +41,15 @@ function formatTimeAgo(timestamp: number): string {
 
 export function RealtimeEventFeed() {
   const { colors } = useTheme()
-  const { events, connected, stats } = useEventStream()
+  const { events, connected, stats, connect, disconnect, cleanup } = useEventStream()
+
+  // Manual connect/disconnect with cleanup on unmount
+  useEffect(() => {
+    connect()
+    return () => {
+      cleanup()
+    }
+  }, [connect, cleanup])
 
   const alpha = (color: string, opacity: number) =>
     `color-mix(in srgb, ${color} ${opacity}%, transparent)`
@@ -59,7 +68,7 @@ export function RealtimeEventFeed() {
           style={{ color: colors.text }}
         >
           <Activity className="w-4 h-4" style={{ color: colors.accent }} />
-          Live Event Stream
+          Event Stream
         </h3>
         <div className="flex items-center gap-2">
           {stats && (
@@ -73,14 +82,15 @@ export function RealtimeEventFeed() {
               {stats.clientCount} client{stats.clientCount !== 1 ? 's' : ''}
             </span>
           )}
-          <div
-            className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
+          <button
+            onClick={connected ? disconnect : connect}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full cursor-pointer transition-all hover:scale-105"
             style={{
               backgroundColor: alpha(
-                connected ? colors.success : colors.error,
+                connected ? colors.success : colors.textMuted,
                 15
               ),
-              color: connected ? colors.success : colors.error,
+              color: connected ? colors.success : colors.textMuted,
             }}
           >
             {connected ? (
@@ -91,10 +101,10 @@ export function RealtimeEventFeed() {
             ) : (
               <>
                 <WifiOff className="w-3 h-3" />
-                <span className="font-medium">Offline</span>
+                <span className="font-medium">Connect</span>
               </>
             )}
-          </div>
+          </button>
         </div>
       </div>
 
@@ -108,7 +118,7 @@ export function RealtimeEventFeed() {
             <p className="text-xs" style={{ color: colors.textMuted }}>
               {connected
                 ? 'Waiting for events...'
-                : 'Connecting to event stream...'}
+                : 'Click "Connect" to start streaming events'}
             </p>
           </div>
         ) : (

@@ -107,9 +107,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     checkAuth()
-    // Re-check every 5 minutes
-    const interval = setInterval(checkAuth, 5 * 60 * 1000)
-    return () => clearInterval(interval)
   }, [checkAuth])
 
   // ─── Override window.fetch to add Authorization header ───────────────────

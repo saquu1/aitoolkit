@@ -99,7 +99,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
   const actionToast = useActionToast()
   const { exportCSV } = useExportCSV()
 
-  // Fetch real API stats on mount and refresh
+  // Fetch real API stats once on mount (no polling to reduce server load)
   const fetchApiStats = useCallback(async () => {
     setApiStatsLoading(true)
     try {
@@ -115,8 +115,6 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
 
   useEffect(() => {
     fetchApiStats()
-    const interval = setInterval(fetchApiStats, 30000) // Refresh every 30s
-    return () => clearInterval(interval)
   }, [fetchApiStats])
 
   // Real-time clock
@@ -125,16 +123,9 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     return () => clearInterval(timer)
   }, [])
 
-  // System metrics simulation
+  // System metrics - set once on mount (no continuous simulation)
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSystemMetrics(prev => ({
-        cpu: Math.max(5, Math.min(95, prev.cpu + (Math.random() - 0.5) * 8)),
-        memory: Math.max(30, Math.min(85, prev.memory + (Math.random() - 0.5) * 4)),
-        uptime: prev.uptime + 1,
-      }))
-    }, 3000)
-    return () => clearInterval(timer)
+    setSystemMetrics({ cpu: 12, memory: 45, uptime: 0 })
   }, [])
 
   // Sparkline data - regenerated periodically for live feel
@@ -145,17 +136,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     tables: generateSparklineData(20, 0, Math.max(totalTables, 5)),
   })
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSparkData(prev => ({
-        cpu: [...prev.cpu.slice(1), Math.max(5, Math.min(95, prev.cpu[prev.cpu.length - 1] + (Math.random() - 0.5) * 10))],
-        memory: [...prev.memory.slice(1), Math.max(30, Math.min(85, prev.memory[prev.memory.length - 1] + (Math.random() - 0.5) * 5))],
-        requests: [...prev.requests.slice(1), Math.floor(Math.random() * 80 + 20)],
-        tables: [...prev.tables.slice(1), Math.max(0, prev.tables[prev.tables.length - 1] + Math.floor(Math.random() * 3))],
-      }))
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [])
+  // Sparkline data - static, generated once on mount (no continuous updates)
 
   // Performance trend data - simulated with optional API influence
   const [throughputData, setThroughputData] = useState(() =>
@@ -169,24 +150,7 @@ export function DashboardTab({ onNavigate }: DashboardTabProps) {
     return data.map(v => Math.min(100, Math.max(50, v)))
   })
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setThroughputData(prev => {
-        const last = prev[prev.length - 1]
-        const next = Math.max(5, Math.min(50, last + (Math.random() - 0.45) * 8))
-        return [...prev.slice(1), Math.round(next)]
-      })
-      setFkProgressData(prev => {
-        const last = prev[prev.length - 1]
-        const target = apiStats?.stats?.fkResolvedPercent ?? 100
-        const next = last < target
-          ? Math.min(target, last + Math.random() * 2)
-          : last + (Math.random() - 0.5) * 1.5
-        return [...prev.slice(1), Math.round(Math.min(100, Math.max(50, next)))]
-      })
-    }, 3000)
-    return () => clearInterval(timer)
-  }, [apiStats?.stats?.fkResolvedPercent])
+  // Performance trend data - static snapshots (no continuous updates)
 
   // Helper function
   const alpha = (color: string, opacity: number) =>

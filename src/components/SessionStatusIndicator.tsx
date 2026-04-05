@@ -50,8 +50,6 @@ export function SessionStatusIndicator({ compact = false, showDetails = true }: 
 
   useEffect(() => {
     fetchStatus()
-    const interval = setInterval(fetchStatus, 60000)
-    return () => clearInterval(interval)
   }, [])
 
   const fetchStatus = async (retryCount = 2) => {
@@ -437,8 +435,6 @@ export function SessionStatusBadge() {
       }
     }
     fetchStatus()
-    const interval = setInterval(fetchStatus, 60000)
-    return () => clearInterval(interval)
   }, [])
 
   if (!status) return null

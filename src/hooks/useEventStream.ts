@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 
 export interface StreamEvent {
   id: string
@@ -19,50 +19,51 @@ interface StreamStats {
 
 /**
  * Hook for connecting to the real-time event stream via Socket.IO.
- * Handles reconnection, event buffering, and heartbeat.
+ * Does NOT auto-connect to reduce server load.
+ * Call `connect()` manually when real-time events are needed.
  */
 export function useEventStream() {
   const [events, setEvents] = useState<StreamEvent[]>([])
   const [connected, setConnected] = useState(false)
   const [stats, setStats] = useState<StreamStats | null>(null)
   const socketRef = useRef<any>(null)
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const mountedRef = useRef(true)
 
-  useEffect(() => {
-    let mounted = true
+  const connect = useCallback(() => {
+    if (socketRef.current?.connected) return
 
-    async function connect() {
+    async function doConnect() {
       try {
         const { io } = await import('socket.io-client')
         const socket = io('/?XTransformPort=3010', {
           transports: ['websocket', 'polling'],
           reconnection: true,
           reconnectionDelay: 2000,
-          reconnectionAttempts: 10,
+          reconnectionAttempts: 5,
           timeout: 5000,
         })
 
         socketRef.current = socket
 
         socket.on('connect', () => {
-          if (!mounted) return
+          if (!mountedRef.current) return
           setConnected(true)
           socket.emit('request-stats')
         })
 
         socket.on('disconnect', () => {
-          if (!mounted) return
+          if (!mountedRef.current) return
           setConnected(false)
         })
 
         socket.on('init', (data: { events: StreamEvent[], clientCount: number }) => {
-          if (!mounted) return
+          if (!mountedRef.current) return
           setEvents(data.events)
           setStats(prev => prev ? { ...prev, clientCount: data.clientCount } : null)
         })
 
         socket.on('event', (event: StreamEvent) => {
-          if (!mounted) return
+          if (!mountedRef.current) return
           setEvents(prev => {
             const next = [event, ...prev]
             return next.slice(0, 50) // Keep last 50 events
@@ -70,7 +71,7 @@ export function useEventStream() {
         })
 
         socket.on('stats', (data: StreamStats) => {
-          if (!mounted) return
+          if (!mountedRef.current) return
           setStats(data)
         })
 
@@ -84,14 +85,23 @@ export function useEventStream() {
       }
     }
 
-    connect()
+    doConnect()
+  }, [])
 
-    return () => {
-      mounted = false
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current)
-      if (socketRef.current) {
-        socketRef.current.disconnect()
-      }
+  const disconnect = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.disconnect()
+      socketRef.current = null
+    }
+    setConnected(false)
+  }, [])
+
+  // Cleanup on unmount
+  const cleanup = useCallback(() => {
+    mountedRef.current = false
+    if (socketRef.current) {
+      socketRef.current.disconnect()
+      socketRef.current = null
     }
   }, [])
 
@@ -111,6 +121,9 @@ export function useEventStream() {
     events,
     connected,
     stats,
+    connect,
+    disconnect,
+    cleanup,
     postEvent,
     refreshStats,
   }
