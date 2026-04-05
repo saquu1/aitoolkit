@@ -5,11 +5,16 @@
 // GET /api/compliance-export?format=csv|json
 //
 // Fetches compliance scan data from the database and returns it as either:
-//   - CSV:  text/csv with structured sections (summary, frameworks, sensitivity, findings)
+//   - CSV:  text/csv with structured sections:
+//       1. Summary (total columns, PII, PHI, financial, PCI fields)
+//       2. Framework Scores (HIPAA, GDPR, SOX, PCI-DSS)
+//       3. Rule Evaluations (all rules with status, severity, actions)
+//       4. Gap Report (all violations with severity, description, effort)
+//       5. Sensitivity Breakdown (public, internal, confidential, restricted)
+//       6. Top Findings (up to 50 sensitive fields detected)
 //   - JSON: application/json with the full compliance-scan response payload
 //
-// Reuses the same scan engine pattern from /api/compliance-scan but keeps the
-// route minimal by calling that endpoint internally.
+// Reuses the compliance scan engine by calling /api/compliance-scan internally.
 // =============================================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -37,8 +42,42 @@ function csvSection(title: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BUILD CSV PAYLOAD
+// TYPE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════════
+
+interface RuleEvaluation {
+  ruleId: string;
+  name: string;
+  reference: string;
+  severity: string;
+  status: string;
+  description: string;
+  affectedFields: number;
+  requiredActions: string[];
+}
+
+interface Violation {
+  id: string;
+  severity: string;
+  framework: string;
+  ruleId: string;
+  title: string;
+  description: string;
+  affectedFields: number;
+  requiredActions: string[];
+  estimatedEffort: string;
+}
+
+interface GapReport {
+  totalViolations: number;
+  bySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  violations: Violation[];
+}
 
 interface ComplianceResponse {
   success: boolean;
@@ -90,35 +129,43 @@ interface ComplianceResponse {
     confidence: number;
     action: string;
   }>;
+  ruleEvaluations?: Record<string, RuleEvaluation[]>;
+  gapReport?: GapReport;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILD CSV PAYLOAD
+// ═══════════════════════════════════════════════════════════════════════════
 
 function buildCSV(data: ComplianceResponse): string {
   const lines: string[] = [];
   const s = data.summary;
   const fw = data.frameworks;
   const sens = data.sensitivityBreakdown;
-  const findings = data.topFindings.slice(0, 10);
+  const ruleEvals = data.ruleEvaluations;
+  const gapReport = data.gapReport;
 
-  // Header
-  lines.push(csvRow("Compliance Export Report"));
+  // ─── Header ───
+  lines.push(csvRow("COMPLIANCE GAP REPORT"));
   lines.push(csvRow("Generated", data.scanTimestamp));
-  lines.push(csvRow("Total Columns Analyzed", s.totalColumns));
+  lines.push(csvRow("Source", "Schema Intelligence Engine - Compliance Scanner"));
 
-  // --- Summary Section ---
-  lines.push(csvSection("Summary"));
+  // ─── Section 1: Summary ───
+  lines.push(csvSection("SECTION 1: SUMMARY"));
   lines.push(csvRow("Metric", "Value"));
-  lines.push(csvRow("Total Columns", s.totalColumns));
+  lines.push(csvRow("Total Columns Scanned", s.totalColumns));
   lines.push(csvRow("PII Fields", s.piiFields));
   lines.push(csvRow("PHI Fields", s.phiFields));
   lines.push(csvRow("Financial Fields", s.financialFields));
-  lines.push(csvRow("PCI Fields", s.pciFields));
+  lines.push(csvRow("SOX Fields", s.soxFields));
+  lines.push(csvRow("PCI-DSS Fields", s.pciFields));
   lines.push(csvRow("Encryption Required", s.encryptionRequired));
   lines.push(csvRow("Masking Required", s.maskingRequired));
   lines.push(csvRow("Audit Required", s.auditRequired));
   lines.push(csvRow("Consent Required", s.consentRequired));
 
-  // --- Frameworks Section ---
-  lines.push(csvSection("Frameworks"));
+  // ─── Section 2: Framework Scores ───
+  lines.push(csvSection("SECTION 2: FRAMEWORK SCORES"));
   lines.push(csvRow("Framework", "Status", "Score", "Coverage", "Fields Detected", "Findings Count"));
   for (const [name, f] of Object.entries(fw)) {
     const fieldsDetected =
@@ -135,29 +182,110 @@ function buildCSV(data: ComplianceResponse): string {
     );
   }
 
-  // --- Sensitivity Breakdown Section ---
-  lines.push(csvSection("Sensitivity Breakdown"));
-  lines.push(csvRow("Level", "Column Count"));
-  lines.push(csvRow("Public", sens.public));
-  lines.push(csvRow("Internal", sens.internal));
-  lines.push(csvRow("Confidential", sens.confidential));
-  lines.push(csvRow("Restricted", sens.restricted));
+  // ─── Section 3: Rule Evaluations ───
+  if (ruleEvals) {
+    lines.push(csvSection("SECTION 3: RULE EVALUATIONS"));
+    lines.push(csvRow("Framework", "Rule ID", "Rule Name", "Reference", "Severity", "Status", "Affected Fields", "Required Actions"));
+    let ruleCount = 0;
+    for (const [framework, rules] of Object.entries(ruleEvals)) {
+      for (const rule of rules) {
+        lines.push(
+          csvRow(
+            framework,
+            rule.ruleId,
+            rule.name,
+            rule.reference,
+            rule.severity,
+            rule.status,
+            rule.affectedFields,
+            (rule.requiredActions || []).join("; ")
+          )
+        );
+        ruleCount++;
+      }
+    }
+    if (ruleCount === 0) {
+      lines.push(csvRow("N/A", "", "No rules evaluated", "", "", "", "", ""));
+    }
+  } else {
+    lines.push(csvSection("SECTION 3: RULE EVALUATIONS"));
+    lines.push(csvRow("Status", "Rule evaluations not available from scan"));
+  }
 
-  // --- Top 10 Findings Section ---
-  lines.push(csvSection("Top Findings"));
-  lines.push(csvRow("Table", "Column", "Classification", "Sensitivity", "Confidence %", "Action"));
-  for (const f of findings) {
+  // ─── Section 4: Gap Report ───
+  if (gapReport) {
+    lines.push(csvSection("SECTION 4: GAP REPORT"));
+    lines.push(csvRow("Total Violations", gapReport.totalViolations));
+    lines.push(csvRow("Critical", gapReport.bySeverity?.critical || 0));
+    lines.push(csvRow("High", gapReport.bySeverity?.high || 0));
+    lines.push(csvRow("Medium", gapReport.bySeverity?.medium || 0));
+    lines.push(csvRow("Low", gapReport.bySeverity?.low || 0));
+
+    // Violation details
+    const violations = gapReport.violations || [];
+    if (violations.length > 0) {
+      lines.push(csvRow("")); // blank separator
+      lines.push(csvRow("ID", "Severity", "Framework", "Rule ID", "Title", "Description", "Affected Fields", "Required Actions", "Estimated Effort"));
+      for (const v of violations) {
+        lines.push(
+          csvRow(
+            v.id,
+            v.severity,
+            v.framework,
+            v.ruleId,
+            v.title,
+            v.description,
+            v.affectedFields,
+            (v.requiredActions || []).join("; "),
+            v.estimatedEffort || "N/A"
+          )
+        );
+      }
+    }
+  } else {
+    lines.push(csvSection("SECTION 4: GAP REPORT"));
+    lines.push(csvRow("Status", "Gap report not available from scan"));
+  }
+
+  // ─── Section 5: Sensitivity Breakdown ───
+  lines.push(csvSection("SECTION 5: SENSITIVITY BREAKDOWN"));
+  lines.push(csvRow("Level", "Columns", "Percentage"));
+  const totalCols = s.totalColumns || 1;
+  for (const [level, count] of Object.entries(sens)) {
     lines.push(
       csvRow(
-        f.table,
-        f.column,
-        f.classification,
-        f.sensitivity,
-        f.confidence,
-        f.action
+        level,
+        count,
+        `${Math.round((count as number / totalCols) * 100)}%`
       )
     );
   }
+
+  // ─── Section 6: Top Findings (Sensitive Fields) ───
+  lines.push(csvSection("SECTION 6: TOP FINDINGS (Sensitive Fields)"));
+  lines.push(csvRow("Table", "Column", "Classification", "Sensitivity", "Confidence %", "Frameworks", "Action"));
+  const topFindings = data.topFindings.slice(0, 50);
+  if (topFindings.length > 0) {
+    for (const f of topFindings) {
+      lines.push(
+        csvRow(
+          `${f.table}.${f.column}`,
+          f.classification,
+          f.sensitivity,
+          f.confidence,
+          (f.frameworks || []).join("/"),
+          f.action || "Review"
+        )
+      );
+    }
+  } else {
+    lines.push(csvRow("N/A", "", "No sensitive fields detected", "", "", "", ""));
+  }
+
+  // ─── Footer ───
+  lines.push(csvSection("END OF REPORT"));
+  lines.push(csvRow("Generated by", "Schema Intelligence Engine"));
+  lines.push(csvRow("Scan timestamp", data.scanTimestamp));
 
   return lines.join("");
 }
@@ -192,8 +320,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate timestamp for filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    // Generate date string for filename (YYYY-MM-DD)
+    const dateStr = new Date().toISOString().split("T")[0];
 
     if (format === "json") {
       // Return full compliance-scan response as downloadable JSON
@@ -202,7 +330,7 @@ export async function GET(request: NextRequest) {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Content-Disposition": `attachment; filename="compliance-report-${timestamp}.json"`,
+          "Content-Disposition": `attachment; filename="compliance-report-${dateStr}.json"`,
         },
       });
     }
@@ -213,7 +341,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="compliance-report-${timestamp}.csv"`,
+        "Content-Disposition": `attachment; filename="compliance-report-${dateStr}.csv"`,
       },
     });
   } catch (error) {

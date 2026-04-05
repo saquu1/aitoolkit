@@ -2007,3 +2007,206 @@ textarea:focus-visible,
     animation: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   Task 14e: Compliance Section Animations & Styles
+   ═══════════════════════════════════════════════ */
+
+/* ─── 1. Compliance Rule Status Animations ─── */
+
+/* Compliance rule status pulse - for PASS/WARNING/FAIL indicators */
+.rule-status-pass {
+  position: relative;
+}
+.rule-status-pass::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--color-success, #22c55e);
+  opacity: 0;
+  animation: rule-pulse-green 2s ease-in-out infinite;
+}
+
+.rule-status-fail {
+  position: relative;
+}
+.rule-status-fail::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--color-error, #ef4444);
+  opacity: 0;
+  animation: rule-pulse-red 1.5s ease-in-out infinite;
+}
+
+.rule-status-warning {
+  position: relative;
+}
+.rule-status-warning::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid var(--color-warning, #eab308);
+  opacity: 0;
+  animation: rule-pulse-yellow 2.5s ease-in-out infinite;
+}
+
+@keyframes rule-pulse-green {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.02); }
+}
+@keyframes rule-pulse-red {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.03); }
+}
+@keyframes rule-pulse-yellow {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.02); }
+}
+
+/* ─── 2. Severity Indicator Styles ─── */
+
+/* Severity badge glow effects */
+.severity-critical {
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--color-error, #ef4444) 30%, transparent);
+  animation: severity-glow-red 2s ease-in-out infinite;
+}
+.severity-high {
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-warning, #eab308) 25%, transparent);
+  animation: severity-glow-yellow 2.5s ease-in-out infinite;
+}
+
+@keyframes severity-glow-red {
+  0%, 100% { box-shadow: 0 0 8px 2px color-mix(in srgb, var(--color-error, #ef4444) 30%, transparent); }
+  50% { box-shadow: 0 0 12px 4px color-mix(in srgb, var(--color-error, #ef4444) 45%, transparent); }
+}
+@keyframes severity-glow-yellow {
+  0%, 100% { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-warning, #eab308) 25%, transparent); }
+  50% { box-shadow: 0 0 10px 3px color-mix(in srgb, var(--color-warning, #eab308) 40%, transparent); }
+}
+
+/* ─── 3. Compliance Score Ring Animation ─── */
+
+/* Animated compliance score ring */
+.compliance-score-ring {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.compliance-score-ring svg {
+  transform: rotate(-90deg);
+}
+.compliance-score-ring .score-circle {
+  stroke-dasharray: 283;
+  stroke-dashoffset: 283;
+  animation: score-fill 1.5s ease-out forwards;
+}
+@keyframes score-fill {
+  to { stroke-dashoffset: var(--score-offset, 0); }
+}
+
+/* ─── 4. Compliance Card Hover Effects ─── */
+
+/* Compliance framework card hover */
+.compliance-framework-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.compliance-framework-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px color-mix(in srgb, var(--color-primary, #a855f7) 15%, transparent);
+}
+
+/* Rule item expand animation */
+.rule-item-expand {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
+  opacity: 0;
+}
+.rule-item-expand.expanded {
+  max-height: 200px;
+  opacity: 1;
+}
+
+/* ─── 5. Gap Report Severity Bar ─── */
+
+/* Gap report severity distribution bar */
+.severity-bar {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  background: color-mix(in srgb, var(--color-border, #334155) 30%, transparent);
+}
+.severity-bar-segment {
+  height: 100%;
+  transition: width 0.8s ease-out;
+  position: relative;
+}
+.severity-bar-segment:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.severity-bar-segment:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.severity-bar-segment::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1));
+}
+
+/* ─── 6. Violation List Item Animation ─── */
+
+/* Violation list item slide-in */
+.violation-item {
+  animation: violation-slide-in 0.3s ease-out forwards;
+  opacity: 0;
+  transform: translateX(-8px);
+}
+@keyframes violation-slide-in {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Staggered animation delays for list items */
+.violation-item:nth-child(1) { animation-delay: 0.05s; }
+.violation-item:nth-child(2) { animation-delay: 0.1s; }
+.violation-item:nth-child(3) { animation-delay: 0.15s; }
+.violation-item:nth-child(4) { animation-delay: 0.2s; }
+.violation-item:nth-child(5) { animation-delay: 0.25s; }
+.violation-item:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* ─── 7. Compliance Header Gradient ─── */
+
+/* Compliance dashboard header gradient */
+.compliance-header-gradient {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-primary, #a855f7) 8%, transparent),
+    color-mix(in srgb, var(--color-accent, #22c55e) 5%, transparent)
+  );
+  border-left: 3px solid var(--color-primary, #a855f7);
+}
+
+/* ─── 8. Reduced Motion Support ─── */
+@media (prefers-reduced-motion: reduce) {
+  .rule-status-pass::after,
+  .rule-status-fail::after,
+  .rule-status-warning::after,
+  .severity-critical,
+  .severity-high {
+    animation: none !important;
+  }
+  .compliance-score-ring .score-circle {
+    animation: none !important;
+    stroke-dashoffset: var(--score-offset, 0) !important;
+  }
+  .violation-item {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

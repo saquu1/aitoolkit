@@ -384,6 +384,22 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
     }
   };
 
+  // Compute compliance stats from live compliance data
+  const complianceStats = useMemo(() => {
+    if (!complianceData) return { errors: 0, warnings: 0, resolved: 0 };
+    const re = complianceData.ruleEvaluations;
+    const passCount = re
+      ? Object.values(re)
+          .flat()
+          .filter((r: { status: string }) => r.status === 'PASS').length
+      : 0;
+    return {
+      errors: complianceData.gapReport?.bySeverity?.critical || 0,
+      warnings: complianceData.gapReport?.bySeverity?.high || 0,
+      resolved: passCount,
+    };
+  }, [complianceData]);
+
   // Calculate overall health score
   const healthScore = summary
     ? Math.round(
@@ -601,15 +617,15 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
               <div>
                 <p className="text-sm text-muted-foreground">Compliance</p>
                 <p className="text-2xl font-bold">
-                  <span className="text-red-600">{summary?.compliance?.errors || 0}</span>
+                  <span className="text-red-600">{complianceStats.errors}</span>
                   <span className="text-muted-foreground mx-1">/</span>
-                  <span className="text-yellow-600">{summary?.compliance?.warnings || 0}</span>
+                  <span className="text-yellow-600">{complianceStats.warnings}</span>
                 </p>
               </div>
               <Shield className="h-8 w-8 text-purple-500 opacity-50" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {summary?.compliance?.resolved || 0} issues resolved
+              {complianceStats.resolved} rules passing
             </p>
           </CardContent>
         </Card>
@@ -628,6 +644,33 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Framework Scores Mini Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { name: 'HIPAA', key: 'HIPAA', icon: Lock, color: '#ef4444' },
+          { name: 'GDPR', key: 'GDPR', icon: Shield, color: '#3b82f6' },
+          { name: 'SOX', key: 'SOX', icon: FileCheck, color: '#22c55e' },
+          { name: 'PCI-DSS', key: 'PCI-DSS', icon: ShieldCheck, color: '#a855f7' },
+        ].map((fw) => {
+          const fwData = complianceData?.frameworks?.[fw.key];
+          const score = fwData?.score || 0;
+          return (
+            <div key={fw.key} className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: alpha(colors.border, 10) }}>
+              <fw.icon className="h-4 w-4 shrink-0" style={{ color: fw.color }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span style={{ color: colors.textMuted }}>{fw.name}</span>
+                  <span className="font-mono font-semibold" style={{ color: colors.text }}>{score}%</span>
+                </div>
+                <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: alpha(colors.border, 60) }}>
+                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, backgroundColor: score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : '#ef4444' }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Main Tabs */}
@@ -706,17 +749,31 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950 rounded-lg">
                     <div className="flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-red-600" />
+                      <Lock className="h-5 w-5 text-red-600" />
                       <span className="font-medium">PHI Fields</span>
                     </div>
-                    <Badge variant="destructive">{summary?.phiFields || 0}</Badge>
+                    <Badge variant="destructive">{complianceData?.summary?.phiFields || 0}</Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Shield className="h-5 w-5 text-yellow-600" />
                       <span className="font-medium">PII Fields</span>
                     </div>
-                    <Badge variant="secondary">{summary?.piiFields || 0}</Badge>
+                    <Badge variant="secondary">{complianceData?.summary?.piiFields || 0}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-5 w-5 text-green-600" />
+                      <span className="font-medium">Financial Fields</span>
+                    </div>
+                    <Badge variant="outline">{complianceData?.summary?.financialFields || 0}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className="h-5 w-5 text-purple-600" />
+                      <span className="font-medium">PCI Fields</span>
+                    </div>
+                    <Badge variant="outline">{complianceData?.summary?.pciFields || 0}</Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
                     <div className="flex items-center gap-3">
