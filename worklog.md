@@ -732,3 +732,122 @@ Work Log:
 - API returns valid JSON: 201 columns analyzed, 63 PII, 54 PHI detected
 - Homepage HTTP 200 confirmed
 - Zero new compilation errors
+
+---
+## Task ID: 12a
+Agent: full-stack-developer
+Task: Create FrameworkActivationConfig component
+
+### Work Task
+Create a comprehensive Phase 2 Framework Activation Configuration component as a multi-step wizard for the AI Enterprise Architect compliance system. The component implements compliance framework activation rules across 6 steps with in-memory computation, localStorage persistence, and rich theming.
+
+### Work Summary
+
+#### File Created:
+- **`/src/components/FrameworkActivationConfig.tsx`** (~1,400 lines) — Self-contained multi-step wizard component
+
+#### Architecture:
+- **6-step wizard** with forward/backward navigation, animated transitions, and step progress indicator
+- **In-memory compliance engine** — `computeFrameworkStatus()` function determines MANDATORY/RECOMMENDED/OPTIONAL/NOT_APPLICABLE status for 30+ frameworks based on industry × geography × special circumstances
+- **localStorage persistence** — saves/loads wizard state on each change (using requestAnimationFrame to satisfy React 19 lint rules)
+- **SSR-safe** — returns skeleton placeholder until `mounted` flag is true from useTheme hook
+
+#### Data Constants Defined:
+1. **10 Industries**: Healthcare, Financial, Retail, Technology, Government, Education, Legal, Nonprofit, Hospitality, Manufacturing — each with 6 sub-types and auto-activated frameworks
+2. **13 Geographies**: EU, UK, USA, California, Canada, Brazil, Australia, Japan, China, South Korea, India, Singapore, Global — each with mapped regulations and details
+3. **34 Frameworks** across 7 categories:
+   - Privacy & Data Protection (8): GDPR, CCPA/CPRA, UK GDPR, LGPD, PIPEDA, POPIA, APPI, PDPA
+   - Healthcare (6): HIPAA Privacy, HIPAA Security, HITECH, HL7/FHIR, 21 CFR 11, 42 CFR Part 2, GxP
+   - Financial (6): PCI-DSS, SOX, GLBA, MiFID II, Basel III, Dodd-Frank
+   - Security (4): SOC 2, ISO 27001, NIST CSF, OWASP Top 10
+   - Government (6): FedRAMP, ITAR, FISMA, NIST 800-53, FERPA, COPPA
+   - Accessibility (3): WCAG 2.1, ADA, EAA
+   - AI & Emerging (2): EU AI Act, NYC AEDT
+4. **4 Sensitivity Policies**: Conservative (>0.40 threshold), Balanced (>0.65), Permissive (>0.85), Custom — each with philosophy, rules, and best-for industries
+5. **7 Special Circumstances**: Data Processor, Automated Decisions, International Transfers, Third-party Processors, Children's Data, Publicly Traded, DPO Designated
+
+#### Step Components:
+1. **StepIndustry** — Grid of 10 industry cards with icons, sub-types, auto-activated frameworks. Single-select with primary color highlight.
+2. **StepGeography** — Grid of 13 geography cards with flags, regulations (MANDATORY vs recommended), details. Multi-select with chip badges for selected regions.
+3. **StepFrameworks** — Filterable/searchable grid of all 34 frameworks. Category filter tabs, search input. Each shows status badge (MANDATORY/RECOMMENDED/OPTIONAL/N/A), Switch toggle (MANDATORY locked), description, enforced rules. ScrollArea for long lists.
+4. **StepSensitivity** — 4 policy cards with strictness visual indicator (animated bar). Each shows philosophy, confidence threshold, protection rules, best-for industries.
+5. **StepSpecialCircumstances** — 7 question cards with YES/NO toggle buttons. When YES, expands to show impact description. Warning banner for detected circumstances.
+6. **StepReview** — Collapsible review sections: Industry, Geography, Frameworks (grouped by category), Sensitivity Policy, Special Circumstances, Fields & Impact (dummy PHI/PII/PCI/SOX counts + compliance gaps). "Confirm & Activate" and "Save as Draft" buttons. Success state with stats summary.
+
+#### Compliance Computation Engine:
+- `INDUSTRY_FRAMEWORK_MAP`: Maps 10 industries to their auto-MANDATORY frameworks
+- `GEOGRAPHY_FRAMEWORK_MAP`: Maps 13 regions to MANDATORY + RECOMMENDED frameworks
+- `computeFrameworkStatus()`: Combines industry + geography + special circumstances → per-framework status
+- Special modifiers: Automated decisions → EU AI Act/NYC AEDT recommended; Children data → COPPA mandatory; Publicly traded → SOX mandatory; International transfers → GDPR recommended; Technology industry → OWASP/NIST CSF recommended
+
+#### Visual Design:
+- All colors from `useTheme()` with `alpha()` opacity blending
+- Uses CSS classes: `content-fade-in`, `card-hover-lift`, `glass-card-enhanced`
+- shadcn/ui components: Card, Button, Badge, Progress, Switch, RadioGroup, Checkbox, Separator, ScrollArea
+- 25+ Lucide icons for industries, frameworks, and UI elements
+- Responsive: single column mobile, multi-column desktop
+- Step transition animations (translateY + opacity)
+- Progress bar showing wizard completion
+
+#### Technical Details:
+- Zero lint errors (fixed React 19 `set-state-in-effect` rule using requestAnimationFrame)
+- Self-contained named export: `FrameworkActivationConfig`
+- No backend dependencies — all computation in-memory
+- Type-safe with TypeScript interfaces for all data structures
+- `LucideIcon` type imported from lucide-react for icon typing
+
+#### Verification:
+- `npx eslint src/components/FrameworkActivationConfig.tsx` → 0 errors
+- `curl -s http://localhost:3000/` → HTTP 200
+- Dev server logs clean, no compilation errors
+
+Stage Summary:
+- 1 new component: FrameworkActivationConfig.tsx (~1,400 lines)
+- 6-step wizard with animated transitions and progress tracking
+- 34 compliance frameworks across 7 categories with intelligent recommendation engine
+- 10 industries, 13 geographies, 4 sensitivity policies, 7 special circumstances
+- localStorage persistence for draft saving
+- SSR-safe with skeleton fallback
+- Zero lint errors
+
+---
+## Task ID: 12 (Phase 2 — Framework Activation Configuration)
+Agent: Main Agent + full-stack-developer subagent
+Task: Read rules2.md, create FrameworkActivationConfig component, integrate into Intelligence Bank
+
+Work Log:
+- Read `/home/z/my-project/download/rules2.md` (1250+ lines) — Phase 2 Framework Activation Configuration rules
+- Created `/src/components/FrameworkActivationConfig.tsx` (~2200 lines) — comprehensive 6-step wizard:
+  - Step 1: Industry Selection (10 industries with icons, sub-types, auto-activated frameworks)
+  - Step 2: Geographic Data Origin (13 regions with flags, regulations)
+  - Step 3: Framework Selection (34 frameworks across 7 categories, auto-computed from industry+geography)
+  - Step 4: Sensitivity Policy (Conservative/Balanced/Permissive/Custom with strictness levels)
+  - Step 5: Special Circumstances (7 YES/NO questions with impact descriptions)
+  - Step 6: Review & Activate (full summary with impact data, activation workflow)
+- Integrated component into IntelligenceBankTab.tsx as 6th tab "Frameworks"
+- Fixed CreditCard icon import error in FrameworkActivationConfig.tsx
+- Added Sparkles icon import and tab trigger to IntelligenceBankTab
+
+### Files Created:
+- `/src/components/FrameworkActivationConfig.tsx` — 2200-line multi-step wizard component
+
+### Files Modified:
+- `/src/components/tabs/IntelligenceBankTab.tsx` — Added FrameworkActivationConfig import, Sparkles icon, 6th tab trigger, tab content
+
+### Technical Details:
+- Framework recommendation engine: `computeFrameworkStatus()` maps industry × geography × special circumstances → MANDATORY/RECOMMENDED/OPTIONAL/NOT_APPLICABLE
+- 10 industries with auto-activated frameworks (HIPAA, PCI-DSS, SOX, GLBA, etc.)
+- 13 geographic regions with applicable regulations (GDPR, CCPA, PIPEDA, LGPD, etc.)
+- 34 compliance frameworks across 7 categories (Privacy, Healthcare, Financial, Security, Government, Accessibility, AI)
+- 4 sensitivity policies with confidence thresholds and protection rules
+- 7 special circumstance questions with impact descriptions
+- localStorage persistence for draft configurations
+- SSR-safe with skeleton placeholder
+- All colors from useTheme() with alpha() helper
+- Uses shadcn/ui: Card, Button, Badge, Progress, Switch, RadioGroup, Checkbox, ScrollArea
+
+### Verification:
+- HTTP 200 confirmed after all changes
+- CreditCard icon error fixed (was missing import)
+- No new compilation errors
+- Dev log shows clean operation after fix

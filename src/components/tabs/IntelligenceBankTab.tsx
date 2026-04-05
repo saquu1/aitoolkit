@@ -34,9 +34,11 @@ import {
   Lock,
   FileCheck,
   ShieldCheck,
-  CreditCard
+  CreditCard,
+  Sparkles
 } from 'lucide-react';
 import { SOPManagementUI } from '@/components/SOPManagementUI';
+import { FrameworkActivationConfig } from '@/components/FrameworkActivationConfig';
 import { useTheme } from '@/hooks/useTheme';
 
 // =============================================================================
@@ -544,7 +546,7 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">
             <Layers className="h-4 w-4 mr-2" />
             Overview
@@ -564,6 +566,10 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
           <TabsTrigger value="compliance">
             <Shield className="h-4 w-4 mr-2" />
             Compliance
+          </TabsTrigger>
+          <TabsTrigger value="frameworks">
+            <Sparkles className="h-4 w-4 mr-2" />
+            Frameworks
           </TabsTrigger>
         </TabsList>
 
@@ -1263,6 +1269,11 @@ export function IntelligenceBankTab({ projectId }: IntelligenceBankTabProps) {
               </>
             );
           })()}
+        </TabsContent>
+
+        {/* Framework Config Tab — Phase 2 Activation Wizard */}
+        <TabsContent value="frameworks">
+          <FrameworkActivationConfig />
         </TabsContent>
       </Tabs>
     </div>
