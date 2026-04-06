@@ -399,3 +399,205 @@ LoginView, DashboardView, ChangePasswordView, CompanySettingsView, AccountsView,
 - Color-coded type badges (11 account types)
 - PKR currency formatting with Intl.NumberFormat
 - Responsive mobile-first design
+
+---
+## Task ID: 3a
+Agent: Transaction Engine Developer
+Task: Build Phase 3 — Transaction Engine: batch API, IncomeEntryView, ExpenseEntryView
+
+### Work Summary
+
+#### File Created: `/src/app/api/transactions/batch/route.ts`
+- POST endpoint for creating multiple transactions in a single atomic request
+- Validates that entries array is non-empty and each entry has required fields (transDate, accountId, transType)
+- Converts all field types properly (dates to Date objects, IDs to Numbers)
+- Uses `db.$transaction()` with `tx.trans.createMany()` for atomic batch insertion
+- After createMany, fetches the newly created records with account/bank/project relations included
+- Returns `{ success: true, data: Trans[] }` with all created records
+- Proper error handling with try/catch and consistent `{ success, error }` response pattern
+
+#### File Created: `/src/components/views/IncomeEntryView.tsx`
+- Full-featured income entry form with double-entry bookkeeping logic
+- **Form fields:** Date (required, default today), Income Account (Select from INCOME accounts), Amount (PKR, required), Bank Account (Select from BANK accounts, "Received Into"), Project/Product (optional Select), Reference No (optional Input with Hash icon), Comments (optional Textarea with MessageSquare icon)
+- **Double-entry logic on save:** Creates 2 transaction rows via POST /api/transactions/batch:
+  1. Credit entry: accountId=incomeAccountId, bankId=bankId, debit=0, credit=amount, transType=INCOME
+  2. Debit entry: accountId=bankId, bankId=null, debit=amount, credit=0, transType=INCOME
+- **Recent Transactions table:** Fetches last 20 INCOME transactions, columns: Date, Income Account, Bank (with Landmark icon), Amount (emerald-600, green), Reference, Comments, Actions (delete button with hover reveal)
+- **Action buttons:** "Save & New" (emerald-600, resets form after save), "Save & Print" (emerald outline, placeholder), "Reset" (ghost)
+- **Delete flow:** AlertDialog confirmation with note about double-entry rows being individual
+- **Company voucher:** Displays incVoucherTitle as Badge, incVoucherFooter at bottom of table
+- **Loading:** Full skeleton (IncomeEntrySkeleton) with form fields, buttons, and table rows
+- **Styling:** Emerald accent (border-t-emerald-500, emerald-100 icon bg, emerald-600 buttons), 2-col responsive grid, PKR currency formatting, date-fns dates
+- Fetches 5 APIs in parallel on mount: income accounts, bank accounts, products, recent transactions, company info
+
+#### File Created: `/src/components/views/ExpenseEntryView.tsx`
+- Mirror of IncomeEntryView with rose/red accent color scheme
+- **Form fields:** Date, Expense Account (Select from EXPENSE accounts), Amount, Paid From Bank (Select from BANK accounts), Project/Product, Reference No, Comments
+- **Double-entry logic on save:** Creates 2 transaction rows via POST /api/transactions/batch:
+  1. Debit entry: accountId=expenseAccountId, bankId=bankId, debit=amount, credit=0, transType=EXPENSE
+  2. Credit entry: accountId=bankId, bankId=null, debit=0, credit=amount, transType=EXPENSE
+- **Recent Transactions table:** Fetches last 20 EXPENSE transactions, Amount column in rose-600
+- **Action buttons:** "Save & New" (rose-600), "Save & Print" (rose outline), "Reset" (ghost)
+- **Company voucher:** Displays expVoucherTitle as Badge, expVoucherFooter at bottom
+- **Styling:** Rose accent (border-t-rose-500, rose-100 icon bg, rose-600 buttons), matching all other design patterns
+
+#### File Updated: `/src/app/page.tsx`
+- Added imports for IncomeEntryView and ExpenseEntryView
+- Added switch cases for 'income-entry' and 'expense-entry' views in MainContent
+
+### shadcn/ui Components Used
+Card, Badge, Button, Input, Label, Select, Separator, Skeleton, Table, Textarea, AlertDialog
+
+### Validation
+- ESLint passes with 0 errors
+- Dev server compiles successfully (200 status)
+
+---
+## Task ID: 3b
+Agent: Transaction Engine Views Developer (Payment, Receipt, Journal)
+Task: Build Phase 3 — Transaction Engine views: PaymentEntryView, ReceiptEntryView, JournalEntryView
+
+### Work Summary
+
+#### File Created: `/src/components/views/PaymentEntryView.tsx`
+- Payment recording form with rose/warm accent (bg-rose-50 border-rose-200)
+- **Page header:** ArrowDownCircle icon in rose-100 rounded-lg, title "Payment Entry" with subtitle
+- **Form fields:** Date (required, default today), Pay To Account (Select from ALL active accounts with type badge), Amount (PKR, font-mono text-right), Paid From Bank (Select from BANK accounts), Project/Product (optional Select), Reference No, Comments (Textarea)
+- **Double-entry logic on save:** Creates 2 parallel POST /api/transactions calls:
+  1. Debit: accountId=payToAccountId, bankId, debit=amount, credit=0, transType=PAYMENT
+  2. Credit: accountId=bankId, debit=0, credit=amount, transType=PAYMENT
+- **Validation:** Date required, pay-to account required, amount > 0, bank required, pay-to ≠ bank
+- **Recent Payments table:** Fetches last 20 PAYMENT transactions, columns: Date, Paid To, Bank (hidden on mobile), Amount (rose-600, debit), Ref (hidden on mobile), Actions (delete)
+- **Action buttons:** Save (rose-500 primary), Save & New (rose outline), Reset (ghost)
+- **Delete flow:** AlertDialog with payment amount and account name display
+- **Loading:** Full skeleton (PaymentEntrySkeleton) with form fields and table rows
+- **Design:** Two-column grid (form left, table right), custom scrollbar, PKR formatting
+
+#### File Created: `/src/components/views/ReceiptEntryView.tsx`
+- Receipt recording form with emerald accent (bg-emerald-50 border-emerald-200)
+- **Page header:** ArrowUpCircle icon in emerald-100 rounded-lg, title "Receipt Entry" with subtitle
+- **Form fields:** Date, Received From Account (Select from ALL active accounts), Amount, Received In Bank (Select from BANK accounts), Project/Product, Reference No, Comments
+- **Double-entry logic on save:** Creates 2 parallel POST calls:
+  1. Credit: accountId=receivedFromAccountId, bankId, debit=0, credit=amount, transType=RECEIPT
+  2. Debit: accountId=bankId, debit=amount, credit=0, transType=RECEIPT
+- **Validation:** Date required, received-from account required, amount > 0, bank required, received-from ≠ bank
+- **Recent Receipts table:** Fetches last 20 RECEIPT transactions, Amount column in emerald-600 (credit)
+- **Action buttons:** Save (emerald-500 primary), Save & New (emerald outline), Reset (ghost)
+- **Loading:** Full skeleton (ReceiptEntrySkeleton)
+- **Design:** Mirror of PaymentEntryView with emerald color scheme
+
+#### File Created: `/src/components/views/JournalEntryView.tsx`
+- Full double-entry journal voucher form with amber accent (bg-amber-50 border-amber-200)
+- **Page header:** FileText icon in amber-100 rounded-lg, title "Journal Voucher" with subtitle
+- **Two-column layout (Debit | Credit):**
+  - Left: Debit Side with emerald accents, "Add Row" button, multiple debit lines each with Account Select + Amount Input, green-tinted card per line, Total Debit subtotal bar
+  - Right: Credit Side with rose accents, "Add Row" button, multiple credit lines each with Account Select + Amount Input, red-tinted card per line, Total Credit subtotal bar
+- **Multi-row support:** Add/remove debit and credit lines dynamically (min 1 each), unique line IDs via counter + timestamp
+- **Balance Indicator:** Real-time bar showing Debit total | Credit total | Difference, green when balanced (difference=0, both >0), red when unbalanced, CheckCircle2/AlertCircle icons
+- **Common fields below:** Date, Project/Product, Reference No, Narration/Comments (Textarea, 3 rows)
+- **Validation:** Date required, at least 1 valid debit + credit line, no same-account debit+credit, total debit must equal total credit, amounts > 0
+- **Save creates N+M transactions:** All debit lines as debit entries + all credit lines as credit entries in parallel POST calls
+- **Recent Journal Entries table:** Fetches last 20 JOURNAL transactions, columns: Date, Account, Debit (emerald-600), Credit (rose-600), Ref, Comments, Actions
+- **Action buttons:** Save (amber-500, disabled when unbalanced), Save & New (amber outline), Reset (ghost)
+- **Loading:** Full skeleton (JournalEntrySkeleton) with two-column form and table
+- **Design:** Stacked on mobile (grid), two-column on md+, complex multi-row form with colored line cards
+
+#### File Updated: `/src/app/page.tsx`
+- Added imports for PaymentEntryView, ReceiptEntryView, JournalEntryView
+- Added switch cases for 'payment-entry', 'receipt-entry', 'journal-entry' views in MainContent
+
+### shadcn/ui Components Used
+Card, CardHeader, CardTitle, CardContent, Badge, Button, Input, Label, Select (Trigger/Content/Item/Value), Separator, Skeleton, Table (Header/Body/Row/Head/Cell), Textarea, AlertDialog
+
+### Design Consistency
+- All 3 views follow established patterns: PKR currency formatting, date-fns dates, sonner toasts, skeleton loaders
+- Warm color scheme: rose (payment), emerald (receipt), amber (journal) — no blue/indigo
+- Responsive two-column layout with form on left, recent transactions on right
+- Custom scrollbar styling (6px width, rounded)
+- Delete confirmation AlertDialogs with contextual information
+- Save, Save & New, Reset button pattern consistent across all 3 views
+
+### Validation
+- ESLint passes with 0 errors, 0 warnings
+- Dev server compiles successfully (200 status, all API endpoints returning data correctly)
+- All 3 views render and load data from their respective API endpoints (verified in dev.log)
+
+---
+## Task ID: 3c
+Agent: Transaction Engine Views Developer (Fund Payment & Fund Receipt)
+Task: Build Phase 3 — Transaction Engine views: FundPaymentView, FundReceiptView, wire all 7 transaction views into page.tsx
+
+### Work Summary
+
+#### File Created: `/src/components/views/FundPaymentView.tsx`
+- Transfer funds OUT from one bank to another account
+- **Title:** "Fund Payment" with Wallet icon, amber accent (bg-amber-100 icon, border-amber-200 card)
+- **Subtitle:** "Transfer funds from bank to another account"
+- **Form fields (2-col grid):**
+  - Date (required, default today, CalendarDays icon)
+  - Amount PKR (required, number Input, right-aligned tabular-nums)
+  - Transfer From Bank (required, Select from BANK accounts only)
+  - Transfer To (required, Select from ALL active accounts, filtered to exclude selected From Bank, shows account type badges)
+  - Reference No (optional, auto-generates `FP-YYYYMMDD-HHmmss` if empty)
+  - Comments (optional, Textarea)
+- **Double-entry logic:** Two parallel POST /api/transactions calls:
+  1. Credit (money leaving from bank): accountId=fromBankId, debit=0, credit=amount, transType=FUND_PAYMENT
+  2. Debit (money going to destination): accountId=toAccountId, debit=amount, credit=0, transType=FUND_PAYMENT
+- **Validation:** Date required, from bank required, to account required, from ≠ to, amount > 0
+- **Auto-generated refNo:** Applied to both entries for pairing (format: FP-20250115-143022)
+- **Transaction pairing logic:** Groups transactions by refNo, pairs credit entry (from bank) with debit entry (to account), displays as single row
+- **Recent Fund Payments table:** Paired transactions showing: Date, From Bank (rose-600 text), To Account (emerald-600 text), Amount (PKR formatted), Ref (font-mono, hidden on mobile), Comments (hidden on smaller screens), Actions (delete with hover reveal)
+- **Max height:** max-h-96 with custom scrollbar for recent table
+- **Empty state:** Wallet icon in amber-50 circle, "No fund payments yet" message
+- **Action buttons:** Save (amber-500 primary), Save & New (amber outline), Reset (ghost)
+- **Double-entry indicator:** ArrowRightLeft icon + explanation text below form
+- **Delete flow:** AlertDialog showing amount, from bank, to account names; deletes both entries in parallel
+- **Skeleton loading:** Full FundPaymentSkeleton with form card and table placeholders
+
+#### File Created: `/src/components/views/FundReceiptView.tsx`
+- Receive funds/transfers from one account into a bank
+- **Title:** "Fund Receipt" with Landmark icon, emerald accent (bg-emerald-100 icon, border-emerald-200 card)
+- **Subtitle:** "Receive funds from an account into a bank"
+- **Form fields (2-col grid):**
+  - Date (required, default today, CalendarDays icon)
+  - Amount PKR (required, number Input, right-aligned tabular-nums)
+  - Received From (required, Select from ALL active accounts, filtered to exclude selected To Bank, shows type badges)
+  - Received In Bank (required, Select from BANK accounts only)
+  - Reference No (optional, auto-generates `FR-YYYYMMDD-HHmmss` if empty)
+  - Comments (optional, Textarea)
+- **Double-entry logic:** Two parallel POST /api/transactions calls:
+  1. Debit (money entering bank): accountId=toBankId, debit=amount, credit=0, transType=FUND_RECEIPT
+  2. Credit (money leaving source): accountId=fromAccountId, debit=0, credit=amount, transType=FUND_RECEIPT
+- **Validation:** Date required, from account required, to bank required, from ≠ to, amount > 0
+- **Auto-generated refNo:** Applied to both entries for pairing (format: FR-20250115-143022)
+- **Transaction pairing logic:** Same grouping approach as FundPaymentView
+- **Recent Fund Receipts table:** Columns: Date, From Account (rose-600), To Bank (emerald-600), Amount, Ref, Comments, Actions
+- **Action buttons:** Save (emerald-500 primary), Save & New (emerald outline), Reset (ghost)
+- **Delete flow:** AlertDialog showing amount and account names, deletes both paired entries
+- **Skeleton loading:** Full FundReceiptSkeleton
+
+#### File Updated: `/src/app/page.tsx`
+- Cleaned up duplicate imports from parallel agents
+- Added all 7 transaction view imports: IncomeEntryView, ExpenseEntryView, PaymentEntryView, ReceiptEntryView, JournalEntryView, FundPaymentView, FundReceiptView
+- Added switch cases for all 7 transaction views in MainContent (before default case)
+- All existing code preserved: dashboard, accounts, account-heads, products, account-openings, change-password, company-settings, ViewPlaceholder
+
+### shadcn/ui Components Used
+Card, CardContent, Badge, Button, Input, Label, Select (Trigger/Content/Item/Value), Separator, Skeleton, Table (Header/Body/Row/Head/Cell), Textarea, AlertDialog (Action/Cancel/Content/Description/Footer/Header/Title)
+
+### Design Consistency
+- Warm color scheme: amber (fund payment), emerald (fund receipt) — no blue/indigo
+- PKR currency formatting with Intl.NumberFormat
+- date-fns for date formatting (parseISO + format)
+- Sonner toast notifications for all operations
+- Skeleton loading states for both views
+- Custom scrollbar styling (6px, rounded)
+- Responsive 2-col grid (form fields) with mobile stacking
+- Transaction pairing via refNo for clean recent table display
+- Delete confirmation AlertDialogs with contextual info
+- Save, Save & New, Reset button pattern
+
+### Validation
+- ESLint passes with 0 errors, 0 warnings
+- Dev server compiles successfully (200 status for GET /)
+- All API endpoints returning data correctly (verified in dev.log)

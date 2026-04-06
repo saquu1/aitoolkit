@@ -11,6 +11,13 @@ import { AccountHeadsView } from '@/components/views/AccountHeadsView'
 import { ProductsView } from '@/components/views/ProductsView'
 import { AccountOpeningsView } from '@/components/views/AccountOpeningsView'
 import { AccountsView } from '@/components/views/AccountsView'
+import { IncomeEntryView } from '@/components/views/IncomeEntryView'
+import { ExpenseEntryView } from '@/components/views/ExpenseEntryView'
+import { PaymentEntryView } from '@/components/views/PaymentEntryView'
+import { ReceiptEntryView } from '@/components/views/ReceiptEntryView'
+import { JournalEntryView } from '@/components/views/JournalEntryView'
+import { FundPaymentView } from '@/components/views/FundPaymentView'
+import { FundReceiptView } from '@/components/views/FundReceiptView'
 import {
   LayoutDashboard,
   Users,
@@ -118,6 +125,20 @@ function MainContent() {
       return <ChangePasswordView />
     case 'company-settings':
       return <CompanySettingsView />
+    case 'income-entry':
+      return <IncomeEntryView />
+    case 'expense-entry':
+      return <ExpenseEntryView />
+    case 'payment-entry':
+      return <PaymentEntryView />
+    case 'receipt-entry':
+      return <ReceiptEntryView />
+    case 'journal-entry':
+      return <JournalEntryView />
+    case 'fund-payment':
+      return <FundPaymentView />
+    case 'fund-receipt':
+      return <FundReceiptView />
     default:
       return <ViewPlaceholder />
   }
