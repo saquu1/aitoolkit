@@ -31,6 +31,10 @@ import {
   ClipboardCheck,
   PackageCheck,
   FileBarChart,
+  Tags,
+  UserCog,
+  UsersRound,
+  Settings2,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -40,6 +44,10 @@ export type AppView =
   | 'accounts'
   | 'account-heads'
   | 'products'
+  | 'categories'
+  | 'suppliers'
+  | 'customers'
+  | 'stock-adjustments'
   | 'income-entry'
   | 'expense-entry'
   | 'payment-entry'
@@ -87,7 +95,13 @@ export const navItems: NavItem[] = [
   { label: 'Reminders', view: 'reminders', icon: Bell, group: 'Main' },
   { label: 'Accounts', view: 'accounts', icon: Users, group: 'Main' },
   { label: 'Account Heads', view: 'account-heads', icon: BookOpen, group: 'Main' },
-  { label: 'Products', view: 'products', icon: Package, group: 'Main' },
+
+  // Inventory
+  { label: 'Products', view: 'products', icon: Package, group: 'Inventory' },
+  { label: 'Categories', view: 'categories', icon: Tags, group: 'Inventory' },
+  { label: 'Suppliers', view: 'suppliers', icon: UserCog, group: 'Inventory' },
+  { label: 'Customers', view: 'customers', icon: UsersRound, group: 'Inventory' },
+  { label: 'Stock Adjustments', view: 'stock-adjustments', icon: Settings2, group: 'Inventory' },
 
   // Sales & Purchases
   { label: 'Sale Entry', view: 'sale-entry', icon: ShoppingCart, group: 'Sales & Purchases' },
@@ -133,6 +147,7 @@ export const navItems: NavItem[] = [
 
 export const navGroups: { label: string; items: NavItem[] }[] = [
   { label: 'Main', items: navItems.filter((i) => i.group === 'Main') },
+  { label: 'Inventory', items: navItems.filter((i) => i.group === 'Inventory') },
   { label: 'Sales & Purchases', items: navItems.filter((i) => i.group === 'Sales & Purchases') },
   { label: 'Transactions', items: navItems.filter((i) => i.group === 'Transactions') },
   { label: 'Employees', items: navItems.filter((i) => i.group === 'Employees') },

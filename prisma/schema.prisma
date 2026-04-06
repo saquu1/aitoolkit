@@ -170,13 +170,110 @@ model Product {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  categoryId Int?     @map("category_id")
+  supplierId Int?     @map("supplier_id")
+
+  category               Category? @relation(fields: [categoryId], references: [id])
+  supplier               Supplier? @relation(fields: [supplierId], references: [id])
   trans                  Trans[]
   saleDetails            SaleDetail[]
   purchaseProductDetails PurchaseDetail[] @relation("PurchaseProducts")
   quoteDetails           QuoteDetail[] @relation("QuoteDetailProduct")
   dcDetails              DCDetail[] @relation("DCProducts")
+  stockAdjItems          StockAdjustmentItem[] @relation("ProductStockAdjs")
 
+  @@index([categoryId])
+  @@index([supplierId])
   @@map("products")
+}
+
+// ============================================
+// CATEGORIES
+// ============================================
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ============================================
+// SUPPLIERS
+// ============================================
+
+model Supplier {
+  id            Int      @id @default(autoincrement())
+  name          String
+  contactPerson String?  @map("contact_person")
+  phone         String?
+  email         String?
+  address       String?
+  ntn           String?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("suppliers")
+}
+
+// ============================================
+// CUSTOMERS (Retail Directory)
+// ============================================
+
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  city      String?
+  ntn       String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("customers")
+}
+
+// ============================================
+// STOCK ADJUSTMENTS
+// ============================================
+
+model StockAdjustment {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  reason    String?
+  adjType   String   @map("adj_type") // IN, OUT, SET
+  createdAt DateTime @default(now()) @map("created_at")
+
+  items StockAdjustmentItem[]
+
+  @@index([date])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentItem {
+  id        Int      @id @default(autoincrement())
+  adjId     Int      @map("adj_id")
+  productId Int      @map("product_id")
+  qty       Float
+  comments  String?
+
+  adjustment StockAdjustment @relation(fields: [adjId], references: [id], onDelete: Cascade)
+  product    Product         @relation("ProductStockAdjs", fields: [productId], references: [id])
+
+  @@index([adjId])
+  @@index([productId])
+  @@map("stock_adjustment_items")
 }
 
 // ============================================

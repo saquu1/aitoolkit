@@ -11,6 +11,8 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  AlertTriangle,
+  X,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +21,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -47,14 +57,29 @@ import {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+interface CategoryItem {
+  id: number
+  name: string
+}
+
+interface SupplierItem {
+  id: number
+  name: string
+}
+
 interface Product {
   id: number
   pname: string
+  pcode: string | null
   punit: string | null
   costPrice: number
   salePrice: number
+  openQty: number
+  reOrder: number
   isActive: boolean
   createdAt: string
+  category: { id: number; name: string } | null
+  supplier: { id: number; name: string } | null
 }
 
 interface Pagination {
@@ -66,16 +91,26 @@ interface Pagination {
 
 interface FormData {
   pname: string
+  pcode: string
   punit: string
   costPrice: string
   salePrice: string
+  categoryId: string
+  supplierId: string
+  openQty: string
+  reOrder: string
 }
 
 const emptyForm: FormData = {
   pname: '',
+  pcode: '',
   punit: 'PCS',
   costPrice: '',
   salePrice: '',
+  categoryId: '',
+  supplierId: '',
+  openQty: '0',
+  reOrder: '0',
 }
 
 const UNIT_SUGGESTIONS = ['PCS', 'KG', 'MTR', 'LTR', 'BOX', 'SET']
@@ -99,6 +134,10 @@ function calcMargin(cost: number, sale: number): string | null {
   return margin.toFixed(1)
 }
 
+function isLowStock(product: Product): boolean {
+  return product.reOrder > 0 && product.openQty <= product.reOrder
+}
+
 // ─── Skeleton Loader ────────────────────────────────────────────────────────
 
 function ProductsSkeleton() {
@@ -112,6 +151,15 @@ function ProductsSkeleton() {
         <Skeleton className="h-9 w-36" />
       </div>
       <Skeleton className="h-9 w-full max-w-sm" />
+      {/* Filter placeholders */}
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-9 w-[160px]" />
+        <Skeleton className="h-9 w-[160px]" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-5 w-10" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+      </div>
       <Card className="py-0 gap-0">
         <CardContent className="p-0">
           <div className="space-y-0">
@@ -119,6 +167,9 @@ function ProductsSkeleton() {
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-20 hidden sm:block" />
+              <Skeleton className="h-4 w-16" />
               <Skeleton className="h-4 w-20" />
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-4 w-20 ml-auto" />
@@ -128,6 +179,9 @@ function ProductsSkeleton() {
                 <Skeleton className="h-4 w-28" />
                 <Skeleton className="h-4 w-12" />
                 <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-16 hidden sm:block" />
+                <Skeleton className="h-4 w-14" />
                 <Skeleton className="h-4 w-16" />
                 <Skeleton className="h-4 w-14" />
                 <div className="flex gap-1 ml-auto">
@@ -158,6 +212,63 @@ export function ProductsView() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
+  // ── Filter State ──
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState('')
+  const [lowStockFilter, setLowStockFilter] = useState(false)
+
+  // ── Dropdown Data State ──
+  const [categories, setCategories] = useState<CategoryItem[]>([])
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>([])
+  const [dialogCategories, setDialogCategories] = useState<CategoryItem[]>([])
+  const [dialogSuppliers, setDialogSuppliers] = useState<SupplierItem[]>([])
+  const [loadingDropdowns, setLoadingDropdowns] = useState(false)
+
+  // ── Fetch Dropdown Data (filters) ───────────────────────────────────────
+
+  const fetchDropdownData = useCallback(async () => {
+    try {
+      setLoadingDropdowns(true)
+      const [catRes, supRes] = await Promise.all([
+        fetch('/api/categories?limit=100'),
+        fetch('/api/suppliers?limit=100'),
+      ])
+      const catJson = await catRes.json()
+      const supJson = await supRes.json()
+      if (catJson.success) setCategories(catJson.data ?? [])
+      if (supJson.success) setSuppliers(supJson.data ?? [])
+    } catch {
+      // Silent fail — dropdowns are optional
+    } finally {
+      setLoadingDropdowns(false)
+    }
+  }, [])
+
+  // ── Fetch Dropdown Data (dialog) ───────────────────────────────────────
+
+  async function fetchDialogDropdowns() {
+    try {
+      const [catRes, supRes] = await Promise.all([
+        fetch('/api/categories?limit=100'),
+        fetch('/api/suppliers?limit=100'),
+      ])
+      const catJson = await catRes.json()
+      const supJson = await supRes.json()
+      if (catJson.success) setDialogCategories(catJson.data ?? [])
+      if (supJson.success) setDialogSuppliers(supJson.data ?? [])
+    } catch {
+      // Silent fail
+    }
+  }
+
+  useEffect(() => {
+    fetchDropdownData()
+  }, [fetchDropdownData])
+
+  // ── Helpers for filter active check ──
+
+  const hasActiveFilters = categoryFilter !== '' || supplierFilter !== '' || lowStockFilter
+
   // ── Fetch Data ──────────────────────────────────────────────────────────
 
   const fetchProducts = useCallback(async (searchTerm?: string, page?: number) => {
@@ -168,6 +279,9 @@ export function ProductsView() {
       if (page) params.set('page', page.toString())
       else params.set('page', pagination.page.toString())
       params.set('limit', '20')
+      if (categoryFilter) params.set('categoryId', categoryFilter)
+      if (supplierFilter) params.set('supplierId', supplierFilter)
+      if (lowStockFilter) params.set('lowStock', 'true')
 
       const res = await fetch(`/api/products?${params.toString()}`)
       const json = await res.json()
@@ -182,11 +296,17 @@ export function ProductsView() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page])
+  }, [pagination.page, categoryFilter, supplierFilter, lowStockFilter])
 
   useEffect(() => {
     fetchProducts()
-  }, [])
+  }, [fetchProducts])
+
+  // ── Reset to page 1 when filters change (not page) ──
+
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }))
+  }, [categoryFilter, supplierFilter, lowStockFilter])
 
   // ── Search Handler (debounced) ──────────────────────────────────────────
 
@@ -204,21 +324,36 @@ export function ProductsView() {
     fetchProducts(search || undefined, page)
   }
 
+  // ── Clear Filters ───────────────────────────────────────────────────────
+
+  function clearFilters() {
+    setCategoryFilter('')
+    setSupplierFilter('')
+    setLowStockFilter(false)
+  }
+
   // ── Dialog Helpers ──────────────────────────────────────────────────────
 
-  function openAddDialog() {
+  async function openAddDialog() {
     setEditingId(null)
     setForm(emptyForm)
+    await fetchDialogDropdowns()
     setDialogOpen(true)
   }
 
-  function openEditDialog(product: Product) {
+  async function openEditDialog(product: Product) {
     setEditingId(product.id)
+    await fetchDialogDropdowns()
     setForm({
       pname: product.pname,
+      pcode: product.pcode ?? '',
       punit: product.punit ?? 'PCS',
       costPrice: product.costPrice.toString(),
       salePrice: product.salePrice.toString(),
+      categoryId: product.category?.id?.toString() ?? '',
+      supplierId: product.supplier?.id?.toString() ?? '',
+      openQty: product.openQty?.toString() ?? '0',
+      reOrder: product.reOrder?.toString() ?? '0',
     })
     setDialogOpen(true)
   }
@@ -243,9 +378,14 @@ export function ProductsView() {
       const body = {
         ...(editingId ? { id: editingId } : {}),
         pname: form.pname.trim(),
+        pcode: form.pcode.trim() || undefined,
         punit: form.punit.trim() || 'PCS',
         costPrice: parseFloat(form.costPrice) || 0,
         salePrice: parseFloat(form.salePrice) || 0,
+        categoryId: form.categoryId ? parseInt(form.categoryId) : undefined,
+        supplierId: form.supplierId ? parseInt(form.supplierId) : undefined,
+        openQty: parseFloat(form.openQty) || 0,
+        reOrder: parseFloat(form.reOrder) || 0,
       }
 
       const res = await fetch(url, {
@@ -294,7 +434,7 @@ export function ProductsView() {
 
   // ── Render ──────────────────────────────────────────────────────────────
 
-  if (loading) return <ProductsSkeleton />
+  if (loading && products.length === 0) return <ProductsSkeleton />
 
   return (
     <div className="space-y-6">
@@ -333,6 +473,63 @@ export function ProductsView() {
         />
       </div>
 
+      {/* Filter Bar */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {/* Category Filter */}
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="h-9 w-[160px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id.toString()}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Supplier Filter */}
+        <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+          <SelectTrigger className="h-9 w-[160px]">
+            <SelectValue placeholder="Supplier" />
+          </SelectTrigger>
+          <SelectContent>
+            {suppliers.map((sup) => (
+              <SelectItem key={sup.id} value={sup.id.toString()}>
+                {sup.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Low Stock Toggle */}
+        <div className="flex items-center gap-2">
+          <Switch
+            id="low-stock-filter"
+            checked={lowStockFilter}
+            onCheckedChange={setLowStockFilter}
+            className="data-[state=checked]:bg-amber-500"
+          />
+          <Label htmlFor="low-stock-filter" className="text-sm text-muted-foreground whitespace-nowrap cursor-pointer">
+            Low Stock
+          </Label>
+        </div>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+            onClick={clearFilters}
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
       {/* Data Table */}
       <Card className="py-0 gap-0">
         <CardContent className="p-0">
@@ -341,6 +538,9 @@ export function ProductsView() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs font-semibold">Product Name</TableHead>
+                  <TableHead className="text-xs font-semibold">Category</TableHead>
+                  <TableHead className="text-xs font-semibold hidden sm:table-cell">Supplier</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">Stock</TableHead>
                   <TableHead className="text-xs font-semibold">Unit</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Cost Price</TableHead>
                   <TableHead className="text-xs font-semibold text-right">Sale Price</TableHead>
@@ -352,14 +552,16 @@ export function ProductsView() {
               <TableBody>
                 {products.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
+                    <TableCell colSpan={10} className="text-center py-12">
                       <div className="flex flex-col items-center text-center">
                         <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
                           <Package className="h-6 w-6 text-amber-500" />
                         </div>
                         <p className="text-sm font-medium text-foreground">No products found</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {search ? 'Try a different search term' : 'Add your first product to get started'}
+                          {search || hasActiveFilters
+                            ? 'Try adjusting your search or filters'
+                            : 'Add your first product to get started'}
                         </p>
                       </div>
                     </TableCell>
@@ -367,10 +569,50 @@ export function ProductsView() {
                 ) : (
                   products.map((product) => {
                     const margin = calcMargin(product.costPrice, product.salePrice)
+                    const low = isLowStock(product)
                     return (
-                      <TableRow key={product.id}>
+                      <TableRow key={product.id} className={low ? 'bg-amber-50/50' : ''}>
                         <TableCell className="font-semibold text-sm">
-                          {product.pname}
+                          <div className="min-w-0">
+                            <p className="truncate">{product.pname}</p>
+                            {product.pcode && (
+                              <p className="text-[11px] text-muted-foreground font-mono">{product.pcode}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {product.category ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-teal-50 text-teal-700 border-teal-200 text-[10px] px-1.5 py-0"
+                            >
+                              {product.category.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {product.supplier ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] px-1.5 py-0"
+                            >
+                              {product.supplier.name}
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {low && (
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            )}
+                            <span className={`text-sm tabular-nums ${low ? 'text-amber-700 font-medium' : 'text-foreground'}`}>
+                              {product.openQty} {product.punit ?? 'PCS'}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-slate-50 border-slate-200">
@@ -476,7 +718,7 @@ export function ProductsView() {
 
       {/* ── Add/Edit Dialog ──────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[440px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div className="h-6 w-6 rounded-full bg-amber-100 flex items-center justify-center">
@@ -488,7 +730,7 @@ export function ProductsView() {
 
           <Separator />
 
-          <div className="space-y-4 py-1">
+          <div className="space-y-4 py-1 max-h-[60vh] overflow-y-auto">
             {/* Product Name */}
             <div className="space-y-1.5">
               <Label htmlFor="pname" className="text-xs font-medium">
@@ -500,6 +742,64 @@ export function ProductsView() {
                 onChange={(e) => setForm((prev) => ({ ...prev, pname: e.target.value }))}
                 placeholder="Enter product or project name"
               />
+            </div>
+
+            {/* SKU / Code */}
+            <div className="space-y-1.5">
+              <Label htmlFor="pcode" className="text-xs font-medium">
+                SKU / Code
+              </Label>
+              <Input
+                id="pcode"
+                value={form.pcode}
+                onChange={(e) => setForm((prev) => ({ ...prev, pcode: e.target.value.toUpperCase() }))}
+                placeholder="e.g. WDG-001"
+                className="font-mono uppercase"
+              />
+            </div>
+
+            {/* Category */}
+            <div className="space-y-1.5">
+              <Label htmlFor="category" className="text-xs font-medium">
+                Category
+              </Label>
+              <Select
+                value={form.categoryId}
+                onValueChange={(val) => setForm((prev) => ({ ...prev, categoryId: val }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dialogCategories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Supplier */}
+            <div className="space-y-1.5">
+              <Label htmlFor="supplier" className="text-xs font-medium">
+                Supplier
+              </Label>
+              <Select
+                value={form.supplierId}
+                onValueChange={(val) => setForm((prev) => ({ ...prev, supplierId: val }))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dialogSuppliers.map((sup) => (
+                    <SelectItem key={sup.id} value={sup.id.toString()}>
+                      {sup.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Unit */}
@@ -552,6 +852,36 @@ export function ProductsView() {
                   </Button>
                 ))}
               </div>
+            </div>
+
+            {/* Opening Stock */}
+            <div className="space-y-1.5">
+              <Label htmlFor="openQty" className="text-xs font-medium">
+                Opening Stock
+              </Label>
+              <Input
+                id="openQty"
+                type="number"
+                min={0}
+                value={form.openQty}
+                onChange={(e) => setForm((prev) => ({ ...prev, openQty: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+
+            {/* Re-order Level */}
+            <div className="space-y-1.5">
+              <Label htmlFor="reOrder" className="text-xs font-medium">
+                Re-order Level
+              </Label>
+              <Input
+                id="reOrder"
+                type="number"
+                min={0}
+                value={form.reOrder}
+                onChange={(e) => setForm((prev) => ({ ...prev, reOrder: e.target.value }))}
+                placeholder="0"
+              />
             </div>
 
             {/* Cost Price */}

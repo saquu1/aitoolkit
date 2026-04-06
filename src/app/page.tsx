@@ -9,6 +9,10 @@ import { DashboardView } from '@/components/views/DashboardView'
 import { CompanySettingsView } from '@/components/views/CompanySettingsView'
 import { AccountHeadsView } from '@/components/views/AccountHeadsView'
 import { ProductsView } from '@/components/views/ProductsView'
+import { CategoriesView } from '@/components/views/CategoriesView'
+import { SuppliersView } from '@/components/views/SuppliersView'
+import { CustomersView } from '@/components/views/CustomersView'
+import { StockAdjustmentsView } from '@/components/views/StockAdjustmentsView'
 import { AccountOpeningsView } from '@/components/views/AccountOpeningsView'
 import { AccountsView } from '@/components/views/AccountsView'
 import { IncomeEntryView } from '@/components/views/IncomeEntryView'
@@ -72,8 +76,12 @@ import {
   FileSpreadsheet,
   ClipboardCheck,
   PackageCheck,
-  Truck,
   FileBarChart,
+  Tags,
+  UserCog,
+  UsersRound,
+  Settings2,
+  Truck,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { LucideIcon } from 'lucide-react'
@@ -84,6 +92,10 @@ const viewIcons: Record<AppView, LucideIcon> = {
   accounts: Users,
   'account-heads': BookOpen,
   products: Package,
+  categories: Tags,
+  suppliers: UserCog,
+  customers: UsersRound,
+  'stock-adjustments': Settings2,
   'income-entry': TrendingUp,
   'expense-entry': TrendingDown,
   'payment-entry': ArrowDownCircle,
@@ -163,6 +175,14 @@ function MainContent() {
       return <AccountHeadsView />
     case 'products':
       return <ProductsView />
+    case 'categories':
+      return <CategoriesView />
+    case 'suppliers':
+      return <SuppliersView />
+    case 'customers':
+      return <CustomersView />
+    case 'stock-adjustments':
+      return <StockAdjustmentsView />
     case 'account-openings':
       return <AccountOpeningsView />
     case 'change-password':
