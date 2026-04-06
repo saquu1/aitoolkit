@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   XCircle,
   Loader2,
+  FileDown,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +35,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -177,6 +179,7 @@ export function StockReportView() {
   const [loading, setLoading] = useState(false)
   const [productOptions, setProductOptions] = useState<ProductOption[]>([])
   const [hasGenerated, setHasGenerated] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Fetch products on mount
   useEffect(() => {
@@ -229,6 +232,42 @@ export function StockReportView() {
     setToDate(getToday())
     setData(null)
     setHasGenerated(false)
+  }
+
+  const handleExportPDF = async () => {
+    if (!data) return
+    setExporting(true)
+    try {
+      await exportToPDF({
+        title: 'Stock Report',
+        columns: [
+          { header: 'Product', key: 'product', width: 3 },
+          { header: 'Unit', key: 'unit', width: 0.7, align: 'center' },
+          { header: 'Cost (PKR)', key: 'cost', width: 1.3, align: 'right' },
+          { header: 'Sale (PKR)', key: 'sale', width: 1.3, align: 'right' },
+          { header: 'Qty In', key: 'qtyIn', width: 0.9, align: 'right' },
+          { header: 'Qty Out', key: 'qtyOut', width: 0.9, align: 'right' },
+          { header: 'Stock', key: 'stock', width: 0.9, align: 'right' },
+          { header: 'Purchase Val.', key: 'purchaseVal', width: 1.3, align: 'right' },
+        ],
+        rows: data.products.map(p => [
+          p.productName,
+          p.unit,
+          pdfFormatPKR(p.costPrice),
+          pdfFormatPKR(p.salePrice),
+          String(p.totalQtyIn),
+          String(p.totalQtyOut),
+          String(p.currentStock),
+          pdfFormatPKR(p.totalPurchaseValue),
+        ]),
+        summaryRows: [
+          ['TOTAL', '', '', '', '', '', '', pdfFormatPKR(data.summary.totalPurchaseValue)],
+          ['', '', '', '', '', '', 'Total Profit', pdfFormatPKR(data.summary.totalProfit)],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   // Auto-generate on mount
@@ -367,6 +406,20 @@ export function StockReportView() {
             >
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-9 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

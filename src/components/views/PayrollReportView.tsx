@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { format, parseISO } from 'date-fns'
-import { Receipt, Search, RotateCcw, Users, Loader2 } from 'lucide-react'
+import { Receipt, Search, RotateCcw, Users, Loader2, FileDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ export function PayrollReportView() {
   const [loading, setLoading] = useState(false)
   const [employeeAccounts, setEmployeeAccounts] = useState<EmployeeAccount[]>([])
   const [hasGenerated, setHasGenerated] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // Fetch employee accounts on mount
   useEffect(() => {
@@ -221,6 +223,38 @@ export function PayrollReportView() {
     setEmployeeId('')
     setData(null)
     setHasGenerated(false)
+  }
+
+  const handleExportPDF = async () => {
+    if (!data) return
+    setExporting(true)
+    try {
+      await exportToPDF({
+        title: 'Payroll Report',
+        subtitle: formatMonth(data.month),
+        columns: [
+          { header: 'Employee', key: 'employee', width: 3 },
+          { header: 'Monthly (PKR)', key: 'monthly', width: 1.5, align: 'right' },
+          { header: 'Tax (PKR)', key: 'tax', width: 1.2, align: 'right' },
+          { header: 'Net Salary (PKR)', key: 'net', width: 1.5, align: 'right' },
+          { header: 'Paid (PKR)', key: 'paid', width: 1.3, align: 'right' },
+          { header: 'Due (PKR)', key: 'due', width: 1.3, align: 'right' },
+        ],
+        rows: data.employees.map(e => [
+          e.employeeName,
+          pdfFormatPKR(e.monthlyAmount),
+          pdfFormatPKR(e.taxAmount),
+          pdfFormatPKR(e.netSalary),
+          pdfFormatPKR(e.paid),
+          pdfFormatPKR(e.dueSalary),
+        ]),
+        summaryRows: [
+          ['TOTAL', pdfFormatPKR(data.summary.totalMonthly), pdfFormatPKR(data.summary.totalTax), pdfFormatPKR(data.summary.totalMonthly - data.summary.totalTax), pdfFormatPKR(data.summary.totalPaid), pdfFormatPKR(data.summary.totalDue)],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   // Auto-generate on mount
@@ -294,6 +328,20 @@ export function PayrollReportView() {
             >
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-9 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

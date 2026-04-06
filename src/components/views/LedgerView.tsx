@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Loader2,
   Landmark,
+  FileDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -214,6 +216,7 @@ export function LedgerView() {
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [loadingLedger, setLoadingLedger] = useState(false)
   const [page, setPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
   const limit = 50
 
   const fetchAccounts = useCallback(async () => {
@@ -267,6 +270,37 @@ export function LedgerView() {
     }
     setPage(1)
     fetchLedger(1)
+  }
+
+  const handleExportPDF = async () => {
+    if (!data) return
+    setExporting(true)
+    try {
+      await exportToPDF({
+        title: `Ledger: ${data.account.aname}`,
+        subtitle: `${data.account.atype} — ${data.account.nature}`,
+        columns: [
+          { header: 'Date', key: 'date', width: 1.5 },
+          { header: 'Particular', key: 'particular', width: 3 },
+          { header: 'Debit', key: 'debit', width: 1.5, align: 'right' },
+          { header: 'Credit', key: 'credit', width: 1.5, align: 'right' },
+          { header: 'Balance', key: 'balance', width: 1.5, align: 'right' },
+        ],
+        rows: data.transactions.map(t => [
+          pdfFormatDate(t.transDate),
+          t.particular,
+          t.debit > 0 ? pdfFormatPKR(t.debit) : '',
+          t.credit > 0 ? pdfFormatPKR(t.credit) : '',
+          pdfFormatPKR(t.balance),
+        ]),
+        summaryRows: [
+          ['', 'Total Debit', pdfFormatPKR(data.summary.totalDebit), pdfFormatPKR(data.summary.totalCredit), ''],
+          ['', 'Closing Balance', '', '', pdfFormatPKR(data.summary.closingBalance)],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   useEffect(() => {
@@ -351,6 +385,20 @@ export function LedgerView() {
             <Button onClick={handleViewLedger} disabled={!selectedAccountId || loadingLedger} className="bg-amber-500 hover:bg-amber-600 text-white shadow-sm h-10">
               {loadingLedger && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
               View Ledger
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-10 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

@@ -14,6 +14,8 @@ import {
   Shield,
   Users,
   ArrowRightLeft,
+  FileDown,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -128,6 +131,7 @@ export function BalanceSheetView() {
   const [company, setCompany] = useState<CompanyInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [asOfDate, setAsOfDate] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const fetchReport = useCallback(async (date?: string) => {
     try {
@@ -170,6 +174,44 @@ export function BalanceSheetView() {
   const handleReset = () => {
     setAsOfDate('')
     fetchReport()
+  }
+
+  const handleExportPDF = async () => {
+    if (!data || !company) return
+    setExporting(true)
+    try {
+      const rows: string[][] = [
+        ['', 'ASSETS', ''],
+        ...(data.assets.map(a => ['', a.accountName, pdfFormatPKR(a.balance)])),
+        ['', 'Total Assets', pdfFormatPKR(data.summary.totalAssetSide)],
+        ['', '', ''],
+        ['', 'LIABILITIES', ''],
+        ...(data.liabilities.map(a => ['', a.accountName, pdfFormatPKR(a.balance)])),
+        ['', 'Total Liabilities', pdfFormatPKR(data.summary.totalLiabilities)],
+        ['', '', ''],
+        ['', 'CAPITAL / EQUITY', ''],
+        ...(data.capital.map(a => ['', a.accountName, pdfFormatPKR(a.balance)])),
+        ['', 'Total Capital', pdfFormatPKR(data.summary.totalCapital)],
+      ]
+      if (data.summary.netProfit !== 0) {
+        rows.push(['', `Retained Earnings (Net ${data.summary.netProfit >= 0 ? 'Profit' : 'Loss'})`, pdfFormatPKR(data.summary.netProfit)])
+      }
+      await exportToPDF({
+        title: 'Balance Sheet',
+        subtitle: company.companyName,
+        columns: [
+          { header: '#', key: 'num', width: 0.5 },
+          { header: 'Particular', key: 'particular', width: 4 },
+          { header: 'Amount (PKR)', key: 'amount', width: 2, align: 'right' },
+        ],
+        rows,
+        summaryRows: [
+          ['', 'Total Liabilities + Equity', pdfFormatPKR(data.summary.totalEquity)],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   // Split assets into Fixed (ASSET) and Current (BANK)
@@ -227,6 +269,20 @@ export function BalanceSheetView() {
             <Button onClick={handleReset} variant="ghost" size="sm" className="h-9">
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-9 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

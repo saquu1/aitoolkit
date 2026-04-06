@@ -29,6 +29,7 @@ import { ProjectReceivablesView } from '@/components/views/ProjectReceivablesVie
 import { ProjectPayablesView } from '@/components/views/ProjectPayablesView'
 import { EmployeePaymentView } from '@/components/views/EmployeePaymentView'
 import { InstallmentEntryView } from '@/components/views/InstallmentEntryView'
+import { RemindersView } from '@/components/views/RemindersView'
 import {
   LayoutDashboard,
   Users,
@@ -55,12 +56,14 @@ import {
   KeyRound,
   PieChart,
   Construction,
+  Bell,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { LucideIcon } from 'lucide-react'
 
 const viewIcons: Record<AppView, LucideIcon> = {
   dashboard: LayoutDashboard,
+  reminders: Bell,
   accounts: Users,
   'account-heads': BookOpen,
   products: Package,
@@ -126,6 +129,8 @@ function MainContent() {
   switch (currentView) {
     case 'dashboard':
       return <DashboardView />
+    case 'reminders':
+      return <RemindersView />
     case 'accounts':
       return <AccountsView />
     case 'account-heads':

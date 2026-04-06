@@ -857,3 +857,118 @@ Stage Summary:
 - ESLint passes with 0 errors (1 pre-existing warning in Header.tsx)
 - Dev server compiles successfully (200 status)
 - API verified: returns correct data structure with monthlyTrend, topAccounts, recentActivity fields
+
+---
+## Task ID: 5a + 5c - Advanced Features API Developer
+### Work Task
+Build two Phase 5 API routes: Reminders API (CRUD for reminder transactions) and Unified Search API (parallel search across accounts, transactions, products).
+
+### Work Summary
+
+#### File Created: `/src/app/api/reminders/route.ts`
+- Full CRUD API for managing payment/transaction reminders stored as Trans records with `isRemind=true`
+- **GET /api/reminders**: Lists reminders with support for:
+  - `status` query param: "all" (default, isRemind=true), "upcoming" (transDate >= tomorrow), "overdue" (transDate < today), "completed" (isRemind=false AND transType='DUE')
+  - `search` query param: case-insensitive search across account name and comments (tries original + lowercase + uppercase for SQLite compatibility)
+  - `page` and `limit` for pagination (default page=1, limit=20)
+  - Includes account, bank, and project relations
+  - Ordered by transDate ascending
+  - Returns `{ success: true, data: { reminders, total, page, limit } }`
+- **POST /api/reminders**: Creates a new reminder
+  - Required: transDate, accountId, amount
+  - Optional: comments, bankId, projectId
+  - Creates Trans record with isRemind=true, transType="DUE", debit=amount, credit=0
+  - Returns created record with relations included
+  - Handles P2003 foreign key errors with descriptive message
+- **PUT /api/reminders**: Updates a reminder
+  - Required: id
+  - Optional: transDate, amount, comments, isRemind
+  - Setting isRemind=false effectively "completes" the reminder
+  - Handles P2025 not-found errors
+- **DELETE /api/reminders**: Hard deletes a reminder
+  - Required: id (in JSON body)
+  - Handles P2025 not-found errors
+  - Returns `{ success: true, data: { deleted: true } }`
+
+#### File Created: `/src/app/api/search/route.ts`
+- Unified search endpoint across 3 entities in parallel
+- **GET /api/search**: Searches accounts, transactions, and products
+  - Required: `q` query param (search term)
+  - Optional: `limit` (default 10)
+  - Returns 400 if `q` is missing or empty
+  - Case-insensitive search for SQLite (tries original + lowercase + uppercase variants)
+  - **Accounts**: Active accounts where name contains search term → returns `{ id, aname, atype, type: "account" }`
+  - **Transactions**: Where comments OR refNo contains search term, ordered by transDate desc → returns `{ id, transDate, debit, credit, transType, comments, account: { id, aname }, type: "transaction" }`
+  - **Products**: Active products where name contains search term → returns `{ id, pname, punit, salePrice, type: "product" }`
+  - Each result item has a `type` field for frontend identification
+  - Returns `{ success: true, data: { accounts, transactions, products } }`
+
+#### Validation
+- ESLint passes with 0 errors, 0 warnings on both files
+- Dev server compiles successfully (200 status)
+- GET /api/reminders returns empty array with correct structure (no reminders in DB yet)
+- POST /api/reminders returns proper 400 error for invalid foreign key references (P2003)
+- GET /api/search without `q` returns 400 error with descriptive message
+- GET /api/search?q=bank returns correct empty result structure
+- No existing files were modified
+
+---
+## Task ID: 5d + 5e - Frontend Enhancements Developer
+### Work Task
+Enhance GlobalSearch component with unified search API integration and create PDF export utility using jspdf.
+
+### Work Summary
+
+#### File Updated: `/src/components/layout/GlobalSearch.tsx`
+Enhanced the existing GlobalSearch component with unified search capabilities:
+
+**Key Changes:**
+- Replaced separate `/api/accounts` fetch with unified `/api/search?q=...&limit=8` API call
+- Added TypeScript interfaces for `AccountResult`, `TransactionResult`, `ProductResult`, `SearchResults` matching the API response shape
+- Introduced `CommandSeparator` between navigation and API results sections
+- Added `Loader2` icon with animate-spin for search loading indicator
+- Added `ArrowLeftRight` icon for transaction results and `Package` icon for product results
+
+**Search Result Groups (when query is active):**
+- **Accounts group**: Shows Users icon (amber-500), account name, type badge (outline slate) — clicking navigates to ledger view with account ID in sessionStorage
+- **Transactions group**: Shows ArrowLeftRight icon (sky-500), two-line layout with account name + color-coded type badge on top, PKR amount + date + comments on bottom — clicking navigates to day-book view with transaction date in sessionStorage
+- **Products group**: Shows Package icon (emerald-500), product name, unit badge + sale price — clicking navigates to products view
+
+**Transaction type badge colors** via `getTransTypeColor()` helper: 22 transaction type mappings (INCOME→emerald, EXPENSE→rose, PAYMENT→orange, RECEIPT→sky, JOURNAL→amber, FUND_PAYMENT→amber, FUND_RECEIPT→emerald, EMPLOYEE→purple, etc.)
+
+**Preserved existing functionality:**
+- Ctrl+K / Cmd+K keyboard shortcut
+- Recent views tracking with localStorage
+- Navigation group filtering by query
+- All existing handlers (handleSelectNav, handleSelectAccount) retained
+
+#### File Created: `/src/lib/pdf-export.ts`
+Client-side PDF export utility using jspdf (dynamically imported):
+
+**Exported Interface:**
+- `PDFColumn`: `{ header, key, width?, align? }` — column definition with optional flex width and alignment
+- `PDFExportOptions`: `{ title, subtitle?, companyInfo?, columns, rows, summaryRows?, filename? }` — full export configuration
+- `exportToPDF(options)`: Main async function that generates and downloads PDF
+- `pdfFormatPKR(amount)`: Helper to format numbers as PKR currency string
+- `pdfFormatDate(dateStr)`: Helper to format dates
+
+**PDF Features:**
+- A4 portrait format with 15mm margins
+- Title (16pt bold) + subtitle (10pt) at top
+- Company info right-aligned (name, address, phone, NTN)
+- Date line with separator
+- Table header with gray background (8pt bold)
+- Data rows with alternating white/light gray backgrounds (7pt)
+- Text truncation for overflow columns
+- Auto page-break with header re-draw on new pages
+- Summary rows section with separator line, bold last row, green-tinted total row
+- Footer on all pages: "Generated by AccuBooks Accounting System" + datetime + page numbers
+- Dynamic jspdf import (lazy-loaded, no bundle overhead until used)
+- Error handling with try/catch
+
+#### Package Installed
+- `jspdf@4.2.1` added via bun
+
+### Validation
+- ESLint passes with 0 errors, 0 warnings
+- Dev server compiles successfully (200 status)

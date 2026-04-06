@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  FileDown,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +43,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -170,6 +172,7 @@ export function ProjectPayablesView() {
   const [vendorAccounts, setVendorAccounts] = useState<VendorAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   // ── Filter State ──
   const [fromDate, setFromDate] = useState('')
@@ -233,6 +236,38 @@ export function ProjectPayablesView() {
     setFromDate('')
     setToDate('')
     setVendorFilter('')
+  }
+
+  // ── Handle Export PDF ──
+  const handleExportPDF = async () => {
+    if (vendors.length === 0 || !summary) return
+    setExporting(true)
+    try {
+      await exportToPDF({
+        title: 'Project Payables',
+        columns: [
+          { header: 'Vendor', key: 'vendor', width: 3 },
+          { header: 'Type', key: 'type', width: 1 },
+          { header: 'Total Purchases (PKR)', key: 'purchases', width: 2, align: 'right' },
+          { header: 'Total Paid (PKR)', key: 'paid', width: 2, align: 'right' },
+          { header: 'Outstanding (PKR)', key: 'outstanding', width: 2, align: 'right' },
+          { header: 'Transactions', key: 'count', width: 1, align: 'center' },
+        ],
+        rows: vendors.map(v => [
+          v.accountName,
+          v.atype,
+          pdfFormatPKR(v.totalCredit),
+          pdfFormatPKR(v.totalDebit),
+          pdfFormatPKR(v.outstanding),
+          String(v.transactionCount),
+        ]),
+        summaryRows: [
+          ['TOTAL', '', pdfFormatPKR(summary.totalPayable), pdfFormatPKR(summary.totalPaid), pdfFormatPKR(summary.totalOutstanding), String(summary.vendorCount)],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   // ── Toggle Row Expand ──
@@ -373,6 +408,20 @@ export function ProjectPayablesView() {
             >
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || vendors.length === 0}
+              className="h-9 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

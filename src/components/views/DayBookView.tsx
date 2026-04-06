@@ -13,6 +13,8 @@ import {
   ChevronsDown,
   CheckCircle2,
   AlertCircle,
+  FileDown,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -188,6 +191,7 @@ export function DayBookView() {
   const limit = 50
   const searchTimer = useRef<NodeJS.Timeout | null>(null)
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set())
+  const [exporting, setExporting] = useState(false)
 
   const fetchDayBook = useCallback(async (p: number, s: string) => {
     setLoading(true)
@@ -238,6 +242,40 @@ export function DayBookView() {
     setSearch('')
     setSearchInput('')
     setPage(1)
+  }
+
+  const handleExportPDF = async () => {
+    if (!data) return
+    setExporting(true)
+    try {
+      const rows: string[][] = []
+      for (const group of data.groups) {
+        rows.push([`--- ${pdfFormatDate(group.date + 'T00:00:00')} ---`, '', '', ''])
+        for (const t of group.transactions) {
+          rows.push([
+            pdfFormatDate(t.transDate),
+            t.account?.aname || '—',
+            t.debit > 0 ? pdfFormatPKR(t.debit) : '',
+            t.credit > 0 ? pdfFormatPKR(t.credit) : '',
+          ])
+        }
+      }
+      await exportToPDF({
+        title: 'Day Book',
+        columns: [
+          { header: 'Date', key: 'date', width: 1.5 },
+          { header: 'Account', key: 'account', width: 3 },
+          { header: 'Debit (PKR)', key: 'debit', width: 2, align: 'right' },
+          { header: 'Credit (PKR)', key: 'credit', width: 2, align: 'right' },
+        ],
+        rows,
+        summaryRows: [
+          ['TOTAL', '', pdfFormatPKR(data.summary.totalDebit), pdfFormatPKR(data.summary.totalCredit)],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   function toggleDate(date: string) {
@@ -312,6 +350,20 @@ export function DayBookView() {
             </Button>
             <Button onClick={handleReset} variant="outline" size="sm" className="h-10 text-muted-foreground">
               <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-10 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

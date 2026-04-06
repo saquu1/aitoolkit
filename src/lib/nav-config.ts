@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Bell,
   Users,
   BookOpen,
   Package,
@@ -28,6 +29,7 @@ import type { LucideIcon } from 'lucide-react'
 
 export type AppView =
   | 'dashboard'
+  | 'reminders'
   | 'accounts'
   | 'account-heads'
   | 'products'
@@ -65,6 +67,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   // Main
   { label: 'Dashboard', view: 'dashboard', icon: LayoutDashboard, group: 'Main' },
+  { label: 'Reminders', view: 'reminders', icon: Bell, group: 'Main' },
   { label: 'Accounts', view: 'accounts', icon: Users, group: 'Main' },
   { label: 'Account Heads', view: 'account-heads', icon: BookOpen, group: 'Main' },
   { label: 'Products', view: 'products', icon: Package, group: 'Main' },

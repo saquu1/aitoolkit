@@ -11,6 +11,8 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
+  FileDown,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -120,6 +123,7 @@ export function IncomeStatementView() {
   const [loading, setLoading] = useState(true)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const fetchReport = useCallback(async (from?: string, to?: string) => {
     try {
@@ -164,6 +168,37 @@ export function IncomeStatementView() {
     setFromDate('')
     setToDate('')
     fetchReport()
+  }
+
+  const handleExportPDF = async () => {
+    if (!data || !company) return
+    setExporting(true)
+    try {
+      const allRows: string[][] = [
+        ['', 'REVENUE / INCOME', ''],
+        ...data.incomeAccounts.map(a => ['', a.accountName, pdfFormatPKR(a.totalIncome)]),
+        ['', 'Total Income', pdfFormatPKR(data.summary.totalIncome)],
+        ['', '', ''],
+        ['', 'EXPENSES', ''],
+        ...data.expenseAccounts.map(a => ['', a.accountName, pdfFormatPKR(a.totalExpense)]),
+        ['', 'Total Expenses', pdfFormatPKR(data.summary.totalExpenses)],
+      ]
+      await exportToPDF({
+        title: 'Income Statement',
+        subtitle: `${company.companyName} — Profit & Loss`,
+        columns: [
+          { header: '#', key: 'num', width: 0.5 },
+          { header: 'Particular', key: 'particular', width: 4 },
+          { header: 'Amount (PKR)', key: 'amount', width: 2, align: 'right' },
+        ],
+        rows: allRows,
+        summaryRows: [
+          ['', 'Net Profit/Loss', pdfFormatPKR(Math.abs(data.summary.netProfit))],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   if (loading) return <IncomeStatementSkeleton />
@@ -220,6 +255,20 @@ export function IncomeStatementView() {
             <Button onClick={handleReset} variant="ghost" size="sm" className="h-9">
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-9 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>

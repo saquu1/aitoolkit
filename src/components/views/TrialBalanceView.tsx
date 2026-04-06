@@ -10,6 +10,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
+  FileDown,
+  Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { exportToPDF, pdfFormatPKR, pdfFormatDate } from '@/lib/pdf-export'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -146,6 +149,7 @@ export function TrialBalanceView() {
   const [loading, setLoading] = useState(true)
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const fetchReport = useCallback(async (from?: string, to?: string) => {
     try {
@@ -190,6 +194,37 @@ export function TrialBalanceView() {
     setFromDate('')
     setToDate('')
     fetchReport()
+  }
+
+  const handleExportPDF = async () => {
+    if (!data || !company) return
+    setExporting(true)
+    try {
+      await exportToPDF({
+        title: 'Trial Balance',
+        subtitle: company.companyName,
+        columns: [
+          { header: 'Code', key: 'code', width: 1, align: 'center' },
+          { header: 'Account Name', key: 'name', width: 3 },
+          { header: 'Type', key: 'type', width: 1.5 },
+          { header: 'Debit (PKR)', key: 'debit', width: 2, align: 'right' },
+          { header: 'Credit (PKR)', key: 'credit', width: 2, align: 'right' },
+        ],
+        rows: data.accounts.map(a => [
+          String(a.accountId).padStart(3, '0'),
+          a.accountName,
+          a.atype,
+          a.totalDebit > 0 ? pdfFormatPKR(a.totalDebit) : '',
+          a.totalCredit > 0 ? pdfFormatPKR(a.totalCredit) : '',
+        ]),
+        summaryRows: [
+          ['', '', 'GRAND TOTAL', pdfFormatPKR(data.summary.totalDebit), pdfFormatPKR(data.summary.totalCredit)],
+          ['', '', 'Difference', data.summary.difference > 0 ? pdfFormatPKR(data.summary.difference) : '', ''],
+        ],
+      })
+      toast.success('PDF exported successfully')
+    } catch { toast.error('Failed to export PDF') }
+    finally { setExporting(false) }
   }
 
   // Group accounts by type for subtotals
@@ -251,6 +286,20 @@ export function TrialBalanceView() {
             <Button onClick={handleReset} variant="ghost" size="sm" className="h-9">
               <RotateCcw className="h-4 w-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              variant="outline"
+              size="sm"
+              disabled={exporting || !data}
+              className="h-9 gap-1.5"
+            >
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline text-xs">Export PDF</span>
             </Button>
           </div>
         </CardContent>
