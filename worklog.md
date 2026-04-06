@@ -278,3 +278,124 @@ Created the complete authentication UI layer including login page, change passwo
 6. Collapsible sidebar (desktop) and Sheet overlay (mobile)
 7. All API routes with pagination, filtering, and error handling
 8. Database seeded with admin user, 11 account heads, 16 reports
+
+---
+## Task ID: 2a
+Agent: Accounts View Developer
+Task: Build Accounts CRUD view with table, filters, add/edit dialog, delete confirmation
+
+Work Log:
+- Created `/src/components/views/AccountsView.tsx` — comprehensive accounts management page
+- Top bar with title, account count badge, "Add Account" button (amber primary), search input, account type filter dropdown, active/inactive toggle switch
+- Data table using shadcn Table components with columns: Account Name (bold + active indicator dot + register date), Type (color-coded Badge per 11 types), Contact (phone/address with icons, hidden on mobile), Balance (PKR currency, right-aligned), Status (Active/Inactive Badge), Actions (Edit/Delete icon buttons)
+- Scrollable table with max-h-[calc(100vh-320px)] and custom scrollbar styling
+- Empty state with contextual messaging and "Add First Account" button
+- Add/Edit Dialog using shadcn Dialog with fields: Account Name (required), Account Type (Select populated from account-heads API with description), Address (Textarea), Contact No (Input), Opening Balance (number Input)
+- Mode switches between "Add" and "Edit" with pre-populated form values
+- Client-side validation for required name and type fields
+- Save button with Loader2 loading spinner state
+- Delete confirmation using shadcn AlertDialog with account name display, soft-delete explanation, Confirm/Cancel buttons
+- Type badge colors: BANK→sky, ASSET→amber, CAPITAL→purple, LIABILITY→rose, RECEIVABLE→orange, PAYABLE→red, INCOME→emerald, EXPENSE→rose, EMPLOYEE→indigo, CUSTOMER→teal, STOCK→stone
+- Pagination with "Showing X-Y of Z" text and Previous/Next buttons with page indicator
+- Debounced search (300ms) using useRef timer
+- Fetches account heads on mount for type dropdown population
+- Fetches accounts with all filter params (atype, search, isActive, page, limit)
+- Refetches accounts and account heads after create/edit/delete operations
+- Skeleton loading state (AccountsSkeleton) with top bar, filters, and table row placeholders
+- Toast notifications (sonner) for success/error on all CRUD operations
+- Numbers formatted with Intl.NumberFormat (PKR currency)
+- Dates formatted with date-fns parseISO + format
+- Responsive design (mobile-first, contact column hidden on small screens)
+- Updated `/src/app/page.tsx` to route 'accounts' view to AccountsView
+- ESLint passes with 0 errors (1 unrelated warning in ProductsView)
+- Dev server compiles successfully
+
+Stage Summary:
+- AccountsView with features: full CRUD table, debounced search, type filter dropdown, active/inactive toggle, color-coded type badges, pagination, add/edit dialog, delete confirmation, skeleton loading, toast notifications, responsive layout
+
+---
+## Task ID: 2b
+Agent: Core Data Management Views Developer
+Task: Build Phase 2 core data management views — AccountHeadsView, ProductsView, AccountOpeningsView, and wire them into page.tsx routing
+
+Work Log:
+
+### File Created: `/src/components/views/AccountHeadsView.tsx`
+- Chart of Accounts management page with full CRUD
+- Title "Chart of Accounts" with total count badge (amber-100)
+- "Add Account Head" button with Plus icon (amber-600 primary)
+- Data table with columns: Type (code-style badge, monospace), Nature (DR=amber-100/amber-700, CR=emerald-100/emerald-700, BL=slate-100/slate-700), Description, Active Accounts count (from _count.accounts), Actions (Edit/Delete)
+- Sorted by sortOrder ascending
+- Add/Edit Dialog with fields: Account Type (uppercase input, required, disabled on edit), Nature (DR/CR/BL Select with colored previews), Description (input), Sort Order (number)
+- Delete confirmation with AlertDialog (disabled when accounts exist)
+- Toast notifications for success/error
+- Skeleton loading state (AccountHeadsSkeleton)
+- Uses: BookOpen, Plus, Pencil, Trash2, Loader2 icons
+- API: GET/POST/PUT /api/account-heads
+
+### File Created: `/src/components/views/ProductsView.tsx`
+- Products/Projects management page with full CRUD + pagination
+- Title "Products / Projects" with total count badge and Package icon
+- "Add Product" button with Plus icon (amber-600 primary)
+- Search input with Search icon, debounced (400ms)
+- Data table with columns: Product Name (bold), Unit (outline badge), Cost Price (PKR formatted), Sale Price (PKR formatted), Margin % (calculated: ((salePrice - costPrice) / salePrice * 100).toFixed(1)%, green if positive, red if negative), Status (Active/Inactive badge), Actions (Edit/Delete)
+- Margin column: calculated dynamically, shows "+" prefix for positive values
+- Add/Edit Dialog with fields: Product Name (required), Unit (input + quick-select buttons for PCS/KG/MTR/LTR/BOX/SET), Cost Price (number), Sale Price (number)
+- Delete confirmation with soft-delete explanation
+- Pagination with Prev/Next buttons and page info text
+- Toast notifications for success/error
+- Skeleton loading state (ProductsSkeleton)
+- Currency formatting with Intl.NumberFormat (PKR)
+- Uses: Package, Plus, Pencil, Trash2, Search, Loader2, ChevronLeft, ChevronRight icons
+- API: GET/POST/PUT/DELETE /api/products
+
+### File Created: `/src/components/views/AccountOpeningsView.tsx`
+- Opening Balances management page with inline editing
+- Title "Opening Balances" with description text
+- Info card (sky-50 border) explaining opening balances concept
+- Filter by Account Type (Select dropdown populated from account-heads API)
+- Toolbar with "Save All" button (shows dirty count), "Reset" button
+- Data table with columns: Account Name (bold), Type (color-coded Badge matching AccountsView: BANK=sky, ASSET=amber, CAPITAL=purple, LIABILITY=rose, RECEIVABLE=orange, PAYABLE=red, INCOME=emerald, EXPENSE=rose, EMPLOYEE=indigo, CUSTOMER=teal, STOCK=stone), Opening Balance (editable Input type=number, right-aligned, monospace), Nature (DR/CR/BL from account head)
+- Dirty rows highlighted with amber-50/50 background
+- Sticky table header for scrollable table (max-h-500px)
+- Tracks dirty (changed) rows by comparing currentBalance to originalBalances
+- "Save All" sends parallel PUT requests to /api/accounts for all changed balances
+- "Reset" reverts all balances to original values
+- Summary card at bottom: Total Debit (sum of DR balances), Total Credit (sum of CR balances), Difference (shows "Balanced" in green or "Unbalanced" in red)
+- Skeleton loading state (OpeningsSkeleton)
+- Currency formatting with Intl.NumberFormat (PKR)
+- Uses: BookOpen, Save, RotateCcw, Loader2, Info, ArrowUpDown icons
+- API: GET /api/accounts, PUT /api/accounts, GET /api/account-heads
+
+### File Updated: `/src/app/page.tsx`
+- Added imports for AccountHeadsView, ProductsView, AccountOpeningsView
+- Added switch cases for 'accounts', 'account-heads', 'products', 'account-openings' in MainContent
+- All existing code preserved intact
+
+### Validation
+- ESLint passes with 0 errors, 0 warnings
+- Dev server compiles successfully (200 status, ~100-200ms compile times)
+
+---
+## PHASE 2 COMPLETE — Core Data Management Build Summary
+
+### Views Built (4 new views)
+| View | Features | API Endpoints Used |
+|------|----------|-------------------|
+| AccountsView | Full CRUD table, search, type filter, active toggle, pagination, add/edit dialog, delete confirmation, 11 color-coded type badges | GET/POST/PUT/DELETE /api/accounts, GET /api/account-heads |
+| AccountHeadsView | Chart of accounts CRUD, DR/CR/BL nature badges, active account counts, sort order, delete protection | GET/POST/PUT /api/account-heads |
+| ProductsView | Full CRUD table, search, unit quick-select (PCS/KG/MTR/LTR/BOX/SET), margin % calculation, pagination | GET/POST/PUT/DELETE /api/products |
+| AccountOpeningsView | Inline-editable balances, dirty tracking, type filter, save all (parallel), reset, debit/credit summary with balance check | GET /api/accounts, PUT /api/accounts, GET /api/account-heads |
+
+### Total Views Now: 8 (from 4 in Phase 1)
+LoginView, DashboardView, ChangePasswordView, CompanySettingsView, AccountsView, AccountHeadsView, ProductsView, AccountOpeningsView
+
+### Key Design Patterns Established
+- Consistent CRUD pattern: list table + add/edit Dialog + delete AlertDialog
+- Skeleton loading states for every view
+- Toast notifications (sonner) for all operations
+- Debounced search (300-400ms)
+- Pagination with prev/next
+- Color-coded type badges (11 account types)
+- PKR currency formatting with Intl.NumberFormat
+- Responsive mobile-first design

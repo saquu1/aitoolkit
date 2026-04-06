@@ -7,6 +7,10 @@ import { LoginView } from '@/components/views/LoginView'
 import { ChangePasswordView } from '@/components/views/ChangePasswordView'
 import { DashboardView } from '@/components/views/DashboardView'
 import { CompanySettingsView } from '@/components/views/CompanySettingsView'
+import { AccountHeadsView } from '@/components/views/AccountHeadsView'
+import { ProductsView } from '@/components/views/ProductsView'
+import { AccountOpeningsView } from '@/components/views/AccountOpeningsView'
+import { AccountsView } from '@/components/views/AccountsView'
 import {
   LayoutDashboard,
   Users,
@@ -102,6 +106,14 @@ function MainContent() {
   switch (currentView) {
     case 'dashboard':
       return <DashboardView />
+    case 'accounts':
+      return <AccountsView />
+    case 'account-heads':
+      return <AccountHeadsView />
+    case 'products':
+      return <ProductsView />
+    case 'account-openings':
+      return <AccountOpeningsView />
     case 'change-password':
       return <ChangePasswordView />
     case 'company-settings':
