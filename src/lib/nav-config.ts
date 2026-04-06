@@ -22,6 +22,7 @@ import {
   Warehouse,
   Building2,
   KeyRound,
+  PieChart,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -43,6 +44,7 @@ export type AppView =
   | 'ledger'
   | 'trial-balance'
   | 'income-statement'
+  | 'balance-sheet'
   | 'payroll-report'
   | 'project-receivables'
   | 'project-payables'
@@ -85,6 +87,7 @@ export const navItems: NavItem[] = [
   { label: 'Ledger', view: 'ledger', icon: BookOpenText, group: 'Reports' },
   { label: 'Trial Balance', view: 'trial-balance', icon: Scale, group: 'Reports' },
   { label: 'Income Statement', view: 'income-statement', icon: BarChart3, group: 'Reports' },
+  { label: 'Balance Sheet', view: 'balance-sheet', icon: PieChart, group: 'Reports' },
   { label: 'Payroll Report', view: 'payroll-report', icon: Receipt, group: 'Reports' },
   { label: 'Project Receivables', view: 'project-receivables', icon: ArrowDownLeft, group: 'Reports' },
   { label: 'Project Payables', view: 'project-payables', icon: ArrowUpRight, group: 'Reports' },

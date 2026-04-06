@@ -18,6 +18,15 @@ import { ReceiptEntryView } from '@/components/views/ReceiptEntryView'
 import { JournalEntryView } from '@/components/views/JournalEntryView'
 import { FundPaymentView } from '@/components/views/FundPaymentView'
 import { FundReceiptView } from '@/components/views/FundReceiptView'
+import { DayBookView } from '@/components/views/DayBookView'
+import { LedgerView } from '@/components/views/LedgerView'
+import { TrialBalanceView } from '@/components/views/TrialBalanceView'
+import { IncomeStatementView } from '@/components/views/IncomeStatementView'
+import { BalanceSheetView } from '@/components/views/BalanceSheetView'
+import { PayrollReportView } from '@/components/views/PayrollReportView'
+import { StockReportView } from '@/components/views/StockReportView'
+import { ProjectReceivablesView } from '@/components/views/ProjectReceivablesView'
+import { ProjectPayablesView } from '@/components/views/ProjectPayablesView'
 import {
   LayoutDashboard,
   Users,
@@ -42,6 +51,7 @@ import {
   Warehouse,
   Building2,
   KeyRound,
+  PieChart,
   Construction,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -65,6 +75,7 @@ const viewIcons: Record<AppView, LucideIcon> = {
   ledger: BookOpenText,
   'trial-balance': Scale,
   'income-statement': BarChart3,
+  'balance-sheet': PieChart,
   'payroll-report': Receipt,
   'project-receivables': ArrowDownLeft,
   'project-payables': ArrowUpRight,
@@ -139,6 +150,24 @@ function MainContent() {
       return <FundPaymentView />
     case 'fund-receipt':
       return <FundReceiptView />
+    case 'day-book':
+      return <DayBookView />
+    case 'ledger':
+      return <LedgerView />
+    case 'trial-balance':
+      return <TrialBalanceView />
+    case 'income-statement':
+      return <IncomeStatementView />
+    case 'balance-sheet':
+      return <BalanceSheetView />
+    case 'payroll-report':
+      return <PayrollReportView />
+    case 'stock-report':
+      return <StockReportView />
+    case 'project-receivables':
+      return <ProjectReceivablesView />
+    case 'project-payables':
+      return <ProjectPayablesView />
     default:
       return <ViewPlaceholder />
   }
