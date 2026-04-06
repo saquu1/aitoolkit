@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,20 +7,242 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ============================================
+// USER / AUTHENTICATION
+// ============================================
+
+model AppUser {
+  id        Int      @id @default(autoincrement())
+  loginName String   @unique @map("login_name")
+  password  String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ============================================
+// COMPANY SETTINGS
+// ============================================
+
+model CompanyInfo {
+  id                      Int     @id @default(1)
+  companyName             String  @default("My Company") @map("company_name")
+  address                 String? @map("address")
+  phone                   String? @map("phone")
+  email                   String? @map("email")
+  website                 String? @map("website")
+  ntn                     String? @map("ntn")
+  stn                     String? @map("stn")
+  logoPath                String? @map("logo_path")
+  incomeAccountId         Int?    @map("income_account_id")
+  // Voucher Titles & Footers
+  expVoucherTitle         String? @map("exp_voucher_title") @default("EXPENSE VOUCHER")
+  expVoucherFooter        String? @map("exp_voucher_footer")
+  expVoucherSignature     String? @map("exp_voucher_signature")
+  incVoucherTitle         String? @map("inc_voucher_title") @default("INCOME VOUCHER")
+  incVoucherFooter        String? @map("inc_voucher_footer")
+  incVoucherSignature     String? @map("inc_voucher_signature")
+  fundsPaymentTitle       String? @map("funds_payment_title") @default("PAYMENT VOUCHER")
+  fundsPaymentFooter      String? @map("funds_payment_footer")
+  fundsReceiveTitle       String? @map("funds_receive_title") @default("RECEIPT VOUCHER")
+  fundsReceiveFooter      String? @map("funds_receive_footer")
+  journalTitle            String? @map("journal_title") @default("JOURNAL VOUCHER")
+  journalFooter           String? @map("journal_footer")
+  employeePaymentTitle    String? @map("employee_payment_title") @default("EMPLOYEE PAYMENT")
+  employeePaymentFooter   String? @map("employee_payment_footer")
+  saleNoStart             Int     @default(1) @map("sale_no_start")
+}
+
+// ============================================
+// ACCOUNT TYPES (Chart of Accounts Headings)
+// ============================================
+
+model AccountHead {
+  id          Int     @id @default(autoincrement())
+  atype       String  @unique @map("atype") // BANK, EMPLOYEE, INCOME, EXPENSE, CUSTOMER, PAYABLE, RECEIVABLE, CAPITAL, ASSET, LIABILITY, STOCK
+  dr          String  @map("dr") // "DR" or "CR" or "BL"
+  description String? @map("description")
+  sortOrder   Int     @default(0) @map("sort_order")
+  accounts    Account[]
+
+  @@map("account_heads")
+}
+
+// ============================================
+// ACCOUNTS (Master Ledger Accounts)
+// ============================================
+
+model Account {
+  id           Int      @id @default(autoincrement()) @map("account_id")
+  aname        String   @map("aname")
+  atype        String   @map("atype") // References AccountHead.atype
+  isActive     Boolean  @default(true) @map("is_active")
+  address      String?  @map("address")
+  contactNo    String?  @map("contact_no")
+  registerDate DateTime @default(now()) @map("register_date")
+  openBalance  Float    @default(0) @map("open_balance")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  debitTrans       Trans[]  @relation("DebitAccount")
+  creditTrans      Trans[]  @relation("CreditAccount")
+  salaryAdjusts    SalaryAdjustment[]
+  customerInstallments Installment[] @relation("CustomerInstallments")
+  head             AccountHead? @relation(fields: [atype], references: [atype])
+
+  @@index([atype])
+  @@map("accounts")
+}
+
+// ============================================
+// TRANSACTIONS (Double-Entry Journal)
+// ============================================
+
+model Trans {
+  id         Int      @id @default(autoincrement()) @map("trans_id")
+  transDate  DateTime @map("trans_date")
+  accountId  Int      @map("account_id")
+  bankId     Int?     @map("bank_id")
+  projectId  Int?     @map("project_id")
+  debit      Float    @default(0) @map("debit")
+  credit     Float    @default(0) @map("credit")
+  refNo      String?  @map("ref_no")
+  comments   String?  @map("comments")
+  transType  String   @map("trans_type") // EXPENSE, INCOME, EMPLOYEE, JOURNAL, PAYMENT, RECEIPT, GEN_PAY, GEN_REC, OPEN_BALANCE, DUE, INSTALLMENT, COLLECTION
+  isRemind   Boolean  @default(false) @map("is_remind")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  account     Account  @relation("CreditAccount", fields: [accountId], references: [id])
+  bank        Account? @relation("DebitAccount", fields: [bankId], references: [id])
+  project     Product? @relation(fields: [projectId], references: [id])
+  installments Installment[]
+  saleDetails  SaleDetail[]
+
+  @@index([transDate])
+  @@index([transType])
+  @@index([accountId])
+  @@index([bankId])
+  @@map("trans")
+}
+
+// ============================================
+// PRODUCTS / PROJECTS
+// ============================================
+
+model Product {
+  id         Int     @id @default(autoincrement()) @map("product_id")
+  pname      String  @map("pname")
+  punit      String? @map("punit") @default("PCS")
+  costPrice  Float   @default(0) @map("cost_price")
+  salePrice  Float   @default(0) @map("sale_price")
+  isActive   Boolean @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  trans       Trans[]
+  saleDetails SaleDetail[]
+  purchaseEntries PurchaseDetail[] @relation("PurchaseEntries")
+  purchaseProductDetails PurchaseDetail[] @relation("PurchaseProducts")
+
+  @@map("products")
+}
+
+// ============================================
+// SALARY ADJUSTMENTS
+// ============================================
+
+model SalaryAdjustment {
+  id             Int     @id @default(autoincrement())
+  empId          Int     @map("emp_id")
+  month          String  // e.g., "2025-01"
+  monthlyAmount  Float   @default(0) @map("monthly_amount")
+  taxAmount      Float   @default(0) @map("tax_amount")
+  leaveDays      Float   @default(0) @map("leave_days")
+  otDays         Float   @default(0) @map("ot_days")
+  additionAmt    Float   @default(0) @map("addition_amt")
+  deductionAmt   Float   @default(0) @map("deduction_amt")
+  paid           Float   @default(0) @map("paid")
+  dueSalary      Float   @default(0) @map("due_salary")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  employee Account @relation(fields: [empId], references: [id])
+
+  @@index([empId])
+  @@map("salary_adjustments")
+}
+
+// ============================================
+// INSTALLMENTS
+// ============================================
+
+model Installment {
+  id              Int     @id @default(autoincrement()) @map("installment_id")
+  transId         Int     @map("trans_id")
+  customerId      Int     @map("customer_id")
+  totalAmount     Float   @default(0) @map("total_amount")
+  emiAmount       Float   @default(0) @map("emi_amount")
+  totalEmis       Int     @default(0) @map("total_emis")
+  paidEmis        Int     @default(0) @map("paid_emis")
+  emiStartDate    DateTime @map("emi_start_date")
+  isActive        Boolean @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  transaction Trans  @relation(fields: [transId], references: [id])
+  customer    Account @relation("CustomerInstallments", fields: [customerId], references: [id])
+
+  @@index([customerId])
+  @@map("installments")
+}
+
+// ============================================
+// SALE DETAILS (linked to transactions)
+// ============================================
+
+model SaleDetail {
+  id         Int    @id @default(autoincrement()) @map("sale_detail_id")
+  saleId     Int    @map("sale_id") // trans_id of the sale
+  productId  Int    @map("product_id")
+  saleDate   DateTime @map("sale_date")
+  qtyOut     Float  @default(0) @map("qty_out")
+  salePrice  Float  @default(0) @map("sale_price")
+  totalAmount Float @default(0) @map("total_amount")
+  discount   Float  @default(0) @map("discount")
+
+  sale    Trans   @relation(fields: [saleId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("sale_details")
+}
+
+// ============================================
+// PURCHASE DETAILS (linked to transactions)
+// ============================================
+
+model PurchaseDetail {
+  id           Int     @id @default(autoincrement()) @map("purchase_detail_id")
+  purchaseId   Int     @map("purchase_id") // trans_id of the purchase
+  productId    Int     @map("product_id")
+  purchaseDate DateTime @map("purchase_date")
+  qtyIn        Float   @default(0) @map("qty_in")
+  costPrice    Float   @default(0) @map("cost_price")
+  totalAmount  Float   @default(0) @map("total_amount")
+
+  purchase Product @relation("PurchaseEntries", fields: [purchaseId], references: [id])
+  product  Product @relation("PurchaseProducts", fields: [productId], references: [id])
+
+  @@map("purchase_details")
+}
+
+// ============================================
+// REPORTS CONFIGURATION
+// ============================================
+
+model Report {
+  id         Int    @id @default(autoincrement()) @map("report_id")
+  reportName String @unique @map("report_name")
+  dispName   String @map("disp_name")
+  reportType String @default("A") @map("report_type") // A = Accounting, F = Financial, P = Project, S = Special
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("reports")
 }

@@ -30,3 +30,251 @@ Created a visually stunning, professional single-page analysis report dashboard 
 - All data hardcoded as TypeScript constants
 - ESLint passes with no errors
 - Dev server compiles successfully with 200 status
+
+---
+## Task ID: 2 - Backend API Developer
+### Work Task
+Build Phase 1 backend infrastructure: database seed script and all core API routes for the accounting application.
+
+### Work Summary
+Successfully created the complete backend API layer for Phase 1 of the accounting application converted from Microsoft Access.
+
+**Seed Script (`prisma/seed.ts`):**
+- Deletes all existing data in reverse dependency order (saleDetails → purchaseDetails → installments → salaryAdjustments → trans → account → accountHead → report → companyInfo → appUser)
+- Seeds default admin user (loginName: "admin", password: "admin123")
+- Seeds company info (id: 1, "My Accounting Firm") with all voucher titles/footers
+- Seeds 11 account heads (BANK, ASSET, CAPITAL, LIABILITY, RECEIVABLE, PAYABLE, INCOME, EXPENSE, EMPLOYEE, CUSTOMER, STOCK)
+- Seeds 16 default reports across 4 categories (Accounting, Financial, Project, Special)
+- Uses both direct PrismaClient and `db` import from `../src/lib/db`, disconnects both on finish
+
+**API Routes Created (9 files):**
+
+1. **POST `/api/auth/login`** — Authenticates user by loginName + plain-text password, returns user id/loginName or error
+2. **POST `/api/auth/change-password`** — Updates user password by userId, validates minimum length
+3. **GET/PUT `/api/company`** — Reads/updates company info (id: 1), supports all fields including voucher titles/footers
+4. **GET `/api/dashboard`** — Returns summary: accounts by type (grouped), total/today transactions, total income/expenses, total products, recent 10 transactions with relations
+5. **GET/POST/PUT/DELETE `/api/accounts`** — Full CRUD with pagination, filtering (atype, search, isActive), includes head relation, soft-delete support
+6. **GET/POST/PUT/DELETE `/api/products`** — Full CRUD with pagination, search filter, soft-delete support
+7. **GET/POST/PUT/DELETE `/api/transactions`** — Full CRUD with pagination, multi-filter support (transType, accountId, bankId, projectId, fromDate, toDate, search), includes account/bank/project relations, ordered by transDate DESC
+8. **GET/POST/PUT `/api/account-heads`** — List with active account counts, create, update
+
+**All routes use:**
+- `import { db } from '@/lib/db'` for Prisma client
+- Consistent `{ success, data/error }` JSON response pattern
+- Proper error handling with try/catch, Prisma P2025 not-found detection
+- Input validation on required fields
+- ESLint passes with zero errors
+- Seed script executed successfully: 1 user, 1 company, 11 account heads, 16 reports
+
+---
+## Task ID: 2-b - Frontend Layout & State Management Developer
+### Work Task
+Build Phase 1 client-side state management and layout components for the single-page accounting application. Create Zustand store, sidebar navigation, header, footer, and main layout shell.
+
+### Work Summary
+Created the complete client-side architecture for the accounting application with all layout components and state management.
+
+**Files Created (6 new files):**
+
+1. **`/src/lib/nav-config.ts`** — Navigation configuration
+   - Exports `AppView` type with 25 view states (dashboard, accounts, transactions, reports, settings, etc.)
+   - `NavItem` interface with label, view, icon (LucideIcon), group, optional badge
+   - `navItems` array with all 25 navigation items across 5 groups
+   - `navGroups` array grouping items by Main, Transactions, Employees, Reports, Settings
+   - Helper functions `getViewTitle()` and `getViewGroup()` for displaying current context
+
+2. **`/src/lib/store.ts`** — Zustand global state store
+   - Navigation state: `currentView` + `setCurrentView`
+   - Auth state: `isAuthenticated`, `currentUser`, `login()`, `logout()` (defaults to logged-in admin)
+   - UI state: `sidebarOpen`, `toggleSidebar()`, `setSidebarOpen()`
+   - Loading state: `isLoading`, `setLoading()`
+
+3. **`/src/components/layout/Sidebar.tsx`** — Sidebar navigation component
+   - Desktop: Fixed sidebar (w-64) with dark slate-900 background, collapsible to icon-only (w-68px)
+   - Mobile: Sheet overlay sliding from left (w-72) with auto-close on nav selection
+   - 5 navigation groups with collapsible sections (Collapsible component from shadcn)
+   - Active item highlighted with amber-400 accent and dot indicator
+   - Calculator icon as logo placeholder with "AccuBooks" branding
+   - Tooltips on collapsed state for all items
+   - Smooth transition animations for expand/collapse
+
+4. **`/src/components/layout/Header.tsx`** — Top header bar
+   - Sticky header with white background and bottom border
+   - Mobile: hamburger menu toggle button (visible < md)
+   - Breadcrumb navigation (Home > Current Page) on desktop
+   - Mobile: simplified page title text
+   - Group label shown below breadcrumb on desktop
+   - User avatar with initials (amber-100 bg, amber-700 text)
+   - DropdownMenu with: Company Settings, Change Password, Log out
+
+5. **`/src/components/layout/Footer.tsx`** — Sticky footer
+   - Light slate-50 background with top border
+   - Calculator icon + "Accounting System v1.0" on left
+   - "Powered by Z.ai Code" on right
+   - Responsive (stacks on mobile)
+
+6. **`/src/components/layout/AppShell.tsx`** — Main layout shell
+   - Combines Sidebar + Header + content + Footer
+   - Desktop: content area offset by sidebar width (ml-64)
+   - Mobile: full-width content with Sheet overlay sidebar
+   - Loading state with spinner animation
+   - Smooth transition on sidebar width changes
+
+**File Updated:**
+
+7. **`/src/app/page.tsx`** — Main page with AppShell layout
+   - Replaced analysis report with accounting application shell
+   - Dashboard view with 4 stat cards and recent activity placeholder
+   - View placeholder for all non-dashboard views showing "Under Development"
+   - Icon mapping for all 25 AppView states
+   - Clean, centered placeholder with amber accent colors
+
+8. **`/src/app/layout.tsx`** — Updated metadata
+   - Title changed to "AccuBooks - Accounting System"
+   - Description updated for accounting application
+
+**Design System:**
+- Sidebar: bg-slate-900, text-slate-300, active=amber-400, group labels uppercase slate-400
+- Header: bg-white, border-b, breadcrumb text-slate-500/700
+- Footer: bg-slate-50, border-t, text-slate-500
+- No blue/indigo colors used anywhere
+- Warm amber/emerald/slate/stone palette throughout
+- Mobile-first responsive design using useIsMobile hook (768px breakpoint)
+
+**Validation:**
+- ESLint passes with zero errors
+- Dev server compiles successfully with 200 status
+- All shadcn/ui components used: Sheet, ScrollArea, Separator, Button, Avatar, DropdownMenu, Breadcrumb, Collapsible, Tooltip, Card
+
+---
+## Task ID: 4-b - Frontend View Developer (Dashboard & Company Settings)
+### Work Task
+Build the Dashboard view and Company Settings view for the accounting application, including routing in page.tsx.
+
+### Work Summary
+Created 2 new view components and updated the main page router to support real dashboard data and company settings management.
+
+**Files Created (2 new files):**
+
+1. **`/src/components/views/DashboardView.tsx`** — Comprehensive dashboard with 3 sections:
+   - **Row 1 — Key Metric Cards (4 columns):** Total Accounts (Users icon, amber), Total Transactions (ArrowLeftRight, sky), Total Income (TrendingUp, emerald), Total Expenses (TrendingDown, rose). Each card has icon circle, label, large value, and subtitle.
+   - **Row 2 — Two-column layout:** Left (2/3): Recent Transactions table with columns Date, Account, Type (color-coded badge), Debit (green), Credit (red), Comments. ScrollArea with max-h-96. Right (1/3): Quick Actions grid (Income Entry, Expense Entry, Payment, Receipt, Journal, New Account) + Account Types Summary with per-type counts and total.
+   - **Row 3 — Products Summary:** Conditional card showing total products with "View Products" button, only rendered when products exist.
+   - Fetches from `/api/dashboard` on mount via `useEffect` + `useCallback`
+   - Full skeleton loading state (DashboardSkeleton) with metric cards, table, and action grid
+   - Toast error messages for network/API failures
+   - Numbers formatted with Intl.NumberFormat (currency as PKR)
+   - Dates formatted with date-fns `parseISO` + `format`
+
+2. **`/src/components/views/CompanySettingsView.tsx`** — Company settings form with 3 sections:
+   - **Section 1 — Company Information:** Company Name (full-width), Address (textarea, full-width), Phone, Email, Website, NTN, STN in 2-column grid.
+   - **Section 2 — Voucher Settings:** 6 voucher types (Expense, Income, Payment, Receipt, Journal, Employee Payment) in 2-column grid, each with Title and Footer inputs. Configured via `voucherSections` array for maintainability.
+   - **Section 3 — Other Settings:** Sale Invoice Start Number (number input), Default Income Account (Select dropdown fetching from `/api/accounts?atype=INCOME&isActive=true`).
+   - Action buttons: "Save Changes" (amber primary, disabled when no changes or saving) and "Reset to Default" (outline). Loader2 spinner during save.
+   - Tracks `hasChanges` state by comparing current form to defaults
+   - Fetches company data + income accounts in parallel on mount
+   - Full skeleton loading state (SettingsSkeleton)
+   - Toast success/error messages
+
+**File Updated:**
+
+3. **`/src/app/page.tsx`** — Updated MainContent with switch-based routing:
+   - `dashboard` → `<DashboardView />`
+   - `company-settings` → `<CompanySettingsView />`
+   - `change-password` → `<ChangePasswordView />` (placeholder)
+   - All other views → `<ViewPlaceholder />`
+   - Removed old `DashboardPlaceholder` component (replaced by real DashboardView)
+   - All view-specific icons and `ChangePasswordView` placeholder retained
+
+**Validation:**
+- ESLint passes with zero errors
+- Dev server compiles successfully with 200 status
+
+---
+## Task ID: 3 - Authentication & Login Flow Developer
+### Work Task
+Build the Login page and authentication flow for the accounting application. Create LoginView, ChangePasswordView, update page.tsx with auth guard routing, and configure Sonner toaster.
+
+### Work Summary
+Created the complete authentication UI layer including login page, change password form, and auth-aware page routing.
+
+**Files Created (2 new files):**
+
+1. **`/src/components/views/LoginView.tsx`** — Full-featured login page:
+   - Centered card layout with gradient background (amber-50 to white to orange-50) and decorative blurred circles
+   - Calculator icon logo with gradient (amber-400 to orange-500) and shadow
+   - AccuBooks title with Accounting System subtitle
+   - Login form with username field (User icon prefix) and password field (Lock icon prefix + Eye/EyeOff toggle)
+   - Sign In button with gradient amber to orange styling and shadow
+   - Loading state with Loader2 spinner while authenticating
+   - Error display in red-tinted rounded alert box with slide-in animation
+   - Default credentials hint card: admin / admin123 in amber styling
+   - Fetches POST /api/auth/login with loginName + password
+   - On success: calls store.login(user) which sets isAuthenticated: true
+   - On failure: shows inline error message from API response
+   - Fully responsive (mobile-friendly with max-w-md card)
+   - No sidebar, header, or footer visible (full-screen standalone page)
+
+2. **`/src/components/views/ChangePasswordView.tsx`** — Password change form:
+   - Card with ShieldCheck icon header and Change Password title/description
+   - Three password fields with Lock icon and Eye/EyeOff toggles
+   - Password strength indicator: 5-bar visual meter (Weak/Fair/Good/Strong/Very Strong) with color coding
+   - Requirements checklist with Check/X icons (min 6 chars, passwords match)
+   - Mismatch warning in red text below confirm field
+   - Two-step API flow: verifies current password via login API, then updates via change-password API
+   - Uses toast from sonner for success/error notifications
+   - Clears all fields on success
+
+**Files Updated (4 files):**
+
+3. **`/src/lib/store.ts`** — Changed auth defaults to isAuthenticated: false and currentUser: null
+4. **`/src/app/page.tsx`** — Added authentication guard: shows LoginView when not authenticated, AppShell when authenticated. MainContent switch routes to DashboardView, ChangePasswordView, CompanySettingsView, or ViewPlaceholder.
+5. **`/src/app/layout.tsx`** — Updated Toaster import from shadcn toast to Sonner toast
+6. **`/src/components/ui/sonner.tsx`** — Simplified by removing next-themes dependency, hardcoded theme light
+
+**Validation:**
+- ESLint passes with zero errors
+- Dev server compiles successfully with 200 status
+
+**shadcn/ui Components Used:** Card, Badge, Button, Input, Label, Select, Separator, Skeleton, Table (Header/Body/Row/Head/Cell), Textarea, ScrollArea
+
+**Design Consistency:**
+- Warm amber/emerald/slate/rose color palette (no blue/indigo)
+- Responsive grid: 2-col mobile, 4-col desktop for metrics; 3-col lg for main content
+- Consistent card style (py-0 gap-0) with p-4 content padding
+- Tabular-nums for number alignment
+- Professional, clean appearance matching existing app shell
+
+**Validation:**
+- ESLint passes with zero errors
+- Dev server compiles successfully with 200 status
+
+---
+## PHASE 1 COMPLETE — Foundation Build Summary
+
+### Architecture Overview
+- **Single-page app** at `/` route with Zustand-based client-side routing (25 views)
+- **Prisma/SQLite** database with 11 tables and full relational schema
+- **9 API routes** with consistent CRUD patterns and filtering
+- **Auth system** with login page, change password, and session state
+- **Responsive layout** with collapsible sidebar, header, footer
+
+### Files Created/Modified (Total: 25 files)
+| Category | Files | Count |
+|----------|-------|-------|
+| Database | schema.prisma, seed.ts | 2 |
+| API Routes | auth/login, auth/change-password, company, dashboard, accounts, products, transactions, account-heads | 9 |
+| State | store.ts, nav-config.ts | 2 |
+| Layout | AppShell, Sidebar, Header, Footer | 4 |
+| Views | LoginView, ChangePasswordView, DashboardView, CompanySettingsView | 4 |
+| Core | page.tsx, layout.tsx, sonner.tsx, db.ts | 4 |
+
+### Key Features Delivered
+1. Login page with gradient background and credential validation
+2. Full sidebar navigation with 25 menu items across 5 groups
+3. Dashboard with real-time stats from API (accounts, transactions, income, expenses)
+4. Company settings with voucher configuration and save/reset
+5. Change password with strength meter
+6. Collapsible sidebar (desktop) and Sheet overlay (mobile)
+7. All API routes with pagination, filtering, and error handling
+8. Database seeded with admin user, 11 account heads, 16 reports
