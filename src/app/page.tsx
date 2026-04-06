@@ -29,7 +29,17 @@ import { ProjectReceivablesView } from '@/components/views/ProjectReceivablesVie
 import { ProjectPayablesView } from '@/components/views/ProjectPayablesView'
 import { EmployeePaymentView } from '@/components/views/EmployeePaymentView'
 import { InstallmentEntryView } from '@/components/views/InstallmentEntryView'
+import { PurchaseEntryView } from '@/components/views/PurchaseEntryView'
 import { RemindersView } from '@/components/views/RemindersView'
+import { CashSaleView } from '@/components/views/CashSaleView'
+import { QuoteEntryView } from '@/components/views/QuoteEntryView'
+import { CreditManagementView } from '@/components/views/CreditManagementView'
+import { DeliveryChallanView } from '@/components/views/DeliveryChallanView'
+import { SaleEntryView } from '@/components/views/SaleEntryView'
+import { CashSaleReportView } from '@/components/views/CashSaleReportView'
+import { CreditSaleReportView } from '@/components/views/CreditSaleReportView'
+import { PurchaseReportView } from '@/components/views/PurchaseReportView'
+import { BusinessProfitView } from '@/components/views/BusinessProfitView'
 import {
   LayoutDashboard,
   Users,
@@ -57,6 +67,13 @@ import {
   PieChart,
   Construction,
   Bell,
+  Banknote,
+  ShoppingCart,
+  FileSpreadsheet,
+  ClipboardCheck,
+  PackageCheck,
+  Truck,
+  FileBarChart,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import type { LucideIcon } from 'lucide-react'
@@ -89,6 +106,15 @@ const viewIcons: Record<AppView, LucideIcon> = {
   'company-settings': Building2,
   'change-password': KeyRound,
   'account-openings': BookOpen,
+  'cash-sale': Banknote,
+  'sale-entry': ShoppingCart,
+  'quote-entry': FileSpreadsheet,
+  'credit-management': ClipboardCheck,
+  'delivery-challan': PackageCheck,
+  'cash-sale-report': Banknote,
+  'credit-sale-report': ShoppingCart,
+  'purchase-report': Truck,
+  'business-profit': FileBarChart,
 }
 
 function ViewPlaceholder() {
@@ -161,6 +187,8 @@ function MainContent() {
       return <EmployeePaymentView />
     case 'installment-entry':
       return <InstallmentEntryView />
+    case 'purchase-entry':
+      return <PurchaseEntryView />
     case 'day-book':
       return <DayBookView />
     case 'ledger':
@@ -179,6 +207,24 @@ function MainContent() {
       return <ProjectReceivablesView />
     case 'project-payables':
       return <ProjectPayablesView />
+    case 'cash-sale':
+      return <CashSaleView />
+    case 'sale-entry':
+      return <SaleEntryView />
+    case 'quote-entry':
+      return <QuoteEntryView />
+    case 'credit-management':
+      return <CreditManagementView />
+    case 'delivery-challan':
+      return <DeliveryChallanView />
+    case 'cash-sale-report':
+      return <CashSaleReportView />
+    case 'credit-sale-report':
+      return <CreditSaleReportView />
+    case 'purchase-report':
+      return <PurchaseReportView />
+    case 'business-profit':
+      return <BusinessProfitView />
     default:
       return <ViewPlaceholder />
   }

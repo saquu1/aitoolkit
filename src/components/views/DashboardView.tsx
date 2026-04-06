@@ -21,6 +21,11 @@ import {
   CalendarCheck,
   CalendarDays,
   CalendarRange,
+  ShoppingCart,
+  Banknote,
+  Truck,
+  AlertTriangle,
+  ClipboardCheck,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -297,12 +302,12 @@ function DashboardSkeleton() {
 // ─── Quick Action Cards ─────────────────────────────────────────────────────
 
 const quickActions: { label: string; icon: React.ElementType; view: AppView }[] = [
-  { label: 'Income Entry', icon: TrendingUp, view: 'income-entry' },
-  { label: 'Expense Entry', icon: TrendingDown, view: 'expense-entry' },
-  { label: 'Payment', icon: Wallet, view: 'payment-entry' },
-  { label: 'Receipt', icon: Landmark, view: 'receipt-entry' },
-  { label: 'Journal', icon: FileText, view: 'journal-entry' },
-  { label: 'New Account', icon: Plus, view: 'accounts' },
+  { label: 'Cash Sale', icon: Banknote, view: 'cash-sale' },
+  { label: 'Credit Sale', icon: ShoppingCart, view: 'sale-entry' },
+  { label: 'Purchase', icon: Truck, view: 'purchase-entry' },
+  { label: 'Quotation', icon: FileText, view: 'quote-entry' },
+  { label: 'Income', icon: TrendingUp, view: 'income-entry' },
+  { label: 'Expense', icon: TrendingDown, view: 'expense-entry' },
 ]
 
 // ─── Account Distribution Data ──────────────────────────────────────────────
@@ -487,6 +492,91 @@ export function DashboardView() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* ── Row 1.5: Retail KPI Cards ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Today's Sales */}
+        <Card className="py-0 gap-0 border-emerald-200">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1 flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Today&apos;s Sales</p>
+                <p className="text-xl font-bold text-emerald-600">{formatCurrency(data.retail.todaySalesAmount)}</p>
+                <p className="text-xs text-muted-foreground">{data.retail.todaySalesCount} invoice{data.retail.todaySalesCount !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                <ShoppingCart className="h-4 w-4 text-emerald-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Sales */}
+        <Card className="py-0 gap-0">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1 flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Sales</p>
+                <p className="text-xl font-bold text-foreground">{formatCurrency(data.retail.totalSalesAmount)}</p>
+                <p className="text-xs text-muted-foreground">{data.retail.totalSalesCount} total</p>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-sky-100 flex items-center justify-center shrink-0">
+                <Banknote className="h-4 w-4 text-sky-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gross Profit */}
+        <Card className="py-0 gap-0 border-amber-200">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1 flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Gross Profit</p>
+                <p className={`text-xl font-bold ${data.retail.totalProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(data.retail.totalProfit)}</p>
+                <p className="text-xs text-muted-foreground">{data.retail.totalSalesAmount > 0 ? `${((data.retail.totalProfit / data.retail.totalSalesAmount) * 100).toFixed(1)}% margin` : 'N/A'}</p>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-4 w-4 text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Outstanding */}
+        <Card className="py-0 gap-0 border-orange-200">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1 flex-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Receivables</p>
+                <p className="text-xl font-bold text-orange-600">{formatCurrency(data.retail.outstandingReceivables)}</p>
+                <p className="text-xs text-muted-foreground">{data.retail.outstandingCount} unpaid</p>
+              </div>
+              <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+                <ClipboardCheck className="h-4 w-4 text-orange-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Overdue */}
+        {data.retail.overdueCount > 0 && (
+          <Card className="py-0 gap-0 border-rose-200 bg-rose-50/50">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Overdue</p>
+                  <p className="text-xl font-bold text-rose-600">{data.retail.overdueCount}</p>
+                  <p className="text-xs text-rose-500">invoices past due</p>
+                </div>
+                <div className="h-9 w-9 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="h-4 w-4 text-rose-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* ── Row 2: Charts Section ─────────────────────────────────────── */}
@@ -924,7 +1014,70 @@ export function DashboardView() {
         </CardContent>
       </Card>
 
-      {/* ── Row 5: Products Summary ────────────────────────────────────── */}
+      {/* ── Row 5: Recent Sales / Invoices ──────────────────────────────── */}
+      {data.retail.recentSales.length > 0 && (
+        <Card className="py-0 gap-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Recent Sales / Invoices</CardTitle>
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200">{data.retail.totalSalesCount}</Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setCurrentView('cash-sale-report')}>
+                Cash Sales
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setCurrentView('credit-sale-report')}>
+                Credit Sales
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <ScrollArea className="max-h-72">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Invoice No</TableHead>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs">Type</TableHead>
+                    <TableHead className="text-xs">Customer</TableHead>
+                    <TableHead className="text-xs text-right">Amount</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.retail.recentSales.map((sale) => (
+                    <TableRow key={sale.id}>
+                      <TableCell className="text-xs font-mono font-medium">{sale.saleNo}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {format(parseISO(sale.saleDate), 'dd MMM yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${sale.transType === 'CASH-SALE' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>
+                          {sale.transType === 'CASH-SALE' ? 'Cash' : 'Credit'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs font-medium">{sale.customerName || sale.accountName || '—'}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold tabular-nums text-emerald-600">
+                        {formatCurrency(sale.grandTotal)}
+                      </TableCell>
+                      <TableCell>
+                        {sale.isPaid ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-emerald-200">Paid</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-200">Unpaid</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Row 6: Products Summary ────────────────────────────────────── */}
       {data.totalProducts > 0 && (
         <Card className="py-0 gap-0">
           <CardContent className="p-4">

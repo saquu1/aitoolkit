@@ -50,7 +50,31 @@ model CompanyInfo {
   journalFooter           String? @map("journal_footer")
   employeePaymentTitle    String? @map("employee_payment_title") @default("EMPLOYEE PAYMENT")
   employeePaymentFooter   String? @map("employee_payment_footer")
+  supplierPaymentTitle    String? @map("supplier_payment_title") @default("SUPPLIER PAYMENT")
+  supplierPaymentFooter   String? @map("supplier_payment_footer")
+  // GST / Invoice settings
+  gstEnabled              Boolean @default(false) @map("gst_enabled")
+  defaultGstPercent       Float   @default(0) @map("default_gst_percent")
+  gstSaleInvoiceTitle     String? @map("gst_sale_invoice_title") @default("GST SALE INVOICE")
+  gstSaleInvoiceAddress   String? @map("gst_sale_invoice_address")
+  gstSaleInvoiceFooter    String? @map("gst_sale_invoice_footer")
+  gstQuoteTitle           String? @map("gst_quote_title") @default("GST QUOTATION")
+  gstQuoteAddress         String? @map("gst_quote_address")
+  gstQuoteFooter          String? @map("gst_quote_footer")
+  gstQuoteTerms           String? @map("gst_quote_terms")
+  gstSaleTerms            String? @map("gst_sale_terms")
+  gstLastLine             String? @map("gst_last_line")
   saleNoStart             Int     @default(1) @map("sale_no_start")
+  quoteNoStart            Int     @default(1) @map("quote_no_start")
+  dcTitle                 String? @map("dc_title") @default("DELIVERY CHALLAN")
+  dcLine                  String? @map("dc_line")
+  dcFooter                String? @map("dc_footer")
+  dcTerms                 String? @map("dc_terms")
+  saleTerms               String? @map("sale_terms")
+  saleFooter              String? @map("sale_footer")
+  saleTitle               String? @map("sale_title") @default("SALE INVOICE")
+  // Sale headers
+  purchaseTitle           String? @map("purchase_title") @default("PURCHASE INVOICE")
 }
 
 // ============================================
@@ -88,6 +112,10 @@ model Account {
   creditTrans      Trans[]  @relation("CreditAccount")
   salaryAdjusts    SalaryAdjustment[]
   customerInstallments Installment[] @relation("CustomerInstallments")
+  saleMasters      SaleMaster[] @relation("SaleCustomer")
+  quoteMasters     QuoteMaster[] @relation("QuoteCustomer")
+  creditMasters    CreditMaster[] @relation("CreditCustomer")
+  deliveryChallans DeliveryChallan[] @relation("DCCustomer")
   head             AccountHead? @relation(fields: [atype], references: [atype])
 
   @@index([atype])
@@ -114,9 +142,9 @@ model Trans {
 
   account     Account  @relation("CreditAccount", fields: [accountId], references: [id])
   bank        Account? @relation("DebitAccount", fields: [bankId], references: [id])
-  project     Product? @relation(fields: [projectId], references: [id])
-  installments Installment[]
-  saleDetails  SaleDetail[]
+  project         Product? @relation(fields: [projectId], references: [id])
+  installments    Installment[]
+  purchaseEntries PurchaseDetail[] @relation("PurchaseEntries")
 
   @@index([transDate])
   @@index([transType])
@@ -132,17 +160,21 @@ model Trans {
 model Product {
   id         Int     @id @default(autoincrement()) @map("product_id")
   pname      String  @map("pname")
+  pcode      String? @map("pcode") @default("") // Product code / SKU
   punit      String? @map("punit") @default("PCS")
   costPrice  Float   @default(0) @map("cost_price")
   salePrice  Float   @default(0) @map("sale_price")
+  openQty    Float   @default(0) @map("open_qty") // Opening stock quantity
+  reOrder    Float   @default(0) @map("re_order") // Re-order level
   isActive   Boolean @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  trans       Trans[]
-  saleDetails SaleDetail[]
-  purchaseEntries PurchaseDetail[] @relation("PurchaseEntries")
+  trans                  Trans[]
+  saleDetails            SaleDetail[]
   purchaseProductDetails PurchaseDetail[] @relation("PurchaseProducts")
+  quoteDetails           QuoteDetail[] @relation("QuoteDetailProduct")
+  dcDetails              DCDetail[] @relation("DCProducts")
 
   @@map("products")
 }
@@ -199,17 +231,19 @@ model Installment {
 // ============================================
 
 model SaleDetail {
-  id         Int    @id @default(autoincrement()) @map("sale_detail_id")
-  saleId     Int    @map("sale_id") // trans_id of the sale
-  productId  Int    @map("product_id")
-  saleDate   DateTime @map("sale_date")
-  qtyOut     Float  @default(0) @map("qty_out")
-  salePrice  Float  @default(0) @map("sale_price")
-  totalAmount Float @default(0) @map("total_amount")
-  discount   Float  @default(0) @map("discount")
+  id           Int    @id @default(autoincrement()) @map("sale_detail_id")
+  saleId       Int    @map("sale_id") // References SaleMaster
+  productId    Int    @map("product_id")
+  qtyOut       Float  @default(0) @map("qty_out")
+  salePrice    Float  @default(0) @map("sale_price")
+  costPrice    Float  @default(0) @map("cost_price")
+  totalAmount  Float  @default(0) @map("total_amount")
+  lineGst      Float  @default(0) @map("line_gst")
+  lineComments String? @map("line_comments")
+  packNo       String? @map("pack_no")
 
-  sale    Trans   @relation(fields: [saleId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  saleMaster SaleMaster @relation("SaleMasterDetails", fields: [saleId], references: [id], onDelete: Cascade)
+  product    Product     @relation(fields: [productId], references: [id])
 
   @@map("sale_details")
 }
@@ -227,7 +261,7 @@ model PurchaseDetail {
   costPrice    Float   @default(0) @map("cost_price")
   totalAmount  Float   @default(0) @map("total_amount")
 
-  purchase Product @relation("PurchaseEntries", fields: [purchaseId], references: [id])
+  purchase Trans @relation("PurchaseEntries", fields: [purchaseId], references: [id])
   product  Product @relation("PurchaseProducts", fields: [productId], references: [id])
 
   @@map("purchase_details")
@@ -245,4 +279,164 @@ model Report {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("reports")
+}
+
+// ============================================
+// SALE MASTER (Sales & Cash Sales header)
+// ============================================
+
+model SaleMaster {
+  id               Int      @id @default(autoincrement()) @map("sale_id")
+  saleNo           String   @map("sale_no") // Invoice number e.g. "SALE-001"
+  saleDate         DateTime @map("sale_date")
+  accountId        Int      @map("account_id") // Customer account (for credit sales) or cash/bank
+  transType        String   @map("trans_type") // "SALE" (credit) or "CASH-SALE"
+  customerName     String?  @map("customer_name")
+  contactNo        String?  @map("contact_no")
+  idCard           String?  @map("id_card")
+  grossTotal       Float    @default(0) @map("gross_total") // Sub total before discount
+  discountAllow    Float    @default(0) @map("discount_allow") // Discount given
+  gst              Float    @default(0) @map("gst") // GST %
+  gstAmount        Float    @default(0) @map("gst_amount") // Calculated GST amount
+  grandTotal       Float    @default(0) @map("grand_total") // Final total
+  totalCost        Float    @default(0) @map("total_cost") // Cost value for profit calc
+  incomeTax        Float    @default(0) @map("income_tax") // Income tax %
+  isPaid           Boolean  @default(false) @map("is_paid") // Fully paid?
+  comments         String?  @map("comments")
+  poRefNo          String?  @map("po_ref_no") // Purchase order reference
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  account      Account      @relation("SaleCustomer", fields: [accountId], references: [id])
+  saleDetails  SaleDetail[] @relation("SaleMasterDetails")
+  creditMasters CreditMaster[] @relation("CreditSale")
+
+  @@index([saleDate])
+  @@index([transType])
+  @@index([accountId])
+  @@index([isPaid])
+  @@map("sale_master")
+}
+
+// ============================================
+// QUOTE MASTER (Quotations)
+// ============================================
+
+model QuoteMaster {
+  id              Int      @id @default(autoincrement()) @map("quote_id")
+  quoteNo         String   @map("quote_no") // e.g. "QUO-001"
+  quoteDate       DateTime @map("quote_date")
+  accountId       Int      @map("account_id") // Customer
+  customerName    String?  @map("customer_name")
+  contactNo       String?  @map("contact_no")
+  grossTotal      Float    @default(0) @map("gross_total")
+  discountAllow   Float    @default(0) @map("discount_allow")
+  gst             Float    @default(0) @map("gst")
+  gstAmount       Float    @default(0) @map("gst_amount")
+  grandTotal      Float    @default(0) @map("grand_total")
+  comments        String?  @map("comments")
+  convertedSaleId Int?     @map("converted_sale_id") // If converted to sale
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  account     Account      @relation("QuoteCustomer", fields: [accountId], references: [id])
+  quoteDetails QuoteDetail[] @relation("QuoteMasterDetails")
+
+  @@index([quoteDate])
+  @@index([accountId])
+  @@map("quote_master")
+}
+
+// ============================================
+// QUOTE DETAILS
+// ============================================
+
+model QuoteDetail {
+  id          Int    @id @default(autoincrement()) @map("quote_detail_id")
+  quoteId     Int    @map("quote_id")
+  productId   Int    @map("product_id")
+  qty         Float  @default(0) @map("qty")
+  price       Float  @default(0) @map("price") // Sale price
+  totalAmount Float  @default(0) @map("total_amount")
+ lineGst     Float  @default(0) @map("line_gst") // GST amount for this line
+  lineComments String? @map("line_comments")
+  packNo      String? @map("pack_no")
+
+  quote   QuoteMaster @relation("QuoteMasterDetails", fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product     @relation("QuoteDetailProduct", fields: [productId], references: [id])
+
+  @@map("quote_details")
+}
+
+// ============================================
+// CREDIT MASTER (Receivables / Credit Management)
+// ============================================
+
+model CreditMaster {
+  id            Int      @id @default(autoincrement()) @map("credit_id")
+  saleId        Int      @map("sale_id") // Reference to SaleMaster
+  accountId     Int      @map("account_id") // Customer account
+  invNo         String?  @map("inv_no") // Invoice number
+  credit        Float    @default(0) @map("credit") // Total credit amount
+  dueDate       DateTime @map("due_date")
+  amt1          Float    @default(0) @map("amt1") // Paid amount 1
+  amt2          Float    @default(0) @map("amt2") // Paid amount 2
+  otherCharges  Float    @default(0) @map("other_charges")
+  discount      Float    @default(0) @map("discount")
+  balance       Float    @default(0) @map("balance") // Remaining balance
+  isPaid        Boolean  @default(false) @map("is_paid")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sale    SaleMaster @relation("CreditSale", fields: [saleId], references: [id])
+  account Account    @relation("CreditCustomer", fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@index([isPaid])
+  @@index([dueDate])
+  @@map("credit_master")
+}
+
+// ============================================
+// DELIVERY CHALLAN
+// ============================================
+
+model DeliveryChallan {
+  id            Int      @id @default(autoincrement()) @map("dc_id")
+  dcNo          String   @map("dc_no") // e.g. "DC-001"
+  dcDate        DateTime @map("dc_date")
+  saleId        Int?     @map("sale_id") // Optional link to sale
+  accountId     Int      @map("account_id") // Customer
+  customerName  String?  @map("customer_name")
+  contactNo     String?  @map("contact_no")
+  address       String?  @map("address")
+  comments      String?  @map("comments")
+  isDelivered   Boolean  @default(false) @map("is_delivered")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  account    Account?    @relation("DCCustomer", fields: [accountId], references: [id])
+  dcDetails  DCDetail[]
+
+  @@index([dcDate])
+  @@index([accountId])
+  @@map("delivery_challans")
+}
+
+// ============================================
+// DELIVERY CHALLAN DETAILS
+// ============================================
+
+model DCDetail {
+  id          Int    @id @default(autoincrement()) @map("dc_detail_id")
+  dcId        Int    @map("dc_id")
+  productId   Int    @map("product_id")
+  qty         Float  @default(0) @map("qty")
+  lineComments String? @map("line_comments")
+
+  dc      DeliveryChallan @relation(fields: [dcId], references: [id], onDelete: Cascade)
+  product Product         @relation("DCProducts", fields: [productId], references: [id])
+
+  @@map("dc_details")
 }

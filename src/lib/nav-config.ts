@@ -24,6 +24,13 @@ import {
   Building2,
   KeyRound,
   PieChart,
+  ShoppingCart,
+  Banknote,
+  Truck,
+  FileSpreadsheet,
+  ClipboardCheck,
+  PackageCheck,
+  FileBarChart,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -42,6 +49,12 @@ export type AppView =
   | 'fund-receipt'
   | 'employee-entry'
   | 'installment-entry'
+  | 'sale-entry'
+  | 'cash-sale'
+  | 'purchase-entry'
+  | 'quote-entry'
+  | 'credit-management'
+  | 'delivery-challan'
   | 'day-book'
   | 'ledger'
   | 'trial-balance'
@@ -51,6 +64,10 @@ export type AppView =
   | 'project-receivables'
   | 'project-payables'
   | 'stock-report'
+  | 'cash-sale-report'
+  | 'credit-sale-report'
+  | 'purchase-report'
+  | 'business-profit'
   | 'reports'
   | 'company-settings'
   | 'change-password'
@@ -71,6 +88,14 @@ export const navItems: NavItem[] = [
   { label: 'Accounts', view: 'accounts', icon: Users, group: 'Main' },
   { label: 'Account Heads', view: 'account-heads', icon: BookOpen, group: 'Main' },
   { label: 'Products', view: 'products', icon: Package, group: 'Main' },
+
+  // Sales & Purchases
+  { label: 'Sale Entry', view: 'sale-entry', icon: ShoppingCart, group: 'Sales & Purchases' },
+  { label: 'Cash Sale', view: 'cash-sale', icon: Banknote, group: 'Sales & Purchases' },
+  { label: 'Purchase Entry', view: 'purchase-entry', icon: Truck, group: 'Sales & Purchases' },
+  { label: 'Quotation', view: 'quote-entry', icon: FileSpreadsheet, group: 'Sales & Purchases' },
+  { label: 'Credit / Receivables', view: 'credit-management', icon: ClipboardCheck, group: 'Sales & Purchases' },
+  { label: 'Delivery Challan', view: 'delivery-challan', icon: PackageCheck, group: 'Sales & Purchases' },
 
   // Transactions
   { label: 'Income Entry', view: 'income-entry', icon: TrendingUp, group: 'Transactions' },
@@ -95,6 +120,10 @@ export const navItems: NavItem[] = [
   { label: 'Project Receivables', view: 'project-receivables', icon: ArrowDownLeft, group: 'Reports' },
   { label: 'Project Payables', view: 'project-payables', icon: ArrowUpRight, group: 'Reports' },
   { label: 'Stock Report', view: 'stock-report', icon: Warehouse, group: 'Reports' },
+  { label: 'Cash Sale Report', view: 'cash-sale-report', icon: Banknote, group: 'Reports' },
+  { label: 'Credit Sale Report', view: 'credit-sale-report', icon: ShoppingCart, group: 'Reports' },
+  { label: 'Purchase Report', view: 'purchase-report', icon: Truck, group: 'Reports' },
+  { label: 'Business Profit', view: 'business-profit', icon: FileBarChart, group: 'Reports' },
 
   // Settings
   { label: 'Account Openings', view: 'account-openings', icon: BookOpen, group: 'Settings' },
@@ -104,6 +133,7 @@ export const navItems: NavItem[] = [
 
 export const navGroups: { label: string; items: NavItem[] }[] = [
   { label: 'Main', items: navItems.filter((i) => i.group === 'Main') },
+  { label: 'Sales & Purchases', items: navItems.filter((i) => i.group === 'Sales & Purchases') },
   { label: 'Transactions', items: navItems.filter((i) => i.group === 'Transactions') },
   { label: 'Employees', items: navItems.filter((i) => i.group === 'Employees') },
   { label: 'Reports', items: navItems.filter((i) => i.group === 'Reports') },

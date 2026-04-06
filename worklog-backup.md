@@ -1162,79 +1162,42 @@ Task: Build Phase 4 API routes — Quotes, Credits, Delivery Challans
 - Dev server compiles all routes successfully
 
 ---
-## Task ID: 10 - Retail Report Views Developer
-### Work Task
-Build 4 retail report views: CashSaleReportView, CreditSaleReportView, PurchaseReportView, BusinessProfitView, and wire them into page.tsx routing.
+## Task ID: 5-b
+Agent: Purchase Entry View Developer
+Task: Build PurchaseEntryView frontend component for recording purchases from suppliers
 
 ### Work Summary
 
-#### Files Created (4 new files):
+#### File Created: `/src/components/views/PurchaseEntryView.tsx`
+Full-featured purchase entry form with multi-line items, following blue color scheme as specified.
 
-1. **`/src/components/views/CashSaleReportView.tsx`** — Cash sale report with emerald theme
-   - Header: "Cash Sale Report" with Banknote icon (bg-emerald-100, text-emerald-600)
-   - Filter bar: From Date, To Date, Search input, Filter button (emerald), Print button (window.print())
-   - Summary cards (4-col grid): Total Sales (count), Grand Total (PKR), Total Discount (orange), Total GST (sky)
-   - Data table columns: Sale No (monospace emerald), Date, Customer, Gross Total, Discount, GST, Grand Total, Items count
-   - Responsive: Customer/Discount/GST/Items columns hidden on smaller screens
-   - max-h-96 overflow-y-auto with custom scrollbar
-   - Empty state with Banknote icon in emerald-50 circle
-   - Summary footer repeating card values
-   - Print CSS: `.no-print` hides filter bar, `.print-only` shows print header with date range
-   - Skeleton loading state (CashSaleReportSkeleton)
-   - API: GET /api/sales?transType=CASH-SALE&fromDate=...&toDate=...&search=...
+- Header: Truck icon in blue-100 rounded-lg, title "Purchase Entry", subtitle "Record purchases from suppliers"
+- Form Card (border-blue-200): Date, Supplier Account (SUPPLIER), Bank/Cash Account (BANK), Reference No, Discount Received, GST 
 
-2. **`/src/components/views/CreditSaleReportView.tsx`** — Credit sale report with orange theme
-   - Header: "Credit Sale Report" with ShoppingCart icon (bg-orange-100, text-orange-600)
-   - Same filter pattern as Cash Sale Report
-   - Summary cards: Total Sales, Grand Total, Total GST, Outstanding (rose, sum of unpaid grandTotals)
-   - Data table columns: Sale No, Date, Customer, Gross Total, Discount, GST, Grand Total, Status (Paid/Unpaid badge), Balance
-   - Status badge: Paid = emerald-100/emerald-700, Unpaid = rose-100/rose-700
-   - Balance column: shows 0 for paid, grandTotal for unpaid (rose-600 font-semibold)
-   - Print support with same CSS pattern
-   - Skeleton loading state (CreditSaleReportSkeleton)
-   - API: GET /api/sales?transType=SALE&fromDate=...&toDate=...&search=...
+---
+## Task ID: 5-b
+Agent: Purchase Entry View Developer
+Task: Build PurchaseEntryView frontend component for recording purchases from suppliers
 
-3. **`/src/components/views/PurchaseReportView.tsx`** — Purchase report with blue theme
-   - Header: "Purchase Report" with Truck icon (bg-blue-100, text-blue-600)
-   - Filter bar: From Date, To Date, Supplier select (populated from /api/accounts), Search, Filter (blue), Print
-   - Summary cards: Total Purchases, Total Cost, Total GST, Net Payable (amber)
-   - Data table columns: Date, Ref No (monospace blue), Supplier, Bank, Items count, Total Cost, GST, Grand Total
-   - Responsive: Ref No/Bank/Items/GST columns hidden on smaller screens
-   - Print support
-   - Skeleton loading state (PurchaseReportSkeleton)
-   - API: GET /api/purchases?fromDate=...&toDate=...&accountId=...&search=...
+### Work Summary
 
-4. **`/src/components/views/BusinessProfitView.tsx`** — Business profit analysis with purple theme
-   - Header: "Business Profit Report" with FileBarChart icon (bg-purple-100, text-purple-600)
-   - Filter bar: From Date, To Date, Filter (purple), Print
-   - Prominent profit/loss card: Large 4xl-5xl amount, emerald if positive / rose if negative, margin % with trend icon
-   - Summary cards (2+3 grid): Total Sales Revenue (emerald, breakdown by cash/credit), Total Cost of Sales (rose), Total Discounts Given (orange), Total GST Collected (sky), Revenue Breakdown (purple, progress bars showing cash vs credit %)
-   - Breakdown table: Type (Cash Sale/Credit Sale/Purchase colored badges), Count, Total Amount, Total Cost
-   - Calculated metrics: Gross Profit = Sales Revenue - Cost of Sales, Profit Margin = Gross Profit / Revenue × 100
-   - Fetches 3 APIs in parallel via Promise.all (cash sales, credit sales, purchases)
-   - Print support
-   - Skeleton loading state (BusinessProfitSkeleton)
+#### File Created: /src/components/views/PurchaseEntryView.tsx
+Full-featured purchase entry form with multi-line items, following blue color scheme as specified.
 
-#### File Updated: `/src/app/page.tsx`
-- Added imports: CashSaleReportView, CreditSaleReportView, PurchaseReportView, BusinessProfitView
-- Added icon imports: Truck, FileBarChart (from lucide-react)
-- Added viewIcons entries: 'cash-sale-report' → Banknote, 'credit-sale-report' → ShoppingCart, 'purchase-report' → Truck, 'business-profit' → FileBarChart
-- Added switch cases in MainContent for all 4 views (before default case)
-- All existing code preserved intact
+- Header: Truck icon in blue-100 rounded-lg, title Purchase Entry, subtitle Record purchases from suppliers
+- Form Card (border-blue-200): Date, Supplier Account (SUPPLIER), Bank/Cash Account (BANK), Reference No, Discount Received, GST pct, Comments
+- Line Items Table: Dynamic add/remove rows, Product select with auto-filled cost price, Qty, Cost Price (editable), Total auto-calculated, Line Comments
+- Summary Panel (blue-50 card): Total Cost, Discount, GST Amount, Grand Total with useMemo reactive calculations
+- Action Buttons: Save (blue-500), Save and New (blue outline), Reset (ghost)
+- Save Logic: POST /api/purchases with validation, creates Trans + PurchaseDetail + bank Trans atomically
+- Recent Purchases Table: Date, Ref No, Supplier, Bank, Items count, Total Cost (blue-600), Delete actions
+- Delete Flow: AlertDialog confirmation, DELETE /api/purchases?id=X
+- Full PurchaseEntrySkeleton loading state, custom scrollbar, PKR formatting, date-fns, sonner toasts, responsive design
 
-### shadcn/ui Components Used
-Card, CardContent, Badge, Button, Input, Label, Select (Trigger/Content/Item/Value), Skeleton, Table (Header/Body/Row/Head/Cell)
-
-### Design Consistency
-- All 4 views follow established patterns: PKR currency formatting, date-fns dates, sonner toasts, skeleton loaders
-- Color themes: emerald (cash sale), orange (credit sale), blue (purchase), purple (business profit)
-- Responsive mobile-first design with hidden columns on smaller screens
-- Custom scrollbar styling (6px width, rounded)
-- Print CSS support in all views (no-print class on filter bars, print-only header with date range)
-- Empty states with themed icon circles and contextual messaging
-- Summary footer in all data tables
-- PKR currency formatting with Intl.NumberFormat
+#### File Updated: /src/app/page.tsx
+- Added import for PurchaseEntryView
+- Added switch case for purchase-entry view in MainContent
 
 ### Validation
 - ESLint passes with 0 errors, 0 warnings
-- Dev server compiles successfully (✓ Compiled in 233ms)
+- Dev server compiles successfully (200 status)

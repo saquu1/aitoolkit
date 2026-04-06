@@ -31,6 +31,12 @@ export async function GET() {
       weekTransactions,
       monthTransactions,
       topAccountsRaw,
+      todaySales,
+      totalSalesData,
+      outstandingCredits,
+      totalPurchases,
+      overdueCount,
+      recentSales,
     ] = await Promise.all([
       // Accounts grouped by atype
       db.account.groupBy({
@@ -109,6 +115,42 @@ export async function GET() {
         ORDER BY (COALESCE(SUM(t.debit), 0) + COALESCE(SUM(t.credit), 0)) DESC
         LIMIT 5
       `,
+      // ── Retail KPIs ──────────────────────────────────────────────────────
+      // Today's sales (cash + credit)
+      db.saleMaster.aggregate({
+        where: { saleDate: { gte: today, lt: tomorrow } },
+        _sum: { grandTotal: true },
+        _count: true,
+      }),
+      // Total sales revenue
+      db.saleMaster.aggregate({
+        _sum: { grandTotal: true, totalCost: true },
+        _count: true,
+      }),
+      // Outstanding receivables (unpaid credits)
+      db.creditMaster.aggregate({
+        where: { isPaid: false },
+        _sum: { balance: true, credit: true },
+        _count: true,
+      }),
+      // Total purchases
+      db.trans.aggregate({
+        where: { transType: 'PURCHASE' },
+        _sum: { debit: true },
+        _count: true,
+      }),
+      // Overdue credits
+      db.creditMaster.count({
+        where: { isPaid: false, dueDate: { lt: new Date() } },
+      }),
+      // Recent 5 sales
+      db.saleMaster.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          account: { select: { id: true, aname: true } },
+        },
+      }),
     ])
 
     // ── Build Monthly Trend ───────────────────────────────────────────────
@@ -162,6 +204,30 @@ export async function GET() {
           todayCount: todayTransactions,
           weekCount: weekTransactions,
           monthCount: monthTransactions,
+        },
+        // Retail KPIs
+        retail: {
+          todaySalesAmount: todaySales._sum.grandTotal ?? 0,
+          todaySalesCount: todaySales._count,
+          totalSalesAmount: totalSalesData._sum.grandTotal ?? 0,
+          totalSalesCost: totalSalesData._sum.totalCost ?? 0,
+          totalSalesCount: totalSalesData._count,
+          totalProfit: (totalSalesData._sum.grandTotal ?? 0) - (totalSalesData._sum.totalCost ?? 0),
+          outstandingReceivables: outstandingCredits._sum.balance ?? 0,
+          outstandingCount: outstandingCredits._count,
+          overdueCount,
+          totalPurchasesAmount: totalPurchases._sum.debit ?? 0,
+          totalPurchasesCount: totalPurchases._count,
+          recentSales: recentSales.map((s) => ({
+            id: s.id,
+            saleNo: s.saleNo,
+            saleDate: s.saleDate,
+            transType: s.transType,
+            customerName: s.customerName,
+            grandTotal: s.grandTotal,
+            isPaid: s.isPaid,
+            accountName: s.account?.aname ?? '',
+          })),
         },
       },
     })
