@@ -17,6 +17,10 @@ import {
   BookOpen,
   Plus,
   Activity,
+  BarChart3,
+  CalendarCheck,
+  CalendarDays,
+  CalendarRange,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +36,19 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +68,28 @@ interface RecentTransaction {
   comments: string | null
 }
 
+interface MonthlyTrendItem {
+  month: string
+  income: number
+  expenses: number
+  netProfit: number
+}
+
+interface TopAccount {
+  accountId: number
+  accountName: string
+  atype: string
+  totalDebit: number
+  totalCredit: number
+  balance: number
+}
+
+interface RecentActivity {
+  todayCount: number
+  weekCount: number
+  monthCount: number
+}
+
 interface DashboardData {
   accountsByType: AccountGroup[]
   totalTransactions: number
@@ -59,6 +98,9 @@ interface DashboardData {
   totalExpenses: number
   totalProducts: number
   recentTransactions: RecentTransaction[]
+  monthlyTrend: MonthlyTrendItem[]
+  topAccounts: TopAccount[]
+  recentActivity: RecentActivity
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -82,15 +124,50 @@ const typeColorMap: Record<string, string> = {
   INCOME: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   EXPENSE: 'bg-rose-100 text-rose-700 border-rose-200',
   JOURNAL: 'bg-amber-100 text-amber-700 border-amber-200',
-  PAYMENT: 'bg-blue-100 text-blue-700 border-blue-200',
+  PAYMENT: 'bg-sky-100 text-sky-700 border-sky-200',
   RECEIPT: 'bg-teal-100 text-teal-700 border-teal-200',
   EMPLOYEE: 'bg-purple-100 text-purple-700 border-purple-200',
   GEN_PAY: 'bg-slate-100 text-slate-700 border-slate-200',
-  GEN_REC: 'bg-sky-100 text-sky-700 border-sky-200',
+  GEN_REC: 'bg-stone-100 text-stone-700 border-stone-200',
   OPEN_BALANCE: 'bg-stone-100 text-stone-700 border-stone-200',
   DUE: 'bg-orange-100 text-orange-700 border-orange-200',
-  INSTALLMENT: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  COLLECTION: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  INSTALLMENT: 'bg-orange-100 text-orange-700 border-orange-200',
+  COLLECTION: 'bg-teal-100 text-teal-700 border-teal-200',
+}
+
+const accountTypeColorMap: Record<string, string> = {
+  BANK: 'bg-sky-100 text-sky-700 border-sky-200',
+  ASSET: 'bg-amber-100 text-amber-700 border-amber-200',
+  CAPITAL: 'bg-stone-100 text-stone-700 border-stone-200',
+  LIABILITY: 'bg-rose-100 text-rose-700 border-rose-200',
+  RECEIVABLE: 'bg-orange-100 text-orange-700 border-orange-200',
+  PAYABLE: 'bg-rose-100 text-rose-700 border-rose-200',
+  INCOME: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  EXPENSE: 'bg-rose-100 text-rose-700 border-rose-200',
+  EMPLOYEE: 'bg-stone-100 text-stone-700 border-stone-200',
+  CUSTOMER: 'bg-teal-100 text-teal-700 border-teal-200',
+  STOCK: 'bg-stone-100 text-stone-700 border-stone-200',
+}
+
+// Pie chart colors (no blue/indigo)
+const PIE_COLORS = ['#f59e0b', '#10b981', '#f43f5e', '#0ea5e9', '#f97316', '#78716c', '#14b8a6', '#a16207', '#e11d48', '#0284c7', '#ea580c']
+
+// ─── Custom Tooltip for Bar Chart ───────────────────────────────────────────
+
+function PKRTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) {
+  if (!active || !payload || payload.length === 0) return null
+  return (
+    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 text-xs">
+      <p className="font-semibold text-foreground mb-2">{label}</p>
+      {payload.map((entry) => (
+        <div key={entry.name} className="flex items-center gap-2">
+          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-medium text-foreground">{formatCurrency(entry.value)}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // ─── Skeleton Loaders ───────────────────────────────────────────────────────
@@ -119,43 +196,100 @@ function DashboardSkeleton() {
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-72 mt-2" />
       </div>
+      {/* Row 1: Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <MetricCardSkeleton key={i} />
         ))}
       </div>
+      {/* Row 2: Charts */}
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 py-0 gap-0">
           <CardHeader className="pb-3">
             <Skeleton className="h-5 w-40" />
           </CardHeader>
           <CardContent className="p-4 pt-0">
+            <Skeleton className="h-[250px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
+        <Card className="py-0 gap-0">
+          <CardHeader className="pb-3">
+            <Skeleton className="h-5 w-36" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <Skeleton className="h-[250px] w-full rounded-lg" />
+          </CardContent>
+        </Card>
+      </div>
+      {/* Row 3: Top Accounts + Quick Actions */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 py-0 gap-0">
+          <CardHeader className="pb-3">
+            <Skeleton className="h-5 w-48" />
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-4 w-28" />
                   <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-16" />
-                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-12 w-2 rounded-full" />
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
-        <Card className="py-0 gap-0">
-          <CardHeader className="pb-3">
-            <Skeleton className="h-5 w-32" />
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 rounded-lg" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card className="py-0 gap-0">
+            <CardHeader className="pb-3">
+              <Skeleton className="h-5 w-32" />
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 rounded-lg" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="py-0 gap-0">
+            <CardHeader className="pb-3">
+              <Skeleton className="h-5 w-36" />
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+      {/* Row 4: Recent Transactions */}
+      <Card className="py-0 gap-0">
+        <CardHeader className="pb-3">
+          <Skeleton className="h-5 w-48" />
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -170,6 +304,33 @@ const quickActions: { label: string; icon: React.ElementType; view: AppView }[] 
   { label: 'Journal', icon: FileText, view: 'journal-entry' },
   { label: 'New Account', icon: Plus, view: 'accounts' },
 ]
+
+// ─── Account Distribution Data ──────────────────────────────────────────────
+
+function getAccountDistribution(accountsByType: AccountGroup[]) {
+  const sorted = [...accountsByType].sort((a, b) => b._count.id - a._count.id)
+  const top6 = sorted.slice(0, 6)
+  return top6.map((group, idx) => ({
+    name: group.atype.replace(/_/g, ' '),
+    value: group._count.id,
+    color: PIE_COLORS[idx % PIE_COLORS.length],
+  }))
+}
+
+// ─── Custom Label for Pie Chart ─────────────────────────────────────────────
+
+const RADIAN = Math.PI / 180
+function renderCustomizedLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: { cx: number; cy: number; midAngle: number; innerRadius: number; outerRadius: number; percent: number }) {
+  if (percent < 0.05) return null
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  return (
+    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  )
+}
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -204,9 +365,24 @@ export function DashboardView() {
     ? data.accountsByType.reduce((sum, g) => sum + g._count.id, 0)
     : 0
 
+  // Account distribution for pie chart
+  const accountDistribution = data ? getAccountDistribution(data.accountsByType) : []
+
+  // Current month badge label
+  const currentMonthLabel = format(new Date(), 'MMM')
+
+  // Max activity level for top accounts (for proportional bar)
+  const maxActivity = data
+    ? Math.max(...data.topAccounts.map((a) => a.totalDebit + a.totalCredit), 1)
+    : 1
+
   if (loading) return <DashboardSkeleton />
 
   if (!data) return null
+
+  // Check if there's any chart data
+  const hasTrendData = data.monthlyTrend.some((m) => m.income > 0 || m.expenses > 0)
+  const hasAccounts = accountDistribution.length > 0
 
   // ─── Render ───────────────────────────────────────────────────────────
 
@@ -313,33 +489,168 @@ export function DashboardView() {
         </Card>
       </div>
 
-      {/* ── Row 2: Recent Transactions + Quick Actions ────────────────── */}
+      {/* ── Row 2: Charts Section ─────────────────────────────────────── */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left: Recent Transactions */}
+        {/* Left (2/3): Monthly Income vs Expense Bar Chart */}
+        <Card className="lg:col-span-2 py-0 gap-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Monthly Trend</CardTitle>
+              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                {currentMonthLabel}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {!hasTrendData ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+                  <BarChart3 className="h-6 w-6 text-amber-500" />
+                </div>
+                <p className="text-sm font-medium text-foreground">No trend data yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Start recording income and expense entries to see trends
+                </p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={data.monthlyTrend} barGap={4} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value: number) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
+                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`
+                      return String(value)
+                    }}
+                  />
+                  <Tooltip content={<PKRTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                  />
+                  <Bar
+                    dataKey="income"
+                    name="Income"
+                    fill="#10b981"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                  />
+                  <Bar
+                    dataKey="expenses"
+                    name="Expenses"
+                    fill="#f43f5e"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Right (1/3): Account Distribution Donut Chart */}
+        <Card className="py-0 gap-0">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Account Distribution</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {!hasAccounts ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+                  <BookOpen className="h-6 w-6 text-amber-500" />
+                </div>
+                <p className="text-sm font-medium text-foreground">No accounts yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Create accounts to see distribution
+                </p>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={accountDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                      labelLine={false}
+                      label={renderCustomizedLabel}
+                    >
+                      {accountDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => [`${value} accounts`, '']}
+                      contentStyle={{
+                        fontSize: 12,
+                        borderRadius: 8,
+                        border: '1px solid #e2e8f0',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Legend below chart */}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
+                  {accountDistribution.map((item) => (
+                    <div key={item.name} className="flex items-center gap-1.5">
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <span className="text-[11px] text-muted-foreground leading-none">
+                        {item.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Row 3: Top Accounts Table + Quick Actions ─────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Left (2/3): Top Accounts by Activity */}
         <Card className="lg:col-span-2 py-0 gap-0">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Recent Transactions</CardTitle>
+              <CardTitle className="text-base">Top Accounts by Activity</CardTitle>
             </div>
             <Button
               variant="outline"
               size="sm"
               className="text-xs h-7"
-              onClick={() => setCurrentView('day-book')}
+              onClick={() => setCurrentView('accounts')}
             >
-              View All Transactions
+              View All
             </Button>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            {data.recentTransactions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
+            {data.topAccounts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
                 <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
                   <Activity className="h-6 w-6 text-amber-500" />
                 </div>
-                <p className="text-sm font-medium text-foreground">No transactions yet</p>
+                <p className="text-sm font-medium text-foreground">No account activity</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Start by recording income or expense entries
+                  Record transactions to see top accounts
                 </p>
               </div>
             ) : (
@@ -347,44 +658,57 @@ export function DashboardView() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs">Date</TableHead>
                       <TableHead className="text-xs">Account</TableHead>
-                      <TableHead className="text-xs">Type</TableHead>
-                      <TableHead className="text-xs text-right">Debit</TableHead>
-                      <TableHead className="text-xs text-right">Credit</TableHead>
-                      <TableHead className="text-xs">Comments</TableHead>
+                      <TableHead className="text-xs text-right">Total Debit</TableHead>
+                      <TableHead className="text-xs text-right">Total Credit</TableHead>
+                      <TableHead className="text-xs text-right">Balance</TableHead>
+                      <TableHead className="text-xs w-20">Activity</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.recentTransactions.map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {format(parseISO(tx.transDate), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">
-                          {tx.account.aname}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] px-1.5 py-0 ${
-                              typeColorMap[tx.transType] ?? 'bg-gray-100 text-gray-700 border-gray-200'
-                            }`}
-                          >
-                            {tx.transType.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                          {tx.debit > 0 ? formatCurrency(tx.debit) : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-right text-rose-600 font-medium">
-                          {tx.credit > 0 ? formatCurrency(tx.credit) : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">
-                          {tx.comments || '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {data.topAccounts.map((acct) => {
+                      const totalVol = acct.totalDebit + acct.totalCredit
+                      const activityPercent = maxActivity > 0 ? (totalVol / maxActivity) * 100 : 0
+                      return (
+                        <TableRow key={acct.accountId}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-foreground">
+                                {acct.accountName}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] px-1 py-0 ${
+                                  accountTypeColorMap[acct.atype] ?? 'bg-stone-100 text-stone-700 border-stone-200'
+                                }`}
+                              >
+                                {acct.atype}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-right text-emerald-600 font-medium tabular-nums">
+                            {formatCurrency(acct.totalDebit)}
+                          </TableCell>
+                          <TableCell className="text-xs text-right text-rose-600 font-medium tabular-nums">
+                            {formatCurrency(acct.totalCredit)}
+                          </TableCell>
+                          <TableCell className={`text-xs text-right font-bold tabular-nums ${acct.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {formatCurrency(Math.abs(acct.balance))}
+                            <span className="text-[10px] font-normal ml-0.5">
+                              {acct.balance >= 0 ? 'DR' : 'CR'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="w-full bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-amber-400 transition-all"
+                                style={{ width: `${Math.max(activityPercent, 4)}%` }}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -392,8 +716,8 @@ export function DashboardView() {
           </CardContent>
         </Card>
 
-        {/* Right: Quick Actions + Account Types */}
-        <div className="space-y-6">
+        {/* Right (1/3): Quick Actions + Activity Summary */}
+        <div className="space-y-4">
           {/* Quick Actions */}
           <Card className="py-0 gap-0">
             <CardHeader className="pb-3">
@@ -421,6 +745,58 @@ export function DashboardView() {
                     </button>
                   )
                 })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Activity Summary */}
+          <Card className="py-0 gap-0">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                Activity Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="space-y-3">
+                {/* Today */}
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <CalendarCheck className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Today</p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {formatNumber(data.recentActivity.todayCount)} transaction{data.recentActivity.todayCount !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+                {/* This Week */}
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center shrink-0">
+                    <CalendarDays className="h-4 w-4 text-sky-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">This Week</p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {formatNumber(data.recentActivity.weekCount)} transaction{data.recentActivity.weekCount !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+                {/* This Month */}
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                    <CalendarRange className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">This Month</p>
+                    <p className="text-sm font-semibold text-foreground tabular-nums">
+                      {formatNumber(data.recentActivity.monthCount)} transaction{data.recentActivity.monthCount !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -471,7 +847,84 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* ── Row 3: Products Summary ────────────────────────────────────── */}
+      {/* ── Row 4: Recent Transactions (full width) ───────────────────── */}
+      <Card className="py-0 gap-0">
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Recent Transactions</CardTitle>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-7"
+            onClick={() => setCurrentView('day-book')}
+          >
+            View All Transactions
+          </Button>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          {data.recentTransactions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center mb-3">
+                <Activity className="h-6 w-6 text-amber-500" />
+              </div>
+              <p className="text-sm font-medium text-foreground">No transactions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Start by recording income or expense entries
+              </p>
+            </div>
+          ) : (
+            <ScrollArea className="max-h-96">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs">Account</TableHead>
+                    <TableHead className="text-xs">Type</TableHead>
+                    <TableHead className="text-xs text-right">Debit</TableHead>
+                    <TableHead className="text-xs text-right">Credit</TableHead>
+                    <TableHead className="text-xs">Comments</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.recentTransactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {format(parseISO(tx.transDate), 'dd MMM yyyy')}
+                      </TableCell>
+                      <TableCell className="text-xs font-medium">
+                        {tx.account.aname}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 ${
+                            typeColorMap[tx.transType] ?? 'bg-gray-100 text-gray-700 border-gray-200'
+                          }`}
+                        >
+                          {tx.transType.replace(/_/g, ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                        {tx.debit > 0 ? formatCurrency(tx.debit) : '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-right text-rose-600 font-medium">
+                        {tx.credit > 0 ? formatCurrency(tx.credit) : '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate">
+                        {tx.comments || '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Row 5: Products Summary ────────────────────────────────────── */}
       {data.totalProducts > 0 && (
         <Card className="py-0 gap-0">
           <CardContent className="p-4">

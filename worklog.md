@@ -737,4 +737,123 @@ Built 9 comprehensive accounting reports with 9 dedicated API endpoints, coverin
 - All 9 API routes functional with date range filtering
 - All 9 views render with skeleton loading states
 
-### Remaining: Phase 5 (Advanced Features)
+### Remaining: Phase 5 (Advanced Features) — NOW COMPLETE
+
+---
+## PHASE 5 COMPLETE — Advanced Features Build Summary
+
+### Overview
+Built the final phase with enhanced dashboard charts, global search, dark mode, print/export, and the remaining employee/installment entry views. The application is now feature-complete with 26 views and 23 API endpoints.
+
+### Features Delivered
+
+#### 1. Enhanced Dashboard with Charts (recharts)
+- **BarChart**: Monthly income vs expenses trend (last 6 months) with emerald/rose bars, PKR tooltips, K/M axis abbreviation
+- **Donut PieChart**: Account type distribution (top 6 types) with percentage labels, custom legend
+- **Top Accounts Table**: Top 5 accounts by activity volume with DR/CR balance, activity level bars
+- **Activity Summary**: Today/Week/Month transaction counts with colored icons
+- Enhanced Dashboard API with monthlyTrend, topAccounts, recentActivity data
+
+#### 2. Global Search (Cmd+K)
+- Command palette using cmdk (CommandDialog)
+- Keyboard shortcut: Ctrl+K / Cmd+K
+- Searches: Recent views (localStorage), Navigation (all 27 items), Accounts (debounced API)
+- Keyboard navigation, empty state, click-to-navigate
+
+#### 3. Dark Mode Toggle
+- next-themes ThemeProvider in layout.tsx
+- Sun/Moon toggle button in Header with smooth CSS transition
+- Dynamic toast theming via useTheme()
+
+#### 4. Print/Export for Reports
+- Print button in Header (visible on all 9 report views)
+- Print CSS (globals-print.css): hides sidebar/header/footer, full-width content
+- window.print() integration
+
+#### 5. Employee Payment Entry
+- Purple-themed salary payment form
+- Auto-populate amount from SalaryAdjustment API
+- Double-entry EMPLOYEE transactions + salary adjustment update
+- Recent payments table with paired transaction display
+
+#### 6. Installment Entry
+- Orange-themed installment plan management
+- Plan creation with customer, total, EMI, start date
+- Active installments table with progress bars
+- EMI payment recording dialog with completion detection
+
+### New Files Created (8)
+| File | Purpose |
+|------|---------|
+| `components/layout/GlobalSearch.tsx` | Cmd+K command palette |
+| `components/layout/ThemeToggle.tsx` | Sun/Moon dark mode toggle |
+| `app/globals-print.css` | Print-friendly CSS |
+| `components/views/EmployeePaymentView.tsx` | Employee salary payment |
+| `components/views/InstallmentEntryView.tsx` | Installment plan management |
+| `app/api/reports/employee-adjustment/route.ts` | Salary adjustment data |
+| `app/api/salary-adjustment/route.ts` | Update salary paid amount |
+| `app/api/installments/route.ts` | Installment CRUD + EMI payments |
+
+### Files Modified (5)
+| File | Changes |
+|------|---------|
+| `app/api/dashboard/route.ts` | Added monthlyTrend, topAccounts, recentActivity |
+| `components/views/DashboardView.tsx` | Complete rewrite with recharts charts |
+| `components/layout/Header.tsx` | Added search, theme toggle, print button |
+| `components/layout/AppShell.tsx` | Added no-print wrapper |
+| `app/layout.tsx` | Added ThemeProvider, print CSS import |
+
+### Final Project Stats
+| Metric | Count |
+|--------|-------|
+| Total Views | 26 |
+| Total API Endpoints | 23 |
+| Sidebar Navigation Items | 27 |
+| shadcn/ui Components Used | 40+ |
+| Prisma Models | 11 |
+
+### Validation
+- ESLint: 0 errors, 0 warnings
+- Dev server: compiles successfully with 200 status
+- All 26 views render with proper routing
+- All 23 API endpoints functional
+
+### ALL 5 PHASES COMPLETE — Application Feature-Complete
+
+---
+## Task ID: 5a
+Agent: Enhanced Dashboard Developer
+Task: Build enhanced dashboard with recharts charts and enriched API
+
+Work Log:
+- Updated `/src/app/api/dashboard/route.ts` to include 3 new data fields alongside all existing fields:
+  - `monthlyTrend`: Raw SQLite query using `strftime('%Y-%m')` to group INCOME/EXPENSE transactions by month for last 6 months. Returns array of { month, income, expenses, netProfit } with month labels like "Jan 26".
+  - `topAccounts`: Raw SQLite query joining accounts and trans tables, grouping by account with SUM of debit/credit, ordered by total activity volume DESC, limited to 5.
+  - `recentActivity`: Count queries for today, last 7 days, and last 30 days transactions.
+- All queries run in parallel via Promise.all for optimal performance.
+- Fixed SQLite table name issue: `accounts` (not `account`) for raw query.
+
+- Rewrote `/src/components/views/DashboardView.tsx` with enhanced layout:
+  - **Row 1 (preserved):** 4 metric cards — Total Accounts, Transactions, Total Income, Total Expenses
+  - **Row 2 (new): Charts Section** — 2-column on lg:
+    - Left (2/3): Monthly Income vs Expense BarChart using recharts (BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer). Income bars in emerald (#10b981), expense bars in rose (#f43f5e). Custom PKRTooltip component for formatted currency. Y-axis abbreviates values (K/M). Current month badge in header. Empty state with chart icon when no data.
+    - Right (1/3): Account Distribution Donut PieChart using recharts (PieChart, Pie, Cell). Shows top 6 account types by count. Custom label rendering with percentage inside donut. Colors: amber, emerald, rose, sky, orange, stone. Legend below chart. Empty state when no accounts.
+  - **Row 3 (new layout):** Top Accounts Table + Quick Actions + Activity Summary — 2-column on lg:
+    - Left (2/3): Top Accounts by Activity table with columns: Account Name (bold + type badge), Total Debit (emerald), Total Credit (rose), Balance (colored by sign, DR/CR indicator), Activity Level (proportional progress bar). ScrollArea with max-h-96. Empty state when no activity.
+    - Right (1/3): Quick Actions grid (6 buttons, preserved from original) + Activity Summary card (Today/Week/Month transaction counts with CalendarCheck/CalendarDays/CalendarRange icons in emerald/sky/amber) + Account Types Summary (preserved from original).
+  - **Row 4 (preserved):** Recent Transactions full-width table with View All button.
+  - **Row 5 (preserved):** Products Summary conditional card.
+
+- Enhanced DashboardSkeleton with chart placeholders (Skeleton rectangles for bar chart and pie chart areas, table rows for top accounts, activity summary skeleton).
+- All existing functionality preserved: metric cards, quick actions, account types, recent transactions, products summary.
+- New TypeScript interfaces: MonthlyTrendItem, TopAccount, RecentActivity.
+- New helper functions: getAccountDistribution, renderCustomizedLabel for pie chart, PKRTooltip for bar chart.
+- New icons: BarChart3, CalendarCheck, CalendarDays, CalendarRange.
+- Color palette: amber, emerald, rose, sky, stone, teal, orange (no blue/indigo).
+
+Stage Summary:
+- Dashboard now shows: 4 metric cards, monthly income/expense bar chart, account distribution donut chart, top accounts by activity table, quick actions grid, activity summary (today/week/month), account types summary, recent transactions table, products summary
+- API returns all existing fields plus monthlyTrend (6 months), topAccounts (top 5), recentActivity (counts)
+- ESLint passes with 0 errors (1 pre-existing warning in Header.tsx)
+- Dev server compiles successfully (200 status)
+- API verified: returns correct data structure with monthlyTrend, topAccounts, recentActivity fields

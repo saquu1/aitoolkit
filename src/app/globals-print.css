@@ -1,0 +1,57 @@
+@media print {
+  /* Hide sidebar, header, footer, buttons */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Full width content */
+  main {
+    margin: 0 !important;
+    padding: 20px !important;
+  }
+
+  /* Clean card styling */
+  .print-break {
+    page-break-inside: avoid;
+  }
+
+  /* Show all expanded content */
+  * {
+    color: black !important;
+    background: white !important;
+  }
+
+  /* Hide scrollbars */
+  .overflow-y-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* Ensure borders are visible */
+  .border,
+  .border-b,
+  .border-t,
+  .border-l,
+  .border-r {
+    border-color: #e5e7eb !important;
+  }
+
+  /* Remove shadows */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Show all tabular data clearly */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Badge styling for print */
+  [class*="rounded"] {
+    border: 1px solid #d1d5db !important;
+  }
+}

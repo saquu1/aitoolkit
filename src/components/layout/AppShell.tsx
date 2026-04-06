@@ -18,7 +18,9 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
-      <Sidebar />
+      <div className="no-print">
+        <Sidebar />
+      </div>
 
       {/* Main content area */}
       <div
@@ -36,7 +38,7 @@ export function AppShell({ children }: AppShellProps) {
             <div className="flex items-center justify-center h-[50vh]">
               <div className="flex flex-col items-center gap-3">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-200 border-t-amber-500" />
-                <p className="text-sm text-slate-500">Loading...</p>
+                <p className="text-sm text-muted-foreground">Loading...</p>
               </div>
             </div>
           ) : (

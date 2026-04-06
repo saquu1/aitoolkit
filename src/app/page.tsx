@@ -27,6 +27,8 @@ import { PayrollReportView } from '@/components/views/PayrollReportView'
 import { StockReportView } from '@/components/views/StockReportView'
 import { ProjectReceivablesView } from '@/components/views/ProjectReceivablesView'
 import { ProjectPayablesView } from '@/components/views/ProjectPayablesView'
+import { EmployeePaymentView } from '@/components/views/EmployeePaymentView'
+import { InstallmentEntryView } from '@/components/views/InstallmentEntryView'
 import {
   LayoutDashboard,
   Users,
@@ -150,6 +152,10 @@ function MainContent() {
       return <FundPaymentView />
     case 'fund-receipt':
       return <FundReceiptView />
+    case 'employee-entry':
+      return <EmployeePaymentView />
+    case 'installment-entry':
+      return <InstallmentEntryView />
     case 'day-book':
       return <DayBookView />
     case 'ledger':
